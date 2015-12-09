@@ -40,6 +40,16 @@ public class JbiGatewaySUManager extends BindingComponentServiceUnitManager {
     }
 
     @Override
+    protected void doInit(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
+        // TODO get SU informations from jbi.xml and initialise them
+    }
+
+    @Override
+    protected void doShutdown(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
+        // TODO forget any SU related things
+    }
+
+    @Override
     protected void doStart(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
         assert suDH != null;
         // TODO register the provides to the JBIListener so that it knows what to do with exchanges for it

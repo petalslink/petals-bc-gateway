@@ -37,9 +37,18 @@ import org.ow2.petals.component.framework.su.AbstractServiceUnitManager;
 public class JbiGatewayComponent extends AbstractBindingComponent {
 
     @Override
+    protected void doInit() throws JBIException {
+        // TODO get transport listeners from jbi.xml and initialise them without starting them
+    }
+
+    @Override
+    protected void doShutdown() throws JBIException {
+        // TODO remove any transport listeners resources
+    }
+
+    @Override
     protected void doStart() throws JBIException {
         // TODO start transport listeners
-
     }
 
     @Override

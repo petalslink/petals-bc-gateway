@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ Copyright (c) 2015 Linagora
+ 
+ This program/library is free software: you can redistribute it and/or modify
+ it under the terms of the GNU Lesser General Public License as published by
+ the Free Software Foundation, either version 2.1 of the License, or (at your
+ option) any later version.
+ 
+ This program/library is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License
+ for more details.
+ 
+ You should have received a copy of the GNU Lesser General Public License
+ along with this program/library; If not, see <http://www.gnu.org/licenses/>
+ for the GNU Lesser General Public License version 2.1.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://petals.ow2.org/components/petals-bc-jbi-gateway/version-1.0"
+   xmlns:cdk="http://petals.ow2.org/components/extensions/version-5" xmlns:jbi="http://java.sun.com/xml/ns/jbi"
+   xmlns:jg="http://petals.ow2.org/components/petals-bc-jbi-gateway/version-1.0" elementFormDefault="qualified">
+
+   <xs:import namespace="http://java.sun.com/xml/ns/jbi" />
+   <xs:import namespace="http://petals.ow2.org/components/extensions/version-5" />
+
+   <!-- 1) Component configuration -->
+
+   <xs:complexType name="Component">
+      <xs:complexContent>
+         <xs:extension base="jbi:Component">
+            <xs:sequence>
+               <!-- For external listeners: transports with [id, type (defined by component), configuration] -->
+               <xs:element name="transport-listener" minOccurs="0" maxOccurs="unbounded">
+                  <xs:complexType>
+                     <xs:annotation>
+                        <xs:documentation>Define a transport that will be listening for exchange from consumer domains
+                           declared in SUs.
+                        </xs:documentation>
+                     </xs:annotation>
+                     <!-- the elements are the parameters that could be transport specific in the future... -->
+                     <xs:all>
+                        <xs:element name="port" type="xs:int" minOccurs="1" maxOccurs="1" default="7500" />
+                     </xs:all>
+                     <xs:attribute name="id" type="xs:string" use="required" />
+                  </xs:complexType>
+               </xs:element>
+            </xs:sequence>
+         </xs:extension>
+      </xs:complexContent>
+   </xs:complexType>
+   
+   <!-- 2) SU configuration -->
+   
+   <!-- 2a) Services configuration -->
+
+   <xs:complexType name="Services">
+      <xs:complexContent>
+         <xs:extension base="jbi:Services">
+            <xs:sequence>
+               <!-- Used by Provides: provider domains with [id, transport with
+                    [type (defined by component), configuration (ip, port, etc)]] -->
+               <xs:element name="provider-domain" minOccurs="0" maxOccurs="unbounded">
+                  <xs:complexType>
+                     <xs:annotation>
+                        <xs:documentation>Define the provider domains from which services they provide will be
+                           propagated.
+                        </xs:documentation>
+                     </xs:annotation>
+                     <!-- the elements are the parameters that could be transport specific in the future... -->
+                     <xs:all>
+                        <xs:element name="ip" type="xs:string" minOccurs="1" maxOccurs="1" />
+                        <xs:element name="port" type="xs:int" minOccurs="1" maxOccurs="1" default="7500" />
+                        <!-- Shared identifier with consumer domain -->
+                        <xs:element name="auth-name" type="xs:string" minOccurs="1" maxOccurs="1" />
+                     </xs:all>
+                     <xs:attribute name="id" type="xs:string" use="required" />
+                  </xs:complexType>
+               </xs:element>
+               <!-- Used by Consumes: consumer domains with
+                    [id, transport id, transport configuration for this domain] -->
+               <xs:element name="consumer-domain" minOccurs="0" maxOccurs="unbounded">
+                  <xs:complexType>
+                     <xs:annotation>
+                        <xs:documentation>Define the consumer domains that will be able to propagate services we
+                           provide.
+                        </xs:documentation>
+                     </xs:annotation>
+                     <!-- the elements are the parameters that could be transport specific in the future... -->
+                     <xs:all>
+                        <!-- Shared identifier with provider domain -->
+                        <xs:element name="auth-name" type="xs:string" minOccurs="1" maxOccurs="1" />
+                     </xs:all>
+                     <xs:attribute name="id" type="xs:string" use="required" />
+                     <!-- id of the transport listener used -->
+                     <xs:attribute name="transport" type="xs:string" use="required" />
+                  </xs:complexType>
+               </xs:element>
+            </xs:sequence>
+         </xs:extension>
+      </xs:complexContent>
+   </xs:complexType>
+   
+   <!-- 2b) Provides configuration -->
+   
+   <!-- Provider domain ids, endpoint/service/interface renaming -->
+   <xs:complexType name="Provides">
+      <xs:complexContent>
+         <xs:extension base="jbi:Provides">
+            <xs:sequence>
+               <xs:element name="provider-domain" type="xs:string" minOccurs="1" maxOccurs="unbounded">
+                  <xs:annotation>
+                     <xs:documentation>The id of the provider domain that provide this service.</xs:documentation>
+                  </xs:annotation>
+               </xs:element>
+               <xs:element name="provider-interface-name" type="xs:QName" minOccurs="0" maxOccurs="1">
+                  <xs:annotation>
+                     <xs:documentation>The interface name of the service as declared in the provider domain.
+                     </xs:documentation>
+                  </xs:annotation>
+               </xs:element>
+               <xs:element name="provider-service-name" type="xs:QName" minOccurs="0" maxOccurs="1">
+                  <xs:annotation>
+                     <xs:documentation>The service name of the service as declared in the provider domain.
+                     </xs:documentation>
+                  </xs:annotation>
+               </xs:element>
+               <xs:element name="provider-endpoint" type="xs:string" minOccurs="0" maxOccurs="1">
+                  <xs:annotation>
+                     <xs:documentation>The endpoint of the service as declared in the provider domain.
+                     </xs:documentation>
+                  </xs:annotation>
+               </xs:element>
+            </xs:sequence>
+         </xs:extension>
+      </xs:complexContent>
+   </xs:complexType>
+   
+   <!-- 2c) Consumes configuration -->
+
+   <!-- Consumer domain ids -->
+   <xs:complexType name="Consumes">
+      <xs:complexContent>
+         <xs:extension base="jbi:Consumes">
+            <xs:sequence>
+               <xs:element name="consumer-domain" type="xs:string" minOccurs="1" maxOccurs="unbounded">
+                  <xs:annotation>
+                     <xs:documentation>The id of the consumer domain that can propagate this particular service.
+                     </xs:documentation>
+                  </xs:annotation>
+               </xs:element>
+            </xs:sequence>
+         </xs:extension>
+      </xs:complexContent>
+   </xs:complexType>
+</xs:schema>
