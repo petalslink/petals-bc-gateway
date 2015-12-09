@@ -1,0 +1,54 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+   <modelVersion>4.0.0</modelVersion>
+   <parent>
+      <groupId>org.ow2.petals</groupId>
+      <artifactId>petals-cdkbased-components-parent</artifactId>
+      <version>1.0.1-SNAPSHOT</version>
+   </parent>
+
+   <artifactId>petals-bc-jbi-gateway</artifactId>
+   <version>0.0.1-SNAPSHOT</version>
+   <packaging>jbi-component</packaging>
+
+   <dependencies>
+      <dependency>
+         <groupId>org.ow2.petals</groupId>
+         <artifactId>petals-jbi</artifactId>
+      </dependency>
+      <dependency>
+         <groupId>org.ow2.petals</groupId>
+         <artifactId>petals-cdk-api</artifactId>
+      </dependency>
+      <dependency>
+         <groupId>org.ow2.petals</groupId>
+         <artifactId>petals-cdk-core</artifactId>
+      </dependency>
+      <dependency>
+         <groupId>org.ow2.petals</groupId>
+         <artifactId>petals-commons-log</artifactId>
+      </dependency>
+      <!-- Code quality dependencies -->
+      <dependency>
+         <groupId>org.eclipse.jdt</groupId>
+         <artifactId>org.eclipse.jdt.annotation</artifactId>
+         <version>1.1.0</version>
+         <!-- Prevent the dependency from being included in distributions -->
+         <scope>provided</scope>
+      </dependency>
+      <!-- Test dependencies -->
+      <dependency>
+         <groupId>org.ow2.petals</groupId>
+         <artifactId>petals-cdk-junit</artifactId>
+      </dependency>
+      <dependency>
+         <groupId>org.ow2.petals</groupId>
+         <artifactId>petals-junit-external-resources</artifactId>
+      </dependency>
+   </dependencies>
+
+   <scm>
+      <connection>scm:git:https://github.com/petalslink/petals-bc-jbi-gateway.git</connection>
+      <developerConnection>scm:git:https://github.com/petalslink/petals-bc-jbi-gateway.git</developerConnection>
+   </scm>
+</project>
