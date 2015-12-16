@@ -15,22 +15,14 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway;
+package org.ow2.petals.bc.gateway.netty;
 
-import org.junit.Test;
+import java.io.Serializable;
 
-public class JbiGatewayTest extends AbstractComponentTest {
+public class TransportRequest implements Serializable {
 
-    @Test
-    public void startAndStop() throws Exception {
+    private static final long serialVersionUID = -4359890389897846401L;
 
-        assertTrue(COMPONENT_UNDER_TEST.isInstalled());
-        assertTrue(COMPONENT_UNDER_TEST.isStarted());
-
-        COMPONENT_UNDER_TEST.deployService(SU_NAME, createHelloConsumes());
-
-        assertTrue(COMPONENT_UNDER_TEST.isServiceDeployed(SU_NAME));
+    public TransportRequest() {
     }
-
-
 }

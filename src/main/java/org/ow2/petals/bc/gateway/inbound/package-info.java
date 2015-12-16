@@ -15,22 +15,6 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway;
+@org.eclipse.jdt.annotation.NonNullByDefault
+package org.ow2.petals.bc.gateway.inbound;
 
-import org.junit.Test;
-
-public class JbiGatewayTest extends AbstractComponentTest {
-
-    @Test
-    public void startAndStop() throws Exception {
-
-        assertTrue(COMPONENT_UNDER_TEST.isInstalled());
-        assertTrue(COMPONENT_UNDER_TEST.isStarted());
-
-        COMPONENT_UNDER_TEST.deployService(SU_NAME, createHelloConsumes());
-
-        assertTrue(COMPONENT_UNDER_TEST.isServiceDeployed(SU_NAME));
-    }
-
-
-}

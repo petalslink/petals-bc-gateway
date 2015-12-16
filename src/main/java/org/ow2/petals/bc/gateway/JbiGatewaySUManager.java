@@ -17,11 +17,22 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Level;
+
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.JbiGatewayComponent.TransportListener;
+import org.ow2.petals.bc.gateway.inbound.JbiGatewayExternalListener;
+import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
+import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.ConsumerDomain;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
+import org.ow2.petals.component.framework.bc.AbstractBindingComponent;
+import org.ow2.petals.component.framework.bc.BindingComponentServiceUnitManager;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
-import org.ow2.petals.component.framework.su.BindingComponentServiceUnitManager;
+import org.ow2.petals.component.framework.listener.AbstractExternalListener;
 import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 
 /**
@@ -35,31 +46,64 @@ import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
  */
 public class JbiGatewaySUManager extends BindingComponentServiceUnitManager {
 
+    private final Map<String, ConsumerDomain> consumerDomains = new HashMap<>();
+
     public JbiGatewaySUManager(final JbiGatewayComponent component) {
         super(component);
     }
 
     @Override
+    protected AbstractExternalListener createExternalListener() {
+        return new JbiGatewayExternalListener(this);
+    }
+
+    @Override
     protected void doInit(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
-        // TODO get SU informations from jbi.xml and initialise them
+        assert suDH != null;
+        final List<ConsumerDomain> jbiConsumerDomains = JbiGatewayJBIHelper
+                .getConsumerDomains(suDH.getDescriptor().getServices());
+        try {
+            for (final ConsumerDomain cd : jbiConsumerDomains) {
+                final TransportListener tl = getComponent().getTransportListener(cd.transport);
+                if (tl == null) {
+                    throw new PEtALSCDKException(
+                            String.format("Missing transporter '%s' needed by consumer domain '%s' in SU '%s'",
+                                    cd.transport, cd.id, suDH.getName()));
+                }
+                tl.createConsumerDomainDispatcherIfNeeded(cd.authName);
+                consumerDomains.put(cd.id, cd);
+            }
+            // TODO register the provides to the JBIListener so that it knows what to do with exchanges for it
+
+            // TODO initialise provider domains
+        } catch (final Exception e) {
+            this.logger.log(Level.SEVERE, "Error during SU initialisation, undoing everything");
+            for (final ConsumerDomain cd : jbiConsumerDomains) {
+                consumerDomains.remove(cd.id);
+            }
+            throw e;
+        }
     }
 
     @Override
     protected void doShutdown(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
-        // TODO forget any SU related things
-    }
-
-    @Override
-    protected void doStart(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
         assert suDH != null;
-        // TODO register the provides to the JBIListener so that it knows what to do with exchanges for it
-        // Note: the Consumes are handled by the external listener
-    }
-
-    @Override
-    protected void doStop(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
-        assert suDH != null;
+        final List<ConsumerDomain> jbiConsumerDomains = JbiGatewayJBIHelper
+                .getConsumerDomains(suDH.getDescriptor().getServices());
+        for (final ConsumerDomain cd : jbiConsumerDomains) {
+            consumerDomains.remove(cd.id);
+        }
         // TODO remove the provides from the JBIListener so that it stops giving it exchanges
-        // the Consumes are handled by the external listener
+    }
+
+    @Override
+    public JbiGatewayComponent getComponent() {
+        final AbstractBindingComponent component = super.getComponent();
+        assert component != null;
+        return (JbiGatewayComponent) component;
+    }
+
+    public @Nullable ConsumerDomain getConsumerDomain(final String consumerDomainId) {
+        return consumerDomains.get(consumerDomainId);
     }
 }

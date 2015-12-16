@@ -11,7 +11,38 @@
    <version>0.0.1-SNAPSHOT</version>
    <packaging>jbi-component</packaging>
 
+   <properties>
+      <netty.version>4.0.33.Final</netty.version>
+   </properties>
+
    <dependencies>
+      <dependency>
+         <groupId>commons-lang</groupId>
+         <artifactId>commons-lang</artifactId>
+      </dependency>
+      <dependency>
+         <groupId>io.netty</groupId>
+         <artifactId>netty-transport</artifactId>
+         <version>${netty.version}</version>
+      </dependency>
+      <dependency>
+         <groupId>io.netty</groupId>
+         <artifactId>netty-handler</artifactId>
+         <version>${netty.version}</version>
+      </dependency>
+      <dependency>
+         <groupId>io.netty</groupId>
+         <artifactId>netty-codec</artifactId>
+         <version>${netty.version}</version>
+      </dependency>
+      <dependency>
+        <!-- Improve netty performances (it is optional...) -->
+         <groupId>org.javassist</groupId>
+         <artifactId>javassist</artifactId>
+         <version>3.19.0-GA</version>
+      </dependency>
+      <!-- TODO when using SSL, check native tomcat netty dependency -->
+      <!-- Petals dependencies -->
       <dependency>
          <groupId>org.ow2.petals</groupId>
          <artifactId>petals-jbi</artifactId>
@@ -23,6 +54,10 @@
       <dependency>
          <groupId>org.ow2.petals</groupId>
          <artifactId>petals-cdk-core</artifactId>
+      </dependency>
+      <dependency>
+         <groupId>org.ow2.petals</groupId>
+         <artifactId>petals-cdk-jbidescriptor</artifactId>
       </dependency>
       <dependency>
          <groupId>org.ow2.petals</groupId>
@@ -45,7 +80,47 @@
          <groupId>org.ow2.petals</groupId>
          <artifactId>petals-junit-external-resources</artifactId>
       </dependency>
+      <!-- Needed to forward netty slf4j to jdk logging subsystem -->
+      <dependency>
+         <groupId>org.slf4j</groupId>
+         <artifactId>slf4j-jdk14</artifactId>
+      </dependency>
    </dependencies>
+
+   <dependencyManagement>
+      <dependencies>
+         <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.7.12</version>
+         </dependency>
+         <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-jdk14</artifactId>
+            <version>1.7.12</version>
+         </dependency>
+      </dependencies>
+   </dependencyManagement>
+
+   <build>
+      <plugins>
+         <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-dependency-plugin</artifactId>
+            <executions>
+               <execution>
+                  <id>analyze</id>
+                  <configuration>
+                     <usedDependencies>
+                        <usedDependency>org.javassist:javassist</usedDependency>
+                     </usedDependencies>
+                  </configuration>
+               </execution>
+            </executions>
+         </plugin>
+      </plugins>
+   </build>
+
 
    <scm>
       <connection>scm:git:https://github.com/petalslink/petals-bc-jbi-gateway.git</connection>

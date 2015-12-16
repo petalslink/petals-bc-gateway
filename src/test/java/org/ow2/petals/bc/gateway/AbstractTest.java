@@ -19,9 +19,9 @@ package org.ow2.petals.bc.gateway;
 
 import java.net.URL;
 
-import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.rules.ExpectedException;
+import org.ow2.petals.component.framework.junit.Assert;
 
 public class AbstractTest extends Assert {
 

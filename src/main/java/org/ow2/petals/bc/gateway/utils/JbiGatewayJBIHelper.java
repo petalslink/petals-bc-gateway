@@ -17,7 +17,18 @@
  */
 package org.ow2.petals.bc.gateway.utils;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import javax.xml.namespace.QName;
+
+import org.apache.commons.lang.StringUtils;
+import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
+import org.ow2.petals.component.framework.jbidescriptor.generated.Component;
+import org.ow2.petals.component.framework.jbidescriptor.generated.Services;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 /**
  * Helper class to manipulate the jbi.xml according to the schema in the resources directory.
@@ -29,32 +40,150 @@ import javax.xml.namespace.QName;
  */
 public class JbiGatewayJBIHelper {
 
-    private static final String PETALS_JG_JBI_NS_URI = "http://petals.ow2.org/components/petals-bc-jbi-gateway/jbi/version-1.0";
+    public static final String JG_NS_URI = "http://petals.ow2.org/components/petals-bc-jbi-gateway/version-1.0";
 
-    private static final QName PETALS_JG_JBI_TRANSPORT_LISTENER = new QName(PETALS_JG_JBI_NS_URI, "transport-listener");
+    public static final QName EL_TRANSPORT_LISTENER = new QName(JG_NS_URI, "transport-listener");
 
-    private static final QName PETALS_JG_JBI_SERVICES_PROVIDER_DOMAIN = new QName(PETALS_JG_JBI_NS_URI,
-            "provider-domain");
+    public static final String ATTR_TRANSPORT_LISTENER_ID = "id";
 
-    private static final QName PETALS_JG_JBI_SERVICES_CONSUMER_DOMAIN = new QName(PETALS_JG_JBI_NS_URI,
-            "consumer-domain");
+    public static final QName EL_TRANSPORT_LISTENER_PORT = new QName(JG_NS_URI, "port");
 
-    private static final QName PETALS_JG_JBI_PROVIDES_PROVIDER_DOMAIN = new QName(PETALS_JG_JBI_NS_URI,
-            "provider-domain");
+    public static final QName EL_SERVICES_PROVIDER_DOMAIN = new QName(JG_NS_URI, "provider-domain");
 
-    private static final QName PETALS_JG_JBI_PROVIDES_INTERFACE_NAME = new QName(PETALS_JG_JBI_NS_URI,
-            "provider-interface-name");
+    public static final String ATTR_SERVICES_PROVIDER_DOMAIN_ID = "id";
 
-    private static final QName PETALS_JG_JBI_PROVIDES_SERVICE_NAME = new QName(PETALS_JG_JBI_NS_URI,
-            "provider-service-name");
+    public static final String EL_SERVICES_PROVIDER_DOMAIN_IP = "ip";
 
-    private static final QName PETALS_JG_JBI_PROVIDES_ENDPOINT = new QName(PETALS_JG_JBI_NS_URI, "provider-endpoint");
+    public static final String EL_SERVICES_PROVIDER_DOMAIN_PORT = "port";
 
-    private static final QName PETALS_JG_JBI_CONSUMES_CONSUMER_DOMAIN = new QName(PETALS_JG_JBI_NS_URI,
-            "consumer-domain");
+    public static final String EL_SERVICES_PROVIDER_DOMAIN_AUTH_NAME = "auth-name";
+
+    public static final QName EL_SERVICES_CONSUMER_DOMAIN = new QName(JG_NS_URI, "consumer-domain");
+
+    public static final String ATTR_SERVICES_CONSUMER_DOMAIN_ID = "id";
+
+    public static final String ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT = "transport";
+
+    public static final QName EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME = new QName(JG_NS_URI, "auth-name");
+
+    public static final String EL_PROVIDES_PROVIDER_DOMAIN = "provider-domain";
+
+    public static final String EL_PROVIDES_INTERFACE_NAME = "provider-interface-name";
+
+    public static final String EL_PROVIDES_SERVICE_NAME = "provider-service-name";
+
+    public static final String EL_PROVIDES_ENDPOINT = "provider-endpoint";
+
+    public static final QName EL_CONSUMES_CONSUMER_DOMAIN = new QName(JG_NS_URI, "consumer-domain");
 
     private JbiGatewayJBIHelper() {
     }
 
+    public static List<JbiTransportListener> getListeners(final Component component) throws PEtALSCDKException {
+        final List<JbiTransportListener> res = new ArrayList<>();
+        for (final Element e : component.getAny()) {
+            if (hasQName(e, EL_TRANSPORT_LISTENER)) {
+                final String id = getAttribute(e, ATTR_TRANSPORT_LISTENER_ID, EL_TRANSPORT_LISTENER.getLocalPart());
+                final int port = getElementAsInt(e, EL_TRANSPORT_LISTENER_PORT, EL_TRANSPORT_LISTENER.getLocalPart());
+                res.add(new JbiTransportListener(id, port));
+            }
+        }
+        return res;
+    }
 
+    public static List<ConsumerDomain> getConsumerDomains(final Services services) throws PEtALSCDKException {
+        final List<ConsumerDomain> res = new ArrayList<>();
+        for (final Element e : services.getAnyOrAny()) {
+            if (hasQName(e, EL_SERVICES_CONSUMER_DOMAIN)) {
+                final String id = getAttribute(e, ATTR_SERVICES_CONSUMER_DOMAIN_ID,
+                        EL_SERVICES_CONSUMER_DOMAIN.getLocalPart());
+                final String transport = getAttribute(e, ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT,
+                        EL_SERVICES_CONSUMER_DOMAIN.getLocalPart());
+                final String authName = getElement(e, EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME,
+                        EL_SERVICES_CONSUMER_DOMAIN.getLocalPart());
+
+                res.add(new ConsumerDomain(id, transport, authName));
+            }
+        }
+        return res;
+    }
+
+    private static String getAttribute(final Element e, final String name, final String container)
+            throws PEtALSCDKException {
+        final String res = e.getAttribute(name);
+        assert res != null;
+        if (StringUtils.isEmpty(res)) {
+            throw new PEtALSCDKException(String.format("Attribute %s missing in element %s", name, container));
+        }
+        return res;
+    }
+
+    private static String getElement(final Element e, final QName name, final String container)
+            throws PEtALSCDKException {
+        final NodeList es = e.getElementsByTagNameNS(name.getNamespaceURI(), name.getLocalPart());
+        if (es.getLength() < 1) {
+            throw new PEtALSCDKException(String.format("Element %s missing in element %s", name, container));
+        } else if (es.getLength() > 1) {
+            throw new PEtALSCDKException(
+                    String.format("Only one element %s is allowed in element %s", name, container));
+        }
+        final String res = es.item(0).getTextContent();
+        assert res != null;
+        if (StringUtils.isEmpty(res)) {
+            throw new PEtALSCDKException(
+                    String.format("Content missing for element %s in element %s", name, container));
+        }
+        return res;
+    }
+
+    private static int getElementAsInt(final Element e, final QName name, final String container)
+            throws PEtALSCDKException {
+        final String string = getElement(e, name, container);
+        final int res;
+        try {
+            res = Integer.parseInt(string);
+        } catch (final NumberFormatException e1) {
+            throw new PEtALSCDKException(
+                    String.format("Invalid value '%s' for element %s of element %s", string, name, container));
+        }
+        return res;
+    }
+
+    private static boolean hasQName(final Node e, final QName name) {
+        return new QName(e.getNamespaceURI(), e.getLocalName()).equals(name);
+    }
+
+    public static class JbiTransportListener {
+
+        public final String id;
+
+        public final int port;
+
+        public JbiTransportListener(final String id, final int port) {
+            super();
+            this.id = id;
+            this.port = port;
+        }
+        
+        @Override
+        public String toString() {
+            return id + "[" + port + "]";
+        }
+    }
+
+    public static class ConsumerDomain {
+
+        public final String id;
+
+        public final String transport;
+
+        public final String authName;
+
+        public ConsumerDomain(String id, String transport, String authName) {
+            super();
+            this.id = id;
+            this.transport = transport;
+            this.authName = authName;
+        }
+    }
 }

@@ -15,9 +15,10 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway;
+package org.ow2.petals.bc.gateway.outbound;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.inbound.JbiGatewayExternalListener;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
@@ -36,7 +37,7 @@ public class JbiGatewayJBIListener extends AbstractJBIListener {
 
     @Override
     public boolean onJBIMessage(final @Nullable Exchange exchange) {
-        // TODO handle messages to be sent over the wire
+        // TODO handle messages to be sent over the wire to a provider domain
         return false;
     }
 

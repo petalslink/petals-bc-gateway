@@ -15,22 +15,29 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway;
+package org.ow2.petals.bc.gateway.inbound;
 
-import org.junit.Test;
+import org.ow2.petals.bc.gateway.netty.TransportRequest;
+import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 
-public class JbiGatewayTest extends AbstractComponentTest {
+public class ConsumerDomainDispatcher {
 
-    @Test
-    public void startAndStop() throws Exception {
-
-        assertTrue(COMPONENT_UNDER_TEST.isInstalled());
-        assertTrue(COMPONENT_UNDER_TEST.isStarted());
-
-        COMPONENT_UNDER_TEST.deployService(SU_NAME, createHelloConsumes());
-
-        assertTrue(COMPONENT_UNDER_TEST.isServiceDeployed(SU_NAME));
+    public ConsumerDomainDispatcher() {
     }
 
+    public void dispatch(final TransportRequest r) {
+        // TODO dispatch based on the concerned consumes
+
+    }
+
+    public void register(final Consumes consumes) {
+        // TODO Auto-generated method stub
+
+    }
+
+    public void deregister(final Consumes consumes) {
+        // TODO Auto-generated method stub
+
+    }
 
 }

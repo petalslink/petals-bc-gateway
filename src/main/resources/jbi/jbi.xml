@@ -46,11 +46,12 @@
       <cdk:processor-stop-max-wait />
       <cdk:time-beetween-async-cleaner-runs />
       <cdk:properties-file />
-      <cdk:jbi-listener-class-name>org.ow2.petals.bc.gateway.JbiGatewayJBIListener</cdk:jbi-listener-class-name>
-      <cdk:external-listener-class-name>org.ow2.petals.bc.gateway.JbiGatewayExternalListener</cdk:external-listener-class-name>
+      <cdk:jbi-listener-class-name>org.ow2.petals.bc.gateway.outbound.JbiGatewayJBIListener</cdk:jbi-listener-class-name>
       
       <!-- Component specific configuration -->
-      
+      <jg:transport-listener id="default">
+         <jg:port>7500</jg:port>
+      </jg:transport-listener>
 
    </jbi:component>
 </jbi:jbi>
