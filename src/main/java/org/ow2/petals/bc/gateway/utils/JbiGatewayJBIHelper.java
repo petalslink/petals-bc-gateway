@@ -23,6 +23,7 @@ import java.util.List;
 import javax.xml.namespace.QName;
 
 import org.apache.commons.lang.StringUtils;
+import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Component;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Services;
@@ -76,31 +77,40 @@ public class JbiGatewayJBIHelper {
 
     public static final QName EL_CONSUMES_CONSUMER_DOMAIN = new QName(JG_NS_URI, "consumer-domain");
 
+    public static final int DEFAULT_PORT = 7500;
+
     private JbiGatewayJBIHelper() {
     }
 
-    public static List<JbiTransportListener> getListeners(final Component component) throws PEtALSCDKException {
+    public static List<JbiTransportListener> getListeners(final @Nullable Component component)
+            throws PEtALSCDKException {
+        assert component != null;
         final List<JbiTransportListener> res = new ArrayList<>();
         for (final Element e : component.getAny()) {
+            assert e != null;
             if (hasQName(e, EL_TRANSPORT_LISTENER)) {
+                assert e != null;
                 final String id = getAttribute(e, ATTR_TRANSPORT_LISTENER_ID, EL_TRANSPORT_LISTENER.getLocalPart());
-                final int port = getElementAsInt(e, EL_TRANSPORT_LISTENER_PORT, EL_TRANSPORT_LISTENER.getLocalPart());
+                final int port = getElementAsInt(e, EL_TRANSPORT_LISTENER_PORT, EL_TRANSPORT_LISTENER.getLocalPart(),
+                        DEFAULT_PORT);
                 res.add(new JbiTransportListener(id, port));
             }
         }
         return res;
     }
 
-    public static List<ConsumerDomain> getConsumerDomains(final Services services) throws PEtALSCDKException {
+    public static List<ConsumerDomain> getConsumerDomains(final @Nullable Services services) throws PEtALSCDKException {
+        assert services != null;
         final List<ConsumerDomain> res = new ArrayList<>();
         for (final Element e : services.getAnyOrAny()) {
+            assert e != null;
             if (hasQName(e, EL_SERVICES_CONSUMER_DOMAIN)) {
                 final String id = getAttribute(e, ATTR_SERVICES_CONSUMER_DOMAIN_ID,
                         EL_SERVICES_CONSUMER_DOMAIN.getLocalPart());
                 final String transport = getAttribute(e, ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT,
                         EL_SERVICES_CONSUMER_DOMAIN.getLocalPart());
                 final String authName = getElement(e, EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME,
-                        EL_SERVICES_CONSUMER_DOMAIN.getLocalPart());
+                        EL_SERVICES_CONSUMER_DOMAIN.getLocalPart(), null);
 
                 res.add(new ConsumerDomain(id, transport, authName));
             }
@@ -118,11 +128,15 @@ public class JbiGatewayJBIHelper {
         return res;
     }
 
-    private static String getElement(final Element e, final QName name, final String container)
-            throws PEtALSCDKException {
+    private static String getElement(final Element e, final QName name, final String container,
+            final @Nullable String defaultValue) throws PEtALSCDKException {
         final NodeList es = e.getElementsByTagNameNS(name.getNamespaceURI(), name.getLocalPart());
         if (es.getLength() < 1) {
-            throw new PEtALSCDKException(String.format("Element %s missing in element %s", name, container));
+            if (defaultValue == null) {
+                throw new PEtALSCDKException(String.format("Element %s missing in element %s", name, container));
+            } else {
+                return defaultValue;
+            }
         } else if (es.getLength() > 1) {
             throw new PEtALSCDKException(
                     String.format("Only one element %s is allowed in element %s", name, container));
@@ -136,9 +150,9 @@ public class JbiGatewayJBIHelper {
         return res;
     }
 
-    private static int getElementAsInt(final Element e, final QName name, final String container)
-            throws PEtALSCDKException {
-        final String string = getElement(e, name, container);
+    private static int getElementAsInt(final Element e, final QName name, final String container,
+            final int defaultValue) throws PEtALSCDKException {
+        final String string = getElement(e, name, container, "" + defaultValue);
         final int res;
         try {
             res = Integer.parseInt(string);

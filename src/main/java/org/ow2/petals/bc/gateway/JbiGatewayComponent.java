@@ -27,13 +27,13 @@ import javax.jbi.JBIException;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomainDispatcher;
-import org.ow2.petals.bc.gateway.inbound.JbiGatewayExternalListener;
-import org.ow2.petals.bc.gateway.netty.TransportInitialiser;
+import org.ow2.petals.bc.gateway.inbound.JbiGatewaySender;
+import org.ow2.petals.bc.gateway.inbound.TransportListener;
 import org.ow2.petals.bc.gateway.outbound.JbiGatewayJBIListener;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.JbiTransportListener;
 import org.ow2.petals.component.framework.bc.AbstractBindingComponent;
-import org.ow2.petals.component.framework.bc.BindingComponentServiceUnitManager;
+import org.ow2.petals.component.framework.su.AbstractServiceUnitManager;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -45,7 +45,7 @@ import io.netty.handler.logging.LoggingHandler;
 /**
  * There is one instance for the whole component. The class is declared in the jbi.xml.
  * 
- * For external exchange handling, see {@link JbiGatewayExternalListener}.
+ * For external exchange handling, see {@link ConsumerDomainDispatcher}.
  * 
  * For internal exchange handling, see {@link JbiGatewayJBIListener}.
  * 
@@ -55,6 +55,8 @@ import io.netty.handler.logging.LoggingHandler;
  *
  */
 public class JbiGatewayComponent extends AbstractBindingComponent {
+
+    private final JbiGatewaySender sender = new JbiGatewaySender(this);
 
     @Nullable
     private EventLoopGroup bossGroup;
@@ -77,7 +79,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
         try {
             for (final JbiTransportListener jtl : JbiGatewayJBIHelper
                     .getListeners(getJbiComponentDescriptor().getComponent())) {
-                listeners.put(jtl.id, new TransportListener(jtl, newBootstrap()));
+                listeners.put(jtl.id, new TransportListener(this, jtl, newBootstrap()));
                 if (getLogger().isLoggable(Level.CONFIG)) {
                     getLogger().config(String.format("Transporter added: %s", jtl));
                 }
@@ -99,8 +101,10 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
     }
 
     private ServerBootstrap newBootstrap() {
-        return new ServerBootstrap().group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
-                .handler(new LoggingHandler());
+        final ServerBootstrap bootstrap = new ServerBootstrap().group(bossGroup, workerGroup)
+                .channel(NioServerSocketChannel.class).handler(new LoggingHandler());
+        assert bootstrap != null;
+        return bootstrap;
     }
 
     @Override
@@ -154,7 +158,6 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
                 stopListener(channel);
             } catch (final Exception e1) {
                 // normally this shouldn't really happen, but well...
-                getLogger().log(Level.WARNING, "Error while stopping listeners", e1);
                 exceptions.add(e1);
             }
         }
@@ -178,52 +181,17 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
         return listeners.get(transportId);
     }
 
+    /**
+     * Used by the {@link ConsumerDomainDispatcher} to send exchanges. But they come back through one of the
+     * {@link JbiGatewayJBIListener}.
+     */
+    public JbiGatewaySender getSender() {
+        return sender;
+    }
+
     @Override
-    protected BindingComponentServiceUnitManager createServiceUnitManager() {
+    protected AbstractServiceUnitManager createServiceUnitManager() {
         return new JbiGatewaySUManager(this);
     }
 
-    public static class TransportListener {
-
-        public final JbiTransportListener jtl;
-
-        public final ServerBootstrap bootstrap;
-
-        /**
-         * This {@link Channel} can be used whenever we want to send things to the client! could make sense to send
-         * updates or notifications or whatever...
-         */
-        @Nullable
-        public Channel channel;
-
-        /**
-         * This must be accessed with synchonized: the access are not very frequent, so no need to introduce a specific
-         * performance oriented locking
-         * 
-         * TODO The key is for now the auth-name declared in the jbi.xml, but later we need to introduce something
-         * better to identify consumer and not simply a string Because this corresponds to a validity check of the
-         * consumer. e.g., a public key fingerprint or something like that
-         */
-        public final Map<String, ConsumerDomainDispatcher> dispatchers = new HashMap<>();
-
-        public TransportListener(final JbiTransportListener jtl, final ServerBootstrap partialBootstrap) {
-            this.jtl = jtl;
-            this.bootstrap = partialBootstrap.childHandler(new TransportInitialiser(this))
-                    .localAddress(jtl.port);
-        }
-
-        public @Nullable ConsumerDomainDispatcher getConsumerDomainDispatcher(final String consumerAuthName) {
-            synchronized (dispatchers) {
-                return dispatchers.get(consumerAuthName);
-            }
-        }
-
-        public void createConsumerDomainDispatcherIfNeeded(final String consumerAuthName) {
-            synchronized (dispatchers) {
-                if (!dispatchers.containsKey(consumerAuthName)) {
-                    dispatchers.put(consumerAuthName, new ConsumerDomainDispatcher());
-                }
-            }
-        }
-    }
 }

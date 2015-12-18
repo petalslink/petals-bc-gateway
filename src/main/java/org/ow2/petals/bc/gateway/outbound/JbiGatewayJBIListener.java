@@ -18,17 +18,19 @@
 package org.ow2.petals.bc.gateway.outbound;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.inbound.JbiGatewayExternalListener;
+import org.ow2.petals.bc.gateway.inbound.ConsumerDomainDispatcher.ConsumerDomainAsyncContext;
+import org.ow2.petals.bc.gateway.inbound.JbiGatewaySender;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.listener.AbstractJBIListener;
+import org.ow2.petals.component.framework.process.async.AsyncContext;
 
 /**
- * There will be one instance of this class for the component. The class is declared in the jbi.xml.
+ * There will be one instance of this class per thread of the component. The class is declared in the jbi.xml.
  * 
- * It only takes care of the messages for the {@link Provides}, the {@link Consumes} are handled by
- * {@link JbiGatewayExternalListener}.
+ * It takes care of the exchanges for the {@link Provides}, but also of the answers for the {@link Consumes} (which are
+ * sent using the {@link JbiGatewaySender}.
  * 
  * @author vnoel
  *
@@ -38,6 +40,21 @@ public class JbiGatewayJBIListener extends AbstractJBIListener {
     @Override
     public boolean onJBIMessage(final @Nullable Exchange exchange) {
         // TODO handle messages to be sent over the wire to a provider domain
+        return false;
+    }
+
+    @Override
+    public boolean onAsyncJBIMessage(final @Nullable Exchange asyncExchange,
+            final @Nullable AsyncContext asyncContext) {
+        assert asyncContext != null;
+        assert asyncExchange != null;
+        if (asyncContext instanceof ConsumerDomainAsyncContext) {
+            ConsumerDomainAsyncContext context = (ConsumerDomainAsyncContext) asyncContext;
+            context.cd.handleAnswer(asyncExchange, context);
+        } else {
+            // TODO
+        }
+
         return false;
     }
 

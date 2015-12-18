@@ -15,25 +15,18 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway;
+package org.ow2.petals.bc.gateway.messages;
 
-import org.junit.Test;
-import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
+import java.io.Serializable;
 
-public class JbiGatewayTest extends AbstractComponentTest {
+public class TransportedToConsumerDomainAddedConsumes implements Serializable {
 
-    @Test
-    public void startAndStop() throws Exception {
+    private static final long serialVersionUID = -2818905233890110391L;
 
-        assertTrue(COMPONENT_UNDER_TEST.isInstalled());
-        assertTrue(COMPONENT_UNDER_TEST.isStarted());
+    public final ServiceKey key;
 
-        assertFalse(available(TEST_TRANSPORT_PORT));
-        assertFalse(available(JbiGatewayJBIHelper.DEFAULT_PORT));
-
-        COMPONENT_UNDER_TEST.deployService(SU_NAME, createHelloConsumes());
-
-        assertTrue(COMPONENT_UNDER_TEST.isServiceDeployed(SU_NAME));
-
+    public TransportedToConsumerDomainAddedConsumes(final ServiceKey key) {
+        this.key = key;
     }
+
 }

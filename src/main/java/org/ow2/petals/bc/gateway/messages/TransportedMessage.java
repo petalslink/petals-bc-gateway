@@ -15,14 +15,29 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway.netty;
+package org.ow2.petals.bc.gateway.messages;
 
 import java.io.Serializable;
 
-public class TransportRequest implements Serializable {
+import javax.jbi.messaging.MessageExchange;
 
-    private static final long serialVersionUID = -4359890389897846401L;
+public class TransportedMessage implements Serializable {
 
-    public TransportRequest() {
+    private static final long serialVersionUID = 8953552087309338043L;
+
+    public final ServiceKey service;
+
+    public final String id;
+
+    public final MessageExchange exchange;
+
+    public TransportedMessage(final ServiceKey service, final MessageExchange exchange) {
+        this(service, exchange.getExchangeId(), exchange);
+    }
+
+    public TransportedMessage(final ServiceKey service, final String id, final MessageExchange exchange) {
+        this.service = service;
+        this.id = id;
+        this.exchange = exchange;
     }
 }

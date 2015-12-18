@@ -16,5 +16,5 @@
  * for the GNU Lesser General Public License version 2.1.
  */
 @org.eclipse.jdt.annotation.NonNullByDefault
-package org.ow2.petals.bc.gateway.netty;
+package org.ow2.petals.bc.gateway.messages;
 

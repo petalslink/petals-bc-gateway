@@ -17,6 +17,8 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import java.io.IOException;
+import java.net.Socket;
 import java.util.logging.Formatter;
 import java.util.logging.LogRecord;
 import java.util.logging.SimpleFormatter;
@@ -27,6 +29,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
+import org.junit.rules.ExternalResource;
 import org.junit.rules.RuleChain;
 import org.junit.rules.TestRule;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
@@ -57,7 +60,7 @@ public class AbstractComponentTest extends AbstractTest {
 
     protected static final String EXTERNAL_ENDPOINT_NAME = "externalHelloEndpoint";
 
-    protected static final String TEST_TRANSPORT_PORT = "7501";
+    protected static final int TEST_TRANSPORT_PORT = 7501;
 
     protected static final String TEST_TRANSPORT_NAME = "test-transport";
 
@@ -79,7 +82,7 @@ public class AbstractComponentTest extends AbstractTest {
             transport.setAttribute(JbiGatewayJBIHelper.ATTR_TRANSPORT_LISTENER_ID, TEST_TRANSPORT_NAME);
 
             addOrReplaceElement(jbiDocument, transport, JbiGatewayJBIHelper.EL_TRANSPORT_LISTENER_PORT,
-                    TEST_TRANSPORT_PORT);
+                    "" + TEST_TRANSPORT_PORT);
         }
     };
 
@@ -88,12 +91,27 @@ public class AbstractComponentTest extends AbstractTest {
             .setParameter(new QName(JbiConstants.CDK_NAMESPACE_URI, "time-beetween-async-cleaner-runs"), "100")
             .addLogHandler(IN_MEMORY_LOG_HANDLER.getHandler());
 
+    private static class EnsurePortsAreOK extends ExternalResource {
+        @Override
+        protected void before() throws Throwable {
+            assertTrue(available(TEST_TRANSPORT_PORT));
+            assertTrue(available(JbiGatewayJBIHelper.DEFAULT_PORT));
+        }
+
+        @Override
+        protected void after() {
+            assertTrue(available(TEST_TRANSPORT_PORT));
+            assertTrue(available(JbiGatewayJBIHelper.DEFAULT_PORT));
+        }
+    }
+
     /**
      * We use a class rule (i.e. static) so that the component lives during all the tests, this enables to test also
      * that successive deploy and undeploy do not create problems.
      */
     @ClassRule
-    public static final TestRule chain = RuleChain.outerRule(IN_MEMORY_LOG_HANDLER).around(COMPONENT_UNDER_TEST);
+    public static final TestRule chain = RuleChain.outerRule(new EnsurePortsAreOK()).around(IN_MEMORY_LOG_HANDLER)
+            .around(COMPONENT_UNDER_TEST);
 
     protected static final SimpleComponent COMPONENT = new SimpleComponent(COMPONENT_UNDER_TEST);
 
@@ -155,5 +173,13 @@ public class AbstractComponentTest extends AbstractTest {
         consumes.setParameter(JbiGatewayJBIHelper.EL_CONSUMES_CONSUMER_DOMAIN, TEST_CONSUMER_DOMAIN);
 
         return consumes;
+    }
+
+    protected static boolean available(int port) {
+        try (Socket ignored = new Socket("localhost", port)) {
+            return false;
+        } catch (IOException ignored) {
+            return true;
+        }
     }
 }

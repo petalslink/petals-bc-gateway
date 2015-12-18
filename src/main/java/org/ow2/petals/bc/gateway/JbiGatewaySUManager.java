@@ -17,26 +17,27 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.JbiGatewayComponent.TransportListener;
-import org.ow2.petals.bc.gateway.inbound.JbiGatewayExternalListener;
+import org.ow2.petals.bc.gateway.inbound.ConsumerDomainDispatcher;
+import org.ow2.petals.bc.gateway.inbound.TransportListener;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.ConsumerDomain;
+import org.ow2.petals.component.framework.AbstractComponent;
+import org.ow2.petals.component.framework.api.configuration.SuConfigurationParameters;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
-import org.ow2.petals.component.framework.bc.AbstractBindingComponent;
-import org.ow2.petals.component.framework.bc.BindingComponentServiceUnitManager;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
-import org.ow2.petals.component.framework.listener.AbstractExternalListener;
+import org.ow2.petals.component.framework.su.AbstractServiceUnitManager;
 import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 
 /**
- * There is one instance of this class for the whole component. The class is declared in {@link JbiGatewayComponent}.
+ * There is one instance of this class for the whole component.
  * 
  * It mainly takes care of setting-up the {@link Provides} because the {@link Consumes} are taken care of by
  * {@link JbiGatewayExternalListener}.
@@ -44,17 +45,12 @@ import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
  * @author vnoel
  *
  */
-public class JbiGatewaySUManager extends BindingComponentServiceUnitManager {
+public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
     private final Map<String, ConsumerDomain> consumerDomains = new HashMap<>();
 
     public JbiGatewaySUManager(final JbiGatewayComponent component) {
         super(component);
-    }
-
-    @Override
-    protected AbstractExternalListener createExternalListener() {
-        return new JbiGatewayExternalListener(this);
     }
 
     @Override
@@ -83,27 +79,96 @@ public class JbiGatewaySUManager extends BindingComponentServiceUnitManager {
             }
             throw e;
         }
+
+        final List<Consumes> registered = new ArrayList<>();
+        try {
+            for (final Consumes consumes : suDH.getDescriptor().getServices().getConsumes()) {
+                assert consumes != null;
+                final SuConfigurationParameters extensions = suDH.getConfigurationExtensions(consumes);
+                assert extensions != null;
+                final ConsumerDomainDispatcher dispatcher = getDispatcher(consumes, extensions);
+                dispatcher.register(consumes);
+                registered.add(consumes);
+            }
+        } catch (final Exception e) {
+            this.logger.warning("Error while registering consumes to the consumer domains, undoing it");
+            for (final Consumes consumes : registered) {
+                try {
+                    assert consumes != null;
+                    final SuConfigurationParameters extensions = suDH.getConfigurationExtensions(consumes);
+                    assert extensions != null;
+                    final ConsumerDomainDispatcher dispatcher = getDispatcher(consumes, extensions);
+                    dispatcher.deregister(consumes);
+                } catch (final Exception e1) {
+                    this.logger.log(Level.WARNING, "Error while deregistering consumes", e1);
+                }
+            }
+            throw e;
+        }
     }
 
     @Override
     protected void doShutdown(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
         assert suDH != null;
-        final List<ConsumerDomain> jbiConsumerDomains = JbiGatewayJBIHelper
-                .getConsumerDomains(suDH.getDescriptor().getServices());
-        for (final ConsumerDomain cd : jbiConsumerDomains) {
+
+        final List<Throwable> exceptions = new ArrayList<>();
+        for (final Consumes consumes : suDH.getDescriptor().getServices().getConsumes()) {
+            assert consumes != null;
+            final SuConfigurationParameters extensions = suDH.getConfigurationExtensions(consumes);
+            assert extensions != null;
+            try {
+                final ConsumerDomainDispatcher dispatcher = getDispatcher(consumes, extensions);
+                dispatcher.deregister(consumes);
+            } catch (final Exception e) {
+                exceptions.add(e);
+            }
+        }
+
+        for (final ConsumerDomain cd : consumerDomains.values()) {
             consumerDomains.remove(cd.id);
         }
+
+        if (!exceptions.isEmpty()) {
+            final PEtALSCDKException ex = new PEtALSCDKException("Errors while deregistering consumes");
+            for (final Throwable e : exceptions) {
+                ex.addSuppressed(e);
+            }
+            throw ex;
+        }
+
         // TODO remove the provides from the JBIListener so that it stops giving it exchanges
     }
 
     @Override
     public JbiGatewayComponent getComponent() {
-        final AbstractBindingComponent component = super.getComponent();
+        final AbstractComponent component = super.getComponent();
         assert component != null;
         return (JbiGatewayComponent) component;
     }
 
     public @Nullable ConsumerDomain getConsumerDomain(final String consumerDomainId) {
         return consumerDomains.get(consumerDomainId);
+    }
+
+    private ConsumerDomainDispatcher getDispatcher(final Consumes consumes, final SuConfigurationParameters extensions)
+            throws PEtALSCDKException {
+        final String consumerDomain = extensions.get(JbiGatewayJBIHelper.EL_CONSUMES_CONSUMER_DOMAIN.getLocalPart());
+        if (consumerDomain == null) {
+            throw new PEtALSCDKException(String.format("Missing %s in Consumes for '%s/%s/%s'",
+                    JbiGatewayJBIHelper.EL_CONSUMES_CONSUMER_DOMAIN, consumes.getInterfaceName(),
+                    consumes.getServiceName(), consumes.getEndpointName()));
+        }
+        final ConsumerDomain cd = consumerDomains.get(consumerDomain);
+        if (cd == null) {
+            throw new PEtALSCDKException(
+                    String.format("No consumer domain was defined in the SU for '%s'", consumerDomain));
+        }
+        final TransportListener tl = getComponent().getTransportListener(cd.transport);
+        // it can't be null, the SUManager should have checked its existence!
+        assert tl != null;
+        final ConsumerDomainDispatcher dispatcher = tl.getConsumerDomainDispatcher(cd.authName);
+        // it can't be null, the SUManager should have created it!
+        assert dispatcher != null;
+        return dispatcher;
     }
 }
