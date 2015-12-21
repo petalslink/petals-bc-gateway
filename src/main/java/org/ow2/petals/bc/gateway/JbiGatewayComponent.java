@@ -56,7 +56,8 @@ import io.netty.handler.logging.LoggingHandler;
  */
 public class JbiGatewayComponent extends AbstractBindingComponent {
 
-    private final JbiGatewaySender sender = new JbiGatewaySender(this);
+    @Nullable
+    private JbiGatewaySender sender;
 
     @Nullable
     private EventLoopGroup bossGroup;
@@ -71,6 +72,8 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
 
     @Override
     protected void doInit() throws JBIException {
+        this.sender = new JbiGatewaySender(this);
+
         // TODO number of thread for the boss (acceptor)?
         bossGroup = new NioEventLoopGroup(1);
         // TODO should we set a specific number of thread? by default it is based on the number of processors...
@@ -186,6 +189,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
      * {@link JbiGatewayJBIListener}.
      */
     public JbiGatewaySender getSender() {
+        assert sender != null;
         return sender;
     }
 
