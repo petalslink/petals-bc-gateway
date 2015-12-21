@@ -26,8 +26,8 @@ import java.util.logging.Level;
 import javax.jbi.JBIException;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.inbound.ConsumerDomainDispatcher;
 import org.ow2.petals.bc.gateway.inbound.JbiGatewaySender;
+import org.ow2.petals.bc.gateway.inbound.TransportDispatcher;
 import org.ow2.petals.bc.gateway.inbound.TransportListener;
 import org.ow2.petals.bc.gateway.outbound.JbiGatewayJBIListener;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
@@ -36,7 +36,6 @@ import org.ow2.petals.component.framework.bc.AbstractBindingComponent;
 import org.ow2.petals.component.framework.su.AbstractServiceUnitManager;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -45,7 +44,7 @@ import io.netty.handler.logging.LoggingHandler;
 /**
  * There is one instance for the whole component. The class is declared in the jbi.xml.
  * 
- * For external exchange handling, see {@link ConsumerDomainDispatcher}.
+ * For external exchange handling, see {@link JbiGatewaySender} and {@link TransportDispatcher}.
  * 
  * For internal exchange handling, see {@link JbiGatewayJBIListener}.
  * 
@@ -56,6 +55,9 @@ import io.netty.handler.logging.LoggingHandler;
  */
 public class JbiGatewayComponent extends AbstractBindingComponent {
 
+    /**
+     * We need only one sender per component because it is stateless (for the functionalities we use)
+     */
     @Nullable
     private JbiGatewaySender sender;
 
@@ -72,14 +74,14 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
 
     @Override
     protected void doInit() throws JBIException {
-        this.sender = new JbiGatewaySender(this);
-
-        // TODO number of thread for the boss (acceptor)?
-        bossGroup = new NioEventLoopGroup(1);
-        // TODO should we set a specific number of thread? by default it is based on the number of processors...
-        workerGroup = new NioEventLoopGroup();
+        sender = new JbiGatewaySender(this);
 
         try {
+            // TODO number of thread for the boss (acceptor)?
+            bossGroup = new NioEventLoopGroup(1);
+            // TODO should we set a specific number of thread? by default it is based on the number of processors...
+            workerGroup = new NioEventLoopGroup();
+
             for (final JbiTransportListener jtl : JbiGatewayJBIHelper
                     .getListeners(getJbiComponentDescriptor().getComponent())) {
                 listeners.put(jtl.id, new TransportListener(this, jtl, newBootstrap()));
@@ -97,6 +99,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
                 workerGroup.shutdownGracefully();
                 workerGroup = null;
             }
+
             // we can simply clear, nothing was started
             listeners.clear();
             throw new JBIException("Error while initialising component", e);
@@ -126,23 +129,17 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
         try {
             for (final TransportListener tl : this.listeners.values()) {
                 // Bind and start to accept incoming connections.
-                assert tl.bootstrap != null;
-                final Channel channel = tl.bootstrap.bind().sync().channel();
-                assert channel != null;
-                tl.channel = channel;
+                tl.bind();
             }
         } catch (final Exception e) {
             // normally this shouldn't really happen, but well...
             getLogger().log(Level.SEVERE, "Error during component start, stopping listeners");
             for (final TransportListener tl : this.listeners.values()) {
-                final Channel channel = tl.channel;
-                if (channel != null) {
-                    try {
-                        stopListener(channel);
-                    } catch (final Exception e1) {
-                        // normally this shouldn't really happen, but well...
-                        getLogger().log(Level.WARNING, "Error while stopping listeners", e1);
-                    }
+                try {
+                    tl.unbind();
+                } catch (final Exception e1) {
+                    // normally this shouldn't really happen, but well...
+                    getLogger().log(Level.WARNING, "Error while stopping listeners", e1);
                 }
             }
             throw new JBIException("Error while starting component", e);
@@ -155,10 +152,8 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
     protected void doStop() throws JBIException {
         final List<Throwable> exceptions = new LinkedList<>();
         for (final TransportListener tl : this.listeners.values()) {
-            final Channel channel = tl.channel;
-            assert channel != null;
             try {
-                stopListener(channel);
+                tl.unbind();
             } catch (final Exception e1) {
                 // normally this shouldn't really happen, but well...
                 exceptions.add(e1);
@@ -176,16 +171,12 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
         }
     }
 
-    private void stopListener(final Channel c) throws InterruptedException {
-        c.close();
-    }
-
     public @Nullable TransportListener getTransportListener(final String transportId) {
         return listeners.get(transportId);
     }
 
     /**
-     * Used by the {@link ConsumerDomainDispatcher} to send exchanges. But they come back through one of the
+     * Used by the {@link TransportDispatcher} to send exchanges. But they come back through one of the
      * {@link JbiGatewayJBIListener}.
      */
     public JbiGatewaySender getSender() {
@@ -196,6 +187,13 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
     @Override
     protected AbstractServiceUnitManager createServiceUnitManager() {
         return new JbiGatewaySUManager(this);
+    }
+
+    @Override
+    public JbiGatewaySUManager getServiceUnitManager() {
+        final AbstractServiceUnitManager suManager = super.getServiceUnitManager();
+        assert suManager != null;
+        return (JbiGatewaySUManager) suManager;
     }
 
 }

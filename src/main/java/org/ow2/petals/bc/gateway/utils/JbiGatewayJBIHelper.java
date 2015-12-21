@@ -99,9 +99,9 @@ public class JbiGatewayJBIHelper {
         return res;
     }
 
-    public static List<ConsumerDomain> getConsumerDomains(final @Nullable Services services) throws PEtALSCDKException {
+    public static List<JbiConsumerDomain> getConsumerDomains(final @Nullable Services services) throws PEtALSCDKException {
         assert services != null;
-        final List<ConsumerDomain> res = new ArrayList<>();
+        final List<JbiConsumerDomain> res = new ArrayList<>();
         for (final Element e : services.getAnyOrAny()) {
             assert e != null;
             if (hasQName(e, EL_SERVICES_CONSUMER_DOMAIN)) {
@@ -112,7 +112,7 @@ public class JbiGatewayJBIHelper {
                 final String authName = getElement(e, EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME,
                         EL_SERVICES_CONSUMER_DOMAIN.getLocalPart(), null);
 
-                res.add(new ConsumerDomain(id, transport, authName));
+                res.add(new JbiConsumerDomain(id, transport, authName));
             }
         }
         return res;
@@ -174,7 +174,6 @@ public class JbiGatewayJBIHelper {
         public final int port;
 
         public JbiTransportListener(final String id, final int port) {
-            super();
             this.id = id;
             this.port = port;
         }
@@ -185,16 +184,16 @@ public class JbiGatewayJBIHelper {
         }
     }
 
-    public static class ConsumerDomain {
+    public static class JbiConsumerDomain {
 
         public final String id;
 
+        // TODO why not have multiple possible transports???!
         public final String transport;
 
         public final String authName;
 
-        public ConsumerDomain(String id, String transport, String authName) {
-            super();
+        public JbiConsumerDomain(String id, String transport, String authName) {
             this.id = id;
             this.transport = transport;
             this.authName = authName;

@@ -17,16 +17,12 @@
  */
 package org.ow2.petals.bc.gateway.messages;
 
-import java.io.Serializable;
-
-public class TransportedToConsumerDomainRemovedConsumes implements Serializable {
+public class TransportedToConsumerDomainRemovedConsumes extends TransportedForService {
 
     private static final long serialVersionUID = -6963417722012045775L;
 
-    public final ServiceKey key;
-
     public TransportedToConsumerDomainRemovedConsumes(final ServiceKey key) {
-        this.key = key;
+        super(key);
     }
 
 }

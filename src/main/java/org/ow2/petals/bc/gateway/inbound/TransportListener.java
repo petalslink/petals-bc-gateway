@@ -17,10 +17,6 @@
  */
 package org.ow2.petals.bc.gateway.inbound;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JbiGatewayComponent;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.JbiTransportListener;
@@ -36,40 +32,21 @@ import io.netty.handler.codec.serialization.ObjectEncoder;
 /**
  * There is one instance of this class per listener in a component configuration (jbi.xml).
  * 
+ * It is responsible of creating the basic listener with netty which will dispatch connections to
+ * {@link TransportDispatcher}.
+ * 
  * @author vnoel
  *
  */
 public class TransportListener {
 
-    public final JbiTransportListener jtl;
+    private final ServerBootstrap bootstrap;
 
-    public final ServerBootstrap bootstrap;
-
-    /**
-     * This {@link Channel} can be used whenever we want to send things to the client! could make sense to send updates
-     * or notifications or whatever...
-     */
     @Nullable
-    public Channel channel;
-
-    /**
-     * This must be accessed with synchonized: the access are not very frequent, so no need to introduce a specific
-     * performance oriented locking
-     * 
-     * TODO The key is for now the auth-name declared in the jbi.xml, but later we need to introduce something better to
-     * identify consumer and not simply a string Because this corresponds to a validity check of the consumer. e.g., a
-     * public key fingerprint or something like that
-     */
-    @SuppressWarnings("null")
-    public final Map<String, ConsumerDomainDispatcher> dispatchers = Collections
-            .synchronizedMap(new HashMap<String, ConsumerDomainDispatcher>());
-
-    private final JbiGatewayComponent component;
+    private Channel channel;
 
     public TransportListener(final JbiGatewayComponent component, final JbiTransportListener jtl,
             final ServerBootstrap partialBootstrap) {
-        this.component = component;
-        this.jtl = jtl;
         final ServerBootstrap bootstrap = partialBootstrap.childHandler(new ChannelInitializer<Channel>() {
             @Override
             protected void initChannel(final @Nullable Channel ch) throws Exception {
@@ -79,20 +56,23 @@ public class TransportListener {
                 final ChannelPipeline p = ch.pipeline();
                 p.addLast(new ObjectEncoder());
                 p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
-                p.addLast(new TransportDispatcher(TransportListener.this));
+                p.addLast(new TransportDispatcher(component, jtl));
             }
         }).localAddress(jtl.port);
         assert bootstrap != null;
         this.bootstrap = bootstrap;
     }
 
-    public @Nullable ConsumerDomainDispatcher getConsumerDomainDispatcher(final String consumerAuthName) {
-        return dispatchers.get(consumerAuthName);
+    public void bind() throws InterruptedException {
+        final Channel channel = bootstrap.bind().sync().channel();
+        assert channel != null;
+        this.channel = channel;
     }
 
-    public void createConsumerDomainDispatcherIfNeeded(final String consumerAuthName) {
-        if (!dispatchers.containsKey(consumerAuthName)) {
-            dispatchers.put(consumerAuthName, new ConsumerDomainDispatcher(component));
+    public void unbind() {
+        final Channel channel = this.channel;
+        if (channel != null) {
+            channel.close();
         }
     }
 }

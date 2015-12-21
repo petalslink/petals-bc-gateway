@@ -17,17 +17,19 @@
  */
 package org.ow2.petals.bc.gateway.inbound;
 
-import javax.jbi.messaging.MessagingException;
-
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.JbiGatewayComponent;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
+import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.JbiTransportListener;
 
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 
 /**
- * Responsible of dispatching requests to the adequate {@link JbiGatewayExternalListener}.
+ * Responsible of dispatching requests to the adequate {@link ConsumerDomain} which is initialised at the
+ * beginning of the connection.
  * 
  * There is one instance of this class per active connection.
  * 
@@ -36,19 +38,25 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
  */
 public class TransportDispatcher extends ChannelInboundHandlerAdapter {
 
-    private final TransportListener tl;
+    private final JbiGatewayComponent component;
+
+    private final JbiTransportListener jtl;
 
     /**
      * When this is <code>null</code>, it means we haven't yet identified the consumer domain contacting us and when it
-     * is not, it means we have an active connections and we can pass messages in it.
+     * is not, it means we have an active connections and we can pass messages to the bus.
      */
     @Nullable
-    private ConsumerDomainDispatcher dispatcher = null;
+    private ConsumerDomain cd = null;
 
-    public TransportDispatcher(final TransportListener tl) {
-        this.tl = tl;
+    public TransportDispatcher(final JbiGatewayComponent component, final JbiTransportListener jtl) {
+        this.component = component;
+        this.jtl = jtl;
     }
 
+    /**
+     * TODO which exceptions are caught here? all that are not already caught by a {@link ChannelFuture} handler?
+     */
     @Override
     public void exceptionCaught(@Nullable ChannelHandlerContext ctx, @Nullable Throwable cause) throws Exception {
         assert ctx != null;
@@ -61,10 +69,11 @@ public class TransportDispatcher extends ChannelInboundHandlerAdapter {
     @Override
     public void channelInactive(final @Nullable ChannelHandlerContext ctx) throws Exception {
         assert ctx != null;
-        final ConsumerDomainDispatcher dispatcher = this.dispatcher;
+        final ConsumerDomain cd = this.cd;
         // TODO ensure this can be called while a read is done below concurrently...
-        if (dispatcher != null) {
-            dispatcher.deregisterChannel(ctx);
+        if (cd != null) {
+            cd.deregisterChannel(ctx);
+            this.cd = null;
         }
     }
 
@@ -73,16 +82,23 @@ public class TransportDispatcher extends ChannelInboundHandlerAdapter {
         assert ctx != null;
         assert msg != null;
 
-        if (dispatcher == null) {
+        if (this.cd == null) {
             final String consumerAuthName = (String) msg;
 
-            final ConsumerDomainDispatcher dispatcher = tl.getConsumerDomainDispatcher(consumerAuthName);
+            final ConsumerDomain cd = component.getServiceUnitManager().getConsumerDomain(consumerAuthName);
 
-            if (dispatcher != null) {
-                // TODO verify it's ok to keep this context for the whole session of this connection...
-                // apparently yes but... is it?
-                dispatcher.registerChannel(ctx);
-                this.dispatcher = dispatcher;
+            if (cd != null) {
+                // let's check
+                if (cd.accept(jtl.id)) {
+                    // TODO verify it's ok to keep this context for the whole session of this connection...
+                    // apparently yes but... is it?
+                    cd.registerChannel(ctx);
+                    this.cd = cd;
+                } else {
+                    ctx.writeAndFlush(String.format("Transport not supported for '%s", consumerAuthName));
+                    // TODO is that all I have to do??
+                    ctx.close();
+                }
             } else {
                 ctx.writeAndFlush(String.format("Unknown %s '%s",
                         JbiGatewayJBIHelper.EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME.getLocalPart(), consumerAuthName));
@@ -91,15 +107,10 @@ public class TransportDispatcher extends ChannelInboundHandlerAdapter {
             }
 
         } else {
-            final ConsumerDomainDispatcher dispatcher = this.dispatcher;
-            assert dispatcher != null;
-
             if (msg instanceof TransportedMessage) {
-                try {
-                    dispatcher.dispatch(ctx, (TransportedMessage) msg);
-                } catch (final MessagingException e) {
-                    // TODO forward error back!
-                }
+                component.getSender().send(ctx, (TransportedMessage) msg);
+            } else if (msg instanceof Exception) {
+                // TODO print: if we could have sent it back, we would have gotten a TransportedLastMessage!
             } else {
                 // TODO notification or other things?
             }

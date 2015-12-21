@@ -17,9 +17,11 @@
  */
 package org.ow2.petals.bc.gateway.outbound;
 
+import javax.jbi.messaging.MessagingException;
+
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.inbound.ConsumerDomainDispatcher.ConsumerDomainAsyncContext;
 import org.ow2.petals.bc.gateway.inbound.JbiGatewaySender;
+import org.ow2.petals.bc.gateway.inbound.JbiGatewaySender.JbiGatewaySenderAsyncContext;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
@@ -48,9 +50,14 @@ public class JbiGatewayJBIListener extends AbstractJBIListener {
             final @Nullable AsyncContext asyncContext) {
         assert asyncContext != null;
         assert asyncExchange != null;
-        if (asyncContext instanceof ConsumerDomainAsyncContext) {
-            ConsumerDomainAsyncContext context = (ConsumerDomainAsyncContext) asyncContext;
-            context.cd.handleAnswer(asyncExchange, context);
+        if (asyncContext instanceof JbiGatewaySenderAsyncContext) {
+            JbiGatewaySenderAsyncContext context = (JbiGatewaySenderAsyncContext) asyncContext;
+            try {
+                context.sender.handleAnswer(asyncExchange, context);
+            } catch (final MessagingException e) {
+                asyncExchange.setError(e);
+                return true;
+            }
         } else {
             // TODO
         }

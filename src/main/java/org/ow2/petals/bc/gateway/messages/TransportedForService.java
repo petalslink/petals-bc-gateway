@@ -19,14 +19,16 @@ package org.ow2.petals.bc.gateway.messages;
 
 import java.io.Serializable;
 
-public class TransportedToConsumerDomainInit implements Serializable {
+public abstract class TransportedForService implements Serializable {
 
-    private static final long serialVersionUID = -2940443042912152645L;
-    
-    public final ServiceKey[] services;
+    private static final long serialVersionUID = 1884695104410740307L;
 
-    public TransportedToConsumerDomainInit(final ServiceKey[] services) {
-        this.services = services;
+    /**
+     * this identify the consumes that is targeted by the consumer partner
+     */
+    public final ServiceKey service;
+
+    public TransportedForService(final ServiceKey service) {
+        this.service = service;
     }
-
 }
