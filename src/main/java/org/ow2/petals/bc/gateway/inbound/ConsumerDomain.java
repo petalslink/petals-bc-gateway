@@ -24,7 +24,9 @@ import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.ow2.petals.bc.gateway.JbiGatewayComponent;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
+import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedToConsumerDomainAddedConsumes;
 import org.ow2.petals.bc.gateway.messages.TransportedToConsumerDomainRemovedConsumes;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.JbiConsumerDomain;
@@ -36,6 +38,9 @@ import io.netty.channel.ChannelHandlerContext;
  * There is one instance of this class per consumer domain in an SU configuration (jbi.xml).
  * 
  * It is responsible of notifying the channels (to consumer partner) of existing Consumes propagated to them.
+ * 
+ * The main idea is that a given consumer partner can contact us (a provider partner) with multiple connections (for
+ * example in case of HA) and each of these needs to know what are the consumes propagated to them.
  * 
  * @author vnoel
  *
@@ -68,7 +73,10 @@ public class ConsumerDomain {
 
     public final JbiConsumerDomain jcd;
 
-    public ConsumerDomain(final JbiConsumerDomain jcd) {
+    private final JbiGatewayComponent component;
+
+    public ConsumerDomain(final JbiGatewayComponent component, final JbiConsumerDomain jcd) {
+        this.component = component;
         this.jcd = jcd;
     }
 
@@ -124,9 +132,15 @@ public class ConsumerDomain {
     }
 
     /**
+     * Ensure the transport is accepted for this consumer domain
+     * 
      * TODO support many transports?
      */
-    public boolean accept(final String transport) {
-        return jcd.transport.equals(transport);
+    public boolean accept(final String transportId) {
+        return jcd.transport.equals(transportId);
+    }
+
+    public void send(final ChannelHandlerContext ctx, final TransportedMessage m) {
+        component.getSender().send(ctx, m);
     }
 }

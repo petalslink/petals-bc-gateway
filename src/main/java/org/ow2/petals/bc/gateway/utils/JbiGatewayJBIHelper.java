@@ -24,8 +24,10 @@ import javax.xml.namespace.QName;
 
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Component;
+import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Services;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -53,11 +55,11 @@ public class JbiGatewayJBIHelper {
 
     public static final String ATTR_SERVICES_PROVIDER_DOMAIN_ID = "id";
 
-    public static final String EL_SERVICES_PROVIDER_DOMAIN_IP = "ip";
+    public static final QName EL_SERVICES_PROVIDER_DOMAIN_IP = new QName(JG_NS_URI, "ip");
 
-    public static final String EL_SERVICES_PROVIDER_DOMAIN_PORT = "port";
+    public static final QName EL_SERVICES_PROVIDER_DOMAIN_PORT = new QName(JG_NS_URI, "port");
 
-    public static final String EL_SERVICES_PROVIDER_DOMAIN_AUTH_NAME = "auth-name";
+    public static final QName EL_SERVICES_PROVIDER_DOMAIN_AUTH_NAME = new QName(JG_NS_URI, "auth-name");
 
     public static final QName EL_SERVICES_CONSUMER_DOMAIN = new QName(JG_NS_URI, "consumer-domain");
 
@@ -69,11 +71,11 @@ public class JbiGatewayJBIHelper {
 
     public static final String EL_PROVIDES_PROVIDER_DOMAIN = "provider-domain";
 
-    public static final String EL_PROVIDES_INTERFACE_NAME = "provider-interface-name";
+    public static final QName EL_PROVIDES_INTERFACE_NAME = new QName(JG_NS_URI, "provider-interface-name");
 
-    public static final String EL_PROVIDES_SERVICE_NAME = "provider-service-name";
+    public static final QName EL_PROVIDES_SERVICE_NAME = new QName(JG_NS_URI, "provider-service-name");
 
-    public static final String EL_PROVIDES_ENDPOINT = "provider-endpoint";
+    public static final QName EL_PROVIDES_ENDPOINT_NAME = new QName(JG_NS_URI, "provider-endpoint-name");
 
     public static final QName EL_CONSUMES_CONSUMER_DOMAIN = new QName(JG_NS_URI, "consumer-domain");
 
@@ -90,9 +92,10 @@ public class JbiGatewayJBIHelper {
             assert e != null;
             if (hasQName(e, EL_TRANSPORT_LISTENER)) {
                 assert e != null;
-                final String id = getAttribute(e, ATTR_TRANSPORT_LISTENER_ID, EL_TRANSPORT_LISTENER.getLocalPart());
-                final int port = getElementAsInt(e, EL_TRANSPORT_LISTENER_PORT, EL_TRANSPORT_LISTENER.getLocalPart(),
-                        DEFAULT_PORT);
+                final String container = EL_TRANSPORT_LISTENER.getLocalPart();
+                assert container != null;
+                final String id = getAttribute(e, ATTR_TRANSPORT_LISTENER_ID, container);
+                final int port = getElementAsInt(e, EL_TRANSPORT_LISTENER_PORT, container, DEFAULT_PORT);
                 res.add(new JbiTransportListener(id, port));
             }
         }
@@ -105,17 +108,62 @@ public class JbiGatewayJBIHelper {
         for (final Element e : services.getAnyOrAny()) {
             assert e != null;
             if (hasQName(e, EL_SERVICES_CONSUMER_DOMAIN)) {
-                final String id = getAttribute(e, ATTR_SERVICES_CONSUMER_DOMAIN_ID,
-                        EL_SERVICES_CONSUMER_DOMAIN.getLocalPart());
-                final String transport = getAttribute(e, ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT,
-                        EL_SERVICES_CONSUMER_DOMAIN.getLocalPart());
-                final String authName = getElement(e, EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME,
-                        EL_SERVICES_CONSUMER_DOMAIN.getLocalPart(), null);
+                final String container = EL_SERVICES_CONSUMER_DOMAIN.getLocalPart();
+                assert container != null;
+                final String id = getAttribute(e, ATTR_SERVICES_CONSUMER_DOMAIN_ID, container);
+                final String transport = getAttribute(e, ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT, container);
+                final String authName = getElement(e, EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME, container, null);
 
                 res.add(new JbiConsumerDomain(id, transport, authName));
             }
         }
         return res;
+    }
+
+    public static List<JbiProviderDomain> getProviderDomains(final @Nullable Services services)
+            throws PEtALSCDKException {
+        assert services != null;
+        final List<JbiProviderDomain> res = new ArrayList<>();
+        for (final Element e : services.getAnyOrAny()) {
+            assert e != null;
+            if (hasQName(e, EL_SERVICES_PROVIDER_DOMAIN)) {
+                final String container = EL_SERVICES_PROVIDER_DOMAIN.getLocalPart();
+                assert container != null;
+                final String id = getAttribute(e, ATTR_SERVICES_PROVIDER_DOMAIN_ID, container);
+                final String ip = getElement(e, EL_SERVICES_PROVIDER_DOMAIN_IP, container, null);
+                final int port = getElementAsInt(e, EL_SERVICES_PROVIDER_DOMAIN_PORT, container, DEFAULT_PORT);
+                final String authName = getElement(e, EL_SERVICES_PROVIDER_DOMAIN_AUTH_NAME, container, null);
+
+                res.add(new JbiProviderDomain(id, ip, port, authName));
+            }
+        }
+        return res;
+    }
+
+    public static ServiceKey getDeclaredServiceKey(final Provides provides) {
+        String endpointName = null;
+        QName serviceName = null;
+        QName interfaceName = null;
+        for (final Element e : provides.getAny()) {
+            assert e != null;
+            if (hasQName(e, EL_PROVIDES_INTERFACE_NAME)) {
+                if (interfaceName != null) {
+                    // TODO error
+                }
+                // TODO
+            } else if (hasQName(e, EL_PROVIDES_SERVICE_NAME)) {
+                if (serviceName != null) {
+                    // TODO error
+                }
+                // TODO
+            } else if (hasQName(e, EL_PROVIDES_ENDPOINT_NAME)) {
+                if (endpointName != null) {
+                    // TODO error
+                }
+                // TODO
+            }
+        }
+        return new ServiceKey(endpointName, serviceName, interfaceName);
     }
 
     private static String getAttribute(final Element e, final String name, final String container)
@@ -167,6 +215,9 @@ public class JbiGatewayJBIHelper {
         return new QName(e.getNamespaceURI(), e.getLocalName()).equals(name);
     }
 
+    /**
+     * Defined in component jbi.xml of provider partners
+     */
     public static class JbiTransportListener {
 
         public final String id;
@@ -184,6 +235,31 @@ public class JbiGatewayJBIHelper {
         }
     }
 
+    /**
+     * Defined in SU jbi.xml of consumer partners
+     */
+    public static class JbiProviderDomain {
+
+        public final String id;
+
+        public final String ip;
+
+        public final int port;
+
+        public final String authName;
+
+        public JbiProviderDomain(final String id, final String ip, final int port, final String authName) {
+            this.id = id;
+            this.ip = ip;
+            this.port = port;
+            this.authName = authName;
+        }
+
+    }
+
+    /**
+     * Defined in SU jbi.xml of provider partners
+     */
     public static class JbiConsumerDomain {
 
         public final String id;

@@ -15,24 +15,25 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway.outbound;
+package org.ow2.petals.bc.gateway;
 
 import javax.jbi.messaging.MessagingException;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.inbound.JbiGatewaySender;
-import org.ow2.petals.bc.gateway.inbound.JbiGatewaySender.JbiGatewaySenderAsyncContext;
+import org.ow2.petals.bc.gateway.JbiGatewayJBISender.JbiGatewaySenderAsyncContext;
+import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
+import org.ow2.petals.component.framework.AbstractComponent;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
-import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.listener.AbstractJBIListener;
 import org.ow2.petals.component.framework.process.async.AsyncContext;
+import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
 
 /**
  * There will be one instance of this class per thread of the component. The class is declared in the jbi.xml.
  * 
- * It takes care of the exchanges for the {@link Provides}, but also of the answers for the {@link Consumes} (which are
- * sent using the {@link JbiGatewaySender}.
+ * It takes care of the exchanges for the endpoints dynamically propagated by each provider partner, but also of the
+ * answers for the {@link Consumes} (which are sent using the {@link JbiGatewayJBISender}.
  * 
  * @author vnoel
  *
@@ -41,7 +42,23 @@ public class JbiGatewayJBIListener extends AbstractJBIListener {
 
     @Override
     public boolean onJBIMessage(final @Nullable Exchange exchange) {
+        assert exchange != null;
         // TODO handle messages to be sent over the wire to a provider domain
+
+        if (exchange.isActiveStatus() && exchange.isProviderRole()) {
+            // most of the messages arriving are not for a provides but for one of our dynamically created endpoints
+            final ServiceProviderEndpointKey key = new ServiceProviderEndpointKey(exchange.getEndpoint());
+            final ProviderDomain pd = getComponent().getProviderDomain(key);
+            if (pd != null) {
+                // TODO find back the ServiceKey that was received by the consumer partner..
+                pd.send(key, exchange);
+            } else {
+                // TODO this should not happen... it is not for us!
+            }
+        } else {
+            // TODO this should not happen... or maybe for the already expired async send?
+        }
+
         return false;
     }
 
@@ -63,6 +80,13 @@ public class JbiGatewayJBIListener extends AbstractJBIListener {
         }
 
         return false;
+    }
+
+    @Override
+    public JbiGatewayComponent getComponent() {
+        final AbstractComponent component = super.getComponent();
+        assert component != null;
+        return (JbiGatewayComponent) component;
     }
 
 }

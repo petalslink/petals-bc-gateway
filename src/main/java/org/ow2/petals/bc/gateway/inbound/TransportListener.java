@@ -33,7 +33,10 @@ import io.netty.handler.codec.serialization.ObjectEncoder;
  * There is one instance of this class per listener in a component configuration (jbi.xml).
  * 
  * It is responsible of creating the basic listener with netty which will dispatch connections to
- * {@link TransportDispatcher}.
+ * {@link TransportServer}.
+ * 
+ * TODO for now, we use ONE channel for both technical messages and business messages: we should check what are the
+ * shortcoming of this in terms of performances...
  * 
  * @author vnoel
  *
@@ -41,6 +44,11 @@ import io.netty.handler.codec.serialization.ObjectEncoder;
 public class TransportListener {
 
     private final ServerBootstrap bootstrap;
+
+    /**
+     * Shared between all the connections of this {@link TransportListener}.
+     */
+    private final TransportDispatcher dispatcher;
 
     @Nullable
     private Channel channel;
@@ -56,11 +64,12 @@ public class TransportListener {
                 final ChannelPipeline p = ch.pipeline();
                 p.addLast(new ObjectEncoder());
                 p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
-                p.addLast(new TransportDispatcher(component, jtl));
+                p.addLast(dispatcher);
             }
         }).localAddress(jtl.port);
         assert bootstrap != null;
         this.bootstrap = bootstrap;
+        this.dispatcher = new TransportDispatcher(component, jtl);
     }
 
     public void bind() throws InterruptedException {

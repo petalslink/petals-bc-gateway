@@ -36,8 +36,8 @@ public class TransportedMiddleMessage extends TransportedMessage {
      */
     public final MessageExchange receiverExchange;
 
-    public TransportedMiddleMessage(final ServiceKey service, final MessageExchange senderExchange,
-            final MessageExchange receiverExchange) {
+    public TransportedMiddleMessage(final ServiceKey service, final MessageExchange receiverExchange,
+            final MessageExchange senderExchange) {
         super(service);
         this.senderExchange = senderExchange;
         this.receiverExchange = receiverExchange;

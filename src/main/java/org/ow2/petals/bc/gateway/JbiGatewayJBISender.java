@@ -15,7 +15,7 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway.inbound;
+package org.ow2.petals.bc.gateway;
 
 import java.util.Set;
 
@@ -23,13 +23,13 @@ import javax.jbi.messaging.ExchangeStatus;
 import javax.jbi.messaging.MessageExchange;
 import javax.jbi.messaging.MessagingException;
 
-import org.ow2.petals.bc.gateway.JbiGatewayComponent;
+import org.ow2.petals.bc.gateway.inbound.TransportServer;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedLastMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedMiddleMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
-import org.ow2.petals.bc.gateway.outbound.JbiGatewayJBIListener;
+import org.ow2.petals.bc.gateway.outbound.TransportClient;
 import org.ow2.petals.component.framework.AbstractComponent;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.listener.AbstractListener;
@@ -38,9 +38,17 @@ import org.ow2.petals.component.framework.process.async.AsyncContext;
 
 import io.netty.channel.ChannelHandlerContext;
 
-public class JbiGatewaySender extends AbstractListener {
+/**
+ * This is responsible of managing the bridge between the {@link TransportServer} (who gives us
+ * {@link TransportedMessage}s and {@link ChannelHandlerContext}s to send answers back) and the bus from the provider
+ * partner point of view.
+ * 
+ * Or between {@link TransportClient} (who gives us {@link TransportedMessage}s and {@link ChannelHandlerContext}s as
+ * answers to our exchanges) and the bus from the consumer partner point of view.
+ */
+public class JbiGatewayJBISender extends AbstractListener {
 
-    public JbiGatewaySender(final JbiGatewayComponent component) {
+    public JbiGatewayJBISender(final JbiGatewayComponent component) {
         init(component);
     }
 
@@ -51,21 +59,32 @@ public class JbiGatewaySender extends AbstractListener {
         return (JbiGatewayComponent) component;
     }
 
+    /**
+     * As provider partner: this handle the first and third parts of an exchange, i.e., when we receive a message from a
+     * consumer partner.
+     * 
+     * As consumer partner: this handle the second and fourth (in case of InOutOnly) parts of an exchange, i.e., when we
+     * receive answers from a provider partner.
+     */
     public void send(final ChannelHandlerContext ctx, final TransportedMessage m) {
         if (m instanceof TransportedNewMessage) {
+            // provider: it is the first part of an exchange
             send(ctx, (TransportedNewMessage) m);
         } else if (m instanceof TransportedMiddleMessage) {
+            // provider: it is the third part of an exchange (if still active)
+            // consumer: it is the second part of an exchange (if still active)
             send(ctx, (TransportedMiddleMessage) m);
         } else if (m instanceof TransportedLastMessage) {
+            // provider: it is the third part of an exchange that (if not active)
+            // consumer: it is the second/fourth part of an exchange (if not active)
             send(ctx, (TransportedLastMessage) m);
         } else {
+            // provider: second and fourth parts of exchange happens in handleAnswer
+            // consumer: third part of exchange happens in handleAnswer
             assert false;
         }
     }
 
-    /**
-     * it is the first part of an exchange
-     */
     private void send(final ChannelHandlerContext ctx, final TransportedNewMessage m) {
 
         final MessageExchange hisMex = m.senderExchange;
@@ -88,15 +107,9 @@ public class JbiGatewaySender extends AbstractListener {
         }
     }
 
-    /**
-     * it is the third part of an exchange still Active: the second and fourth happens in handleAnswer, the third part
-     * not active happens in the {@link #send(ChannelHandlerContext, TransportedLastMessage)}
-     * 
-     * it was already updated by the sender
-     */
     private void send(final ChannelHandlerContext ctx, final TransportedMiddleMessage m) {
         try {
-            // it has been updated on the other side
+            // it has been updated on the other side (see handleAnswer)
             final Exchange exchange = new ExchangeImpl(m.receiverExchange);
 
             sendAsync(exchange, new JbiGatewaySenderAsyncContext(ctx, m, this));
@@ -107,29 +120,33 @@ public class JbiGatewaySender extends AbstractListener {
         }
     }
 
-    /**
-     * it is the third part of an exchange that
-     */
     private void send(final ChannelHandlerContext ctx, final TransportedLastMessage m) {
         try {
-            // it has been updated on the other side
+            // it has been updated on the other side (see handleAnswer)
             send(new ExchangeImpl(m.receiverExchange));
         } catch (final Exception e) {
             ctx.writeAndFlush(e);
         }
     }
 
+    /**
+     * As a provider partner: this handles the second and fourth (in case of inoptout) parts of an exchange, i.e., when
+     * we send back an answer to the consumer partner.
+     * 
+     * As a consumer partner: this handles the third part of an exchange, i.e., when we get aback an answer from the
+     * provider partner.
+     */
     public void handleAnswer(final Exchange exchange, final JbiGatewaySenderAsyncContext context)
             throws MessagingException {
-        // here it is either the second or fourth (in case of inoptout) part of the exchange
-        
+
         final MessageExchange hisMex;
+        // let's check what was the received message
         if (context.m instanceof TransportedNewMessage) {
             hisMex = ((TransportedNewMessage) context.m).senderExchange;
         } else if (context.m instanceof TransportedMiddleMessage) {
             hisMex = ((TransportedMiddleMessage) context.m).senderExchange;
         } else {
-            // this can't happen!
+            // this can't happen since we use send() for TransportedLastMessage
             hisMex = null;
         }
         
@@ -151,10 +168,11 @@ public class JbiGatewaySender extends AbstractListener {
         }
 
         if (exchange.isActiveStatus()) {
+            // we will be expecting an answer
             final MessageExchange myMex = exchange.getMessageExchange();
             assert myMex != null;
             // TODO where are the error sent?
-            context.ctx.writeAndFlush(new TransportedMiddleMessage(context.m.service, myMex, hisMex));
+            context.ctx.writeAndFlush(new TransportedMiddleMessage(context.m.service, hisMex, myMex));
         } else {
             // TODO where are the error sent?
             context.ctx.writeAndFlush(new TransportedLastMessage(context.m.service, hisMex));
@@ -168,14 +186,14 @@ public class JbiGatewaySender extends AbstractListener {
          * listeners of the processors... until then, we need to be called back by {@link JbiGatewayJBIListener} using
          * {@link #sender}.
          */
-        public final JbiGatewaySender sender;
+        public final JbiGatewayJBISender sender;
 
         private final TransportedMessage m;
 
         private final ChannelHandlerContext ctx;
 
         public JbiGatewaySenderAsyncContext(final ChannelHandlerContext ctx, final TransportedMessage m,
-                final JbiGatewaySender sender) {
+                final JbiGatewayJBISender sender) {
             this.m = m;
             this.ctx = ctx;
             this.sender = sender;
