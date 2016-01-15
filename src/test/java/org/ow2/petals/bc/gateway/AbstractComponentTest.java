@@ -166,7 +166,7 @@ public class AbstractComponentTest extends AbstractTest {
             }
         };
 
-        consumes.setOperation(HELLO_OPERATION.getLocalPart());
+        consumes.setOperation(HELLO_OPERATION);
         consumes.setMEP(MEPType.IN_OUT);
         // let's use a smaller timeout time by default
         consumes.setTimeout(DEFAULT_TIMEOUT_FOR_COMPONENT_SEND);
