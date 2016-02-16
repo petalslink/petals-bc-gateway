@@ -32,11 +32,8 @@ import org.junit.ClassRule;
 import org.junit.rules.ExternalResource;
 import org.junit.rules.RuleChain;
 import org.junit.rules.TestRule;
-import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
-import org.ow2.petals.component.framework.jbidescriptor.generated.MEPType;
 import org.ow2.petals.component.framework.junit.Component;
-import org.ow2.petals.component.framework.junit.JbiConstants;
 import org.ow2.petals.component.framework.junit.helpers.SimpleComponent;
 import org.ow2.petals.component.framework.junit.impl.ComponentConfiguration;
 import org.ow2.petals.component.framework.junit.impl.ServiceConfiguration;
@@ -46,7 +43,7 @@ import org.ow2.petals.junit.rules.log.handler.InMemoryLogHandler;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-public class AbstractComponentTest extends AbstractTest {
+public class AbstractComponentTest extends AbstractTest implements JbiGatewayTestConstants {
 
     protected static final String SU_NAME = "su-name";
 
@@ -73,35 +70,35 @@ public class AbstractComponentTest extends AbstractTest {
     protected static final InMemoryLogHandler IN_MEMORY_LOG_HANDLER = new InMemoryLogHandler();
 
     private static final ComponentConfiguration CONFIGURATION = new ComponentConfiguration("JBI-Gateway") {
-        public void extraJBIConfiguration(final @Nullable Document jbiDocument) {
+        @Override
+        protected void extraJBIConfiguration(final @Nullable Document jbiDocument) {
             assert jbiDocument != null;
 
             final Element compo = getComponentElement(jbiDocument);
 
-            final Element transport = addElement(jbiDocument, compo, JbiGatewayJBIHelper.EL_TRANSPORT_LISTENER);
-            transport.setAttribute(JbiGatewayJBIHelper.ATTR_TRANSPORT_LISTENER_ID, TEST_TRANSPORT_NAME);
+            final Element transport = addElement(jbiDocument, compo, EL_TRANSPORT_LISTENER);
+            transport.setAttribute(ATTR_TRANSPORT_LISTENER_ID, TEST_TRANSPORT_NAME);
 
-            addOrReplaceElement(jbiDocument, transport, JbiGatewayJBIHelper.EL_TRANSPORT_LISTENER_PORT,
-                    "" + TEST_TRANSPORT_PORT);
+            addOrReplaceElement(jbiDocument, transport, EL_TRANSPORT_LISTENER_PORT, "" + TEST_TRANSPORT_PORT);
         }
     };
 
     protected static final Component COMPONENT_UNDER_TEST = new ComponentUnderTest(CONFIGURATION)
             // we need faster checks for our tests, 2000 is too long!
-            .setParameter(new QName(JbiConstants.CDK_NAMESPACE_URI, "time-beetween-async-cleaner-runs"), "100")
+            .setParameter(new QName(CDK_NAMESPACE_URI, "time-beetween-async-cleaner-runs"), "100")
             .addLogHandler(IN_MEMORY_LOG_HANDLER.getHandler());
 
     private static class EnsurePortsAreOK extends ExternalResource {
         @Override
         protected void before() throws Throwable {
             assertTrue(available(TEST_TRANSPORT_PORT));
-            assertTrue(available(JbiGatewayJBIHelper.DEFAULT_PORT));
+            assertTrue(available(DEFAULT_PORT));
         }
 
         @Override
         protected void after() {
             assertTrue(available(TEST_TRANSPORT_PORT));
-            assertTrue(available(JbiGatewayJBIHelper.DEFAULT_PORT));
+            assertTrue(available(DEFAULT_PORT));
         }
     }
 
@@ -150,27 +147,33 @@ public class AbstractComponentTest extends AbstractTest {
     protected static ServiceConfiguration createHelloConsumes() {
         final ServiceConfiguration consumes = new ServiceConfiguration(HELLO_INTERFACE, HELLO_SERVICE,
                 EXTERNAL_ENDPOINT_NAME, ServiceType.CONSUME) {
+
             @Override
-            public void extraJBIConfiguration(final @Nullable Document jbiDocument) {
+            protected void extraServiceConfiguration(final @Nullable Document jbiDocument,
+                    final @Nullable Element service) {
+                assert jbiDocument != null;
+                assert service != null;
+
+                final Element mapping = addElement(jbiDocument, service, EL_CONSUMES_CONSUMER);
+                mapping.setAttribute(ATTR_CONSUMES_CONSUMER_DOMAIN, TEST_CONSUMER_DOMAIN);
+            }
+
+            @Override
+            protected void extraJBIConfiguration(final @Nullable Document jbiDocument) {
                 assert jbiDocument != null;
 
                 final Element services = getOrCreateServicesElement(jbiDocument);
 
-                final Element cDomain = addOrReplaceElement(jbiDocument, services,
-                        JbiGatewayJBIHelper.EL_SERVICES_CONSUMER_DOMAIN);
-                cDomain.setAttribute(JbiGatewayJBIHelper.ATTR_SERVICES_CONSUMER_DOMAIN_ID, TEST_CONSUMER_DOMAIN);
-                cDomain.setAttribute(JbiGatewayJBIHelper.ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT, TEST_TRANSPORT_NAME);
+                final Element cDomain = addOrReplaceElement(jbiDocument, services, EL_SERVICES_CONSUMER_DOMAIN);
+                cDomain.setAttribute(ATTR_SERVICES_CONSUMER_DOMAIN_ID, TEST_CONSUMER_DOMAIN);
+                cDomain.setAttribute(ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT, TEST_TRANSPORT_NAME);
                 
-                addOrReplaceElement(jbiDocument, cDomain, JbiGatewayJBIHelper.EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME,
-                        TEST_AUTH_NAME);
+                addOrReplaceElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME, TEST_AUTH_NAME);
             }
         };
 
-        consumes.setOperation(HELLO_OPERATION);
-        consumes.setMEP(MEPType.IN_OUT);
         // let's use a smaller timeout time by default
         consumes.setTimeout(DEFAULT_TIMEOUT_FOR_COMPONENT_SEND);
-        consumes.setParameter(JbiGatewayJBIHelper.EL_CONSUMES_CONSUMER_DOMAIN, TEST_CONSUMER_DOMAIN);
 
         return consumes;
     }

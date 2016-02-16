@@ -29,11 +29,11 @@ import javax.jbi.JBIException;
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.inbound.TransportListener;
 import org.ow2.petals.bc.gateway.inbound.TransportServer;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.bc.gateway.outbound.TransportConnection;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
-import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.JbiProviderDomain;
-import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.JbiTransportListener;
 import org.ow2.petals.component.framework.bc.AbstractBindingComponent;
 import org.ow2.petals.component.framework.su.AbstractServiceUnitManager;
 import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
@@ -97,7 +97,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
 
             for (final JbiTransportListener jtl : JbiGatewayJBIHelper
                     .getListeners(getJbiComponentDescriptor().getComponent())) {
-                listeners.put(jtl.id, new TransportListener(this, jtl, newServerBootstrap()));
+                listeners.put(jtl.getId(), new TransportListener(this, jtl, newServerBootstrap()));
                 if (getLogger().isLoggable(Level.CONFIG)) {
                     getLogger().config(String.format("Transporter added: %s", jtl));
                 }

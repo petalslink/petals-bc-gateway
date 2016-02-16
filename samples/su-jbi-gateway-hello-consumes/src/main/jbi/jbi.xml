@@ -8,11 +8,11 @@
       <jbi:consumes interface-name="hello:HelloInterface" service-name="hello:HelloService">
          
          <!-- CDK specific elements -->
-         <cdk:operation>hello:sayHello</cdk:operation>
-         <cdk:mep>InOut</cdk:mep>
+         <cdk:mep xsi:nil="true" />
 
          <!-- Component specific elements -->
-         <jg:consumer-domain>domain1</jg:consumer-domain>
+         <jg:consumer domain="domain1" />
+
       </jbi:consumes>
 
       <jg:consumer-domain id="domain1" transport="default">

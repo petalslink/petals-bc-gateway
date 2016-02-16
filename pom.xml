@@ -35,10 +35,6 @@
 
    <dependencies>
       <dependency>
-         <groupId>commons-lang</groupId>
-         <artifactId>commons-lang</artifactId>
-      </dependency>
-      <dependency>
          <groupId>io.netty</groupId>
          <artifactId>netty-transport</artifactId>
          <version>${netty.version}</version>
@@ -80,6 +76,10 @@
       <dependency>
          <groupId>org.ow2.petals</groupId>
          <artifactId>petals-commons-log</artifactId>
+      </dependency>
+      <dependency>
+         <groupId>org.jvnet.jaxb2_commons</groupId>
+         <artifactId>jaxb2-basics-runtime</artifactId>
       </dependency>
       <!-- Code quality dependencies -->
       <dependency>
@@ -135,6 +135,35 @@
                   </configuration>
                </execution>
             </executions>
+         </plugin>
+         <plugin>
+            <groupId>org.jvnet.jaxb2.maven2</groupId>
+            <artifactId>maven-jaxb2-plugin</artifactId>
+            <configuration>
+               <schemaDirectory>${basedir}/src/main/resources/</schemaDirectory>
+               <schemaIncludes>
+                  <include>JbiGatewayExtensions.xsd</include>
+               </schemaIncludes>
+               <bindingIncludes>
+                  <include>binding.xjb</include>
+               </bindingIncludes>
+               <strict>false</strict>
+               <catalogs>
+                  <catalog>
+                     <dependencyResource>
+                        <groupId>org.ow2.petals</groupId>
+                        <artifactId>petals-cdk-jbidescriptor</artifactId>
+                        <resource>catalog.cat</resource>
+                     </dependencyResource>
+                  </catalog>
+               </catalogs>
+               <episodes>
+                  <episode>
+                     <groupId>org.ow2.petals</groupId>
+                     <artifactId>petals-cdk-jbidescriptor</artifactId>
+                  </episode>
+               </episodes>
+            </configuration>
          </plugin>
       </plugins>
    </build>

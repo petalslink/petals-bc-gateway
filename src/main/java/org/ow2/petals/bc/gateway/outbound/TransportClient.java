@@ -42,7 +42,7 @@ public class TransportClient extends ChannelInboundHandlerAdapter {
     @Override
     public void channelActive(final @Nullable ChannelHandlerContext ctx) throws Exception {
         assert ctx != null;
-        ctx.writeAndFlush(pd.jpd.authName);
+        ctx.writeAndFlush(pd.jpd.getAuthName());
     }
 
     @Override

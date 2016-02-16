@@ -51,7 +51,7 @@ public class TransportConnection {
                 p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
                 p.addLast(new TransportClient(component, pd));
             }
-        }).remoteAddress(pd.jpd.ip, pd.jpd.port);
+        }).remoteAddress(pd.jpd.getIp(), pd.jpd.getPort());
         assert bootstrap != null;
         this.bootstrap = bootstrap;
     }

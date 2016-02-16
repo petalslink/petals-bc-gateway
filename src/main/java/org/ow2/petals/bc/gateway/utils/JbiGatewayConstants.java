@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2016 Linagora
+ * Copyright (c) 2016 Linagora
  * 
  * This program/library is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -15,24 +15,14 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway;
+package org.ow2.petals.bc.gateway.utils;
 
-import org.junit.Test;
+import javax.xml.namespace.QName;
 
-public class JbiGatewayTest extends AbstractComponentTest {
+public interface JbiGatewayConstants {
 
-    @Test
-    public void startAndStop() throws Exception {
+    public static final String JG_NS_URI = "http://petals.ow2.org/components/petals-bc-jbi-gateway/version-1.0";
 
-        assertTrue(COMPONENT_UNDER_TEST.isInstalled());
-        assertTrue(COMPONENT_UNDER_TEST.isStarted());
+    public static final QName EL_RESTRICT_TO_COMPONENT_LISTENERS = new QName(JG_NS_URI, "restrict-to-component-listeners");
 
-        assertFalse(available(TEST_TRANSPORT_PORT));
-        assertFalse(available(DEFAULT_PORT));
-
-        COMPONENT_UNDER_TEST.deployService(SU_NAME, createHelloConsumes());
-
-        assertTrue(COMPONENT_UNDER_TEST.isServiceDeployed(SU_NAME));
-
-    }
 }

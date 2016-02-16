@@ -18,6 +18,7 @@
 package org.ow2.petals.bc.gateway;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -27,10 +28,10 @@ import java.util.logging.Level;
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.inbound.TransportListener;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
-import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.JbiConsumerDomain;
-import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.JbiProviderDomain;
 import org.ow2.petals.component.framework.AbstractComponent;
 import org.ow2.petals.component.framework.api.configuration.SuConfigurationParameters;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
@@ -43,6 +44,8 @@ import io.netty.channel.Channel;
 
 /**
  * There is one instance of this class for the whole component.
+ * 
+ * TODO check that it is actually ok w.r.t. SU lifecycle (for Consumes in particular...)
  * 
  * @author vnoel
  *
@@ -101,40 +104,42 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
     }
 
     @Override
-    protected void doInit(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
+    protected void doDeploy(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
         assert suDH != null;
-        final List<JbiConsumerDomain> jcds = JbiGatewayJBIHelper
+        final Collection<JbiConsumerDomain> jcds = JbiGatewayJBIHelper
                 .getConsumerDomains(suDH.getDescriptor().getServices());
-        final List<JbiProviderDomain> jpds = JbiGatewayJBIHelper
+        final Collection<JbiProviderDomain> jpds = JbiGatewayJBIHelper
                 .getProviderDomains(suDH.getDescriptor().getServices());
         try {
+            // TODO add the SU transporter-listener
+
             for (final JbiConsumerDomain jcd : jcds) {
-                final TransportListener tl = getComponent().getTransportListener(jcd.transport);
+                final TransportListener tl = getComponent().getTransportListener(jcd.getTransport());
                 if (tl == null) {
                     throw new PEtALSCDKException(
                             String.format("Missing transporter '%s' needed by consumer domain '%s' in SU '%s'",
-                                    jcd.transport, jcd.id, suDH.getName()));
+                                    jcd.getTransport(), jcd.getId(), suDH.getName()));
                 }
-                jbiConsumerDomains.put(jcd.id, jcd);
-                consumerDomains.put(jcd.authName, new ConsumerDomain(getComponent(), jcd));
+                jbiConsumerDomains.put(jcd.getId(), jcd);
+                consumerDomains.put(jcd.getAuthName(), new ConsumerDomain(getComponent(), jcd));
             }
 
             for (final JbiProviderDomain jpd : jpds) {
-                this.jbiProviderDomains.put(jpd.id, jpd);
+                this.jbiProviderDomains.put(jpd.getId(), jpd);
                 // TODO create that only after we parsed the Provides and we have the list of concerned provides to pass
                 // it to its constructor! (and also so that we did all the desired checks)
                 final ProviderDomain pd = getComponent().createConnection(createConnectionName(suDH, jpd), jpd);
-                providerDomains.put(jpd.id, pd);
+                providerDomains.put(jpd.getId(), pd);
             }
         } catch (final Exception e) {
             this.logger.log(Level.SEVERE, "Error during SU initialisation, undoing everything");
             for (final JbiConsumerDomain jcd : jcds) {
-                jbiConsumerDomains.remove(jcd.id);
-                consumerDomains.remove(jcd.authName);
+                jbiConsumerDomains.remove(jcd.getId());
+                consumerDomains.remove(jcd.getAuthName());
             }
             for (final JbiProviderDomain jpd : jpds) {
                 assert jpd != null;
-                jbiConsumerDomains.remove(jpd.id);
+                jbiConsumerDomains.remove(jpd.getId());
                 getComponent().deleteConnection(createConnectionName(suDH, jpd));
             }
             throw e;
@@ -144,9 +149,9 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         try {
             for (final Consumes consumes : suDH.getDescriptor().getServices().getConsumes()) {
                 assert consumes != null;
-                final SuConfigurationParameters extensions = suDH.getConfigurationExtensions(consumes);
-                assert extensions != null;
-                getConsumerDomain(consumes, extensions).register(consumes);
+                for (final ConsumerDomain cd : getConsumerDomain(consumes)) {
+                    cd.register(consumes);
+                }
                 registered.add(consumes);
             }
         } catch (final Exception e) {
@@ -154,9 +159,9 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
             for (final Consumes consumes : registered) {
                 try {
                     assert consumes != null;
-                    final SuConfigurationParameters extensions = suDH.getConfigurationExtensions(consumes);
-                    assert extensions != null;
-                    getConsumerDomain(consumes, extensions).deregister(consumes);
+                    for (final ConsumerDomain cd : getConsumerDomain(consumes)) {
+                        cd.deregister(consumes);
+                    }
                 } catch (final Exception e1) {
                     this.logger.log(Level.WARNING, "Error while deregistering consumes", e1);
                 }
@@ -167,9 +172,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         try {
             for (final Provides provides : suDH.getDescriptor().getServices().getProvides()) {
                 assert provides != null;
-                final SuConfigurationParameters extensions = suDH.getConfigurationExtensions(provides);
-                assert extensions != null;
-                getProviderDomain(provides, extensions).registerProvides(provides);
+                getProviderDomain(provides).registerProvides(provides);
             }
         } catch (final Exception e) {
             this.logger.warning("Error while registering provides to the provider domains, undoing everything");
@@ -179,23 +182,23 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
     }
 
     /**
-     * TODO this name is not necessary unique...
+     * TODO this name is not necessarily unique...
      */
     private String createConnectionName(final ServiceUnitDataHandler suDH, final JbiProviderDomain jpd) {
-        return suDH.getName() + "/" + jpd.id;
+        return suDH.getName() + "/" + jpd.getId();
     }
 
     @Override
-    protected void doShutdown(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
+    protected void doUndeploy(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
         assert suDH != null;
 
         final List<Throwable> exceptions = new ArrayList<>();
         for (final Consumes consumes : suDH.getDescriptor().getServices().getConsumes()) {
             assert consumes != null;
-            final SuConfigurationParameters extensions = suDH.getConfigurationExtensions(consumes);
-            assert extensions != null;
             try {
-                getConsumerDomain(consumes, extensions).deregister(consumes);
+                for (final ConsumerDomain cd : getConsumerDomain(consumes)) {
+                    cd.deregister(consumes);
+                }
             } catch (final Exception e) {
                 exceptions.add(e);
             }
@@ -203,24 +206,23 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         for (final Provides provides : suDH.getDescriptor().getServices().getProvides()) {
             assert provides != null;
-            final SuConfigurationParameters extensions = suDH.getConfigurationExtensions(provides);
-            assert extensions != null;
             try {
-                getProviderDomain(provides, extensions).deregisterProvides(provides);
+                getProviderDomain(provides).deregisterProvides(provides);
             } catch (final Exception e) {
                 exceptions.add(e);
             }
         }
 
         for (final JbiConsumerDomain jcd : jbiConsumerDomains.values()) {
-            jbiConsumerDomains.remove(jcd.id);
-            consumerDomains.remove(jcd.authName);
+            jbiConsumerDomains.remove(jcd.getId());
+            consumerDomains.remove(jcd.getAuthName());
         }
 
         // TODO prefer to have a private collection for the connections?
-        final List<JbiProviderDomain> jpds = JbiGatewayJBIHelper.getProviderDomains(suDH.getDescriptor().getServices());
+        final Collection<JbiProviderDomain> jpds = JbiGatewayJBIHelper
+                .getProviderDomains(suDH.getDescriptor().getServices());
         for (final JbiProviderDomain jpd : jpds) {
-            jbiConsumerDomains.remove(jpd.id);
+            jbiConsumerDomains.remove(jpd.getId());
             try {
                 getComponent().deleteConnection(createConnectionName(suDH, jpd));
             } catch (final Exception e) {
@@ -245,14 +247,8 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         return (JbiGatewayComponent) component;
     }
 
-    private ProviderDomain getProviderDomain(final Provides provides, final SuConfigurationParameters extensions)
-            throws PEtALSCDKException {
-        final String providerDomainId = extensions.get(JbiGatewayJBIHelper.EL_PROVIDES_PROVIDER_DOMAIN);
-        if (providerDomainId == null) {
-            throw new PEtALSCDKException(String.format("Missing %s in Provides for '%s/%s/%s'",
-                    JbiGatewayJBIHelper.EL_PROVIDES_PROVIDER_DOMAIN, provides.getInterfaceName(),
-                    provides.getServiceName(), provides.getEndpointName()));
-        }
+    private ProviderDomain getProviderDomain(final Provides provides) throws PEtALSCDKException {
+        final String providerDomainId = JbiGatewayJBIHelper.getProviderDomain(provides);
         final JbiProviderDomain jpd = jbiProviderDomains.get(providerDomainId);
         if (jpd == null) {
             throw new PEtALSCDKException(
@@ -264,23 +260,20 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         return pd;
     }
 
-    private ConsumerDomain getConsumerDomain(final Consumes consumes, final SuConfigurationParameters extensions)
-            throws PEtALSCDKException {
-        final String consumerDomainId = extensions.get(JbiGatewayJBIHelper.EL_CONSUMES_CONSUMER_DOMAIN.getLocalPart());
-        if (consumerDomainId == null) {
-            throw new PEtALSCDKException(String.format("Missing %s in Consumes for '%s/%s/%s'",
-                    JbiGatewayJBIHelper.EL_CONSUMES_CONSUMER_DOMAIN.getLocalPart(), consumes.getInterfaceName(),
-                    consumes.getServiceName(), consumes.getEndpointName()));
+    private Collection<ConsumerDomain> getConsumerDomain(final Consumes consumes) throws PEtALSCDKException {
+        final List<ConsumerDomain> cds = new ArrayList<>();
+        for (final String consumerDomainId : JbiGatewayJBIHelper.getConsumerDomain(consumes)) {
+            final JbiConsumerDomain jcd = jbiConsumerDomains.get(consumerDomainId);
+            if (jcd == null) {
+                throw new PEtALSCDKException(
+                        String.format("No consumer domain was defined in the SU for '%s'", consumerDomainId));
+            }
+            final ConsumerDomain cd = getConsumerDomain(jcd.getAuthName());
+            // it can't be null, the SUManager should have created it!
+            assert cd != null;
+            cds.add(cd);
         }
-        final JbiConsumerDomain jcd = jbiConsumerDomains.get(consumerDomainId);
-        if (jcd == null) {
-            throw new PEtALSCDKException(
-                    String.format("No consumer domain was defined in the SU for '%s'", consumerDomainId));
-        }
-        final ConsumerDomain cd = getConsumerDomain(jcd.authName);
-        // it can't be null, the SUManager should have created it!
-        assert cd != null;
-        return cd;
+        return cds;
     }
 
     public @Nullable ConsumerDomain getConsumerDomain(final String consumerAuthName) {

@@ -50,6 +50,8 @@
       <cdk:jbi-listener-class-name>org.ow2.petals.bc.gateway.JbiGatewayJBIListener</cdk:jbi-listener-class-name>
       
       <!-- Component specific configuration -->
+      <jg:restrict-to-component-listeners />
+      
       <jg:transport-listener id="default">
          <jg:port>7500</jg:port>
       </jg:transport-listener>

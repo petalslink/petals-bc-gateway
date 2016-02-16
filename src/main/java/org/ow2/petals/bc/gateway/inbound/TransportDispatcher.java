@@ -19,8 +19,7 @@ package org.ow2.petals.bc.gateway.inbound;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JbiGatewayComponent;
-import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
-import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.JbiTransportListener;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
@@ -66,10 +65,9 @@ public class TransportDispatcher extends ChannelInboundHandlerAdapter {
         final ConsumerDomain cd = component.getServiceUnitManager().getConsumerDomain(consumerAuthName);
 
         // accept corresponds to validate that the current transport can be used for this consumer partner
-        if (cd == null || !cd.accept(jtl.id)) {
+        if (cd == null || !cd.accept(jtl.getId())) {
             // TODO replace that with an exception!
-            ctx.writeAndFlush(String.format("Unauthorised %s '%s",
-                    JbiGatewayJBIHelper.EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME.getLocalPart(), consumerAuthName));
+            ctx.writeAndFlush(String.format("Unauthorised auth-name '%s", consumerAuthName));
             // TODO is that all I have to do??
             ctx.close();
             return;

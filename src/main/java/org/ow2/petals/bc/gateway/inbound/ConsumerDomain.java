@@ -25,11 +25,11 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.ow2.petals.bc.gateway.JbiGatewayComponent;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedToConsumerDomainAddedConsumes;
 import org.ow2.petals.bc.gateway.messages.TransportedToConsumerDomainRemovedConsumes;
-import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.JbiConsumerDomain;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 
 import io.netty.channel.ChannelHandlerContext;
@@ -99,10 +99,11 @@ public class ConsumerDomain {
         final ServiceKey key = new ServiceKey(consumes);
         lock.lock();
         try {
-            for (final ChannelHandlerContext ctx : channels) {
-                ctx.writeAndFlush(new TransportedToConsumerDomainRemovedConsumes(key));
+            if (services.remove(key) != null) {
+                for (final ChannelHandlerContext ctx : channels) {
+                    ctx.writeAndFlush(new TransportedToConsumerDomainRemovedConsumes(key));
+                }
             }
-            services.remove(key);
         } finally {
             lock.unlock();
         }
@@ -137,7 +138,7 @@ public class ConsumerDomain {
      * TODO support many transports?
      */
     public boolean accept(final String transportId) {
-        return jcd.transport.equals(transportId);
+        return jcd.getTransport().equals(transportId);
     }
 
     public void send(final ChannelHandlerContext ctx, final TransportedMessage m) {

@@ -19,7 +19,7 @@ package org.ow2.petals.bc.gateway.inbound;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JbiGatewayComponent;
-import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.JbiTransportListener;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -66,7 +66,7 @@ public class TransportListener {
                 p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
                 p.addLast(dispatcher);
             }
-        }).localAddress(jtl.port);
+        }).localAddress(jtl.getPort());
         assert bootstrap != null;
         this.bootstrap = bootstrap;
         this.dispatcher = new TransportDispatcher(component, jtl);

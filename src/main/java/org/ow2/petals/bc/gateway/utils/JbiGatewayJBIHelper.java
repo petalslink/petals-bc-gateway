@@ -18,20 +18,34 @@
 package org.ow2.petals.bc.gateway.utils;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
-import javax.xml.namespace.QName;
+import javax.xml.XMLConstants;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBElement;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Unmarshaller;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.Schema;
+import javax.xml.validation.SchemaFactory;
 
-import org.apache.commons.lang.StringUtils;
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumesConfig;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.ObjectFactory;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Component;
+import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Services;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 /**
  * Helper class to manipulate the jbi.xml according to the schema in the resources directory.
@@ -41,238 +55,199 @@ import org.w3c.dom.NodeList;
  * @author vnoel
  *
  */
-public class JbiGatewayJBIHelper {
+public class JbiGatewayJBIHelper implements JbiGatewayConstants {
 
-    public static final String JG_NS_URI = "http://petals.ow2.org/components/petals-bc-jbi-gateway/version-1.0";
+    private static @Nullable Unmarshaller unmarshaller;
 
-    public static final QName EL_TRANSPORT_LISTENER = new QName(JG_NS_URI, "transport-listener");
+    private static @Nullable PEtALSCDKException exception = null;
 
-    public static final String ATTR_TRANSPORT_LISTENER_ID = "id";
+    static {
+        try {
+            final JAXBContext jaxbContext = JAXBContext.newInstance(ObjectFactory.class.getPackage().getName());
+            final Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
 
-    public static final QName EL_TRANSPORT_LISTENER_PORT = new QName(JG_NS_URI, "port");
+            final SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            final Schema schemas = factory.newSchema(new StreamSource[] {
+                    new StreamSource(JbiGatewayJBIHelper.class.getResourceAsStream("/CDKextensions.xsd")),
+                    new StreamSource(JbiGatewayJBIHelper.class.getResourceAsStream("/CDKjbi.xsd")),
+                    new StreamSource(JbiGatewayJBIHelper.class.getResourceAsStream("/JbiGatewayExtensions.xsd")) });
+            unmarshaller.setSchema(schemas);
 
-    public static final QName EL_SERVICES_PROVIDER_DOMAIN = new QName(JG_NS_URI, "provider-domain");
-
-    public static final String ATTR_SERVICES_PROVIDER_DOMAIN_ID = "id";
-
-    public static final QName EL_SERVICES_PROVIDER_DOMAIN_IP = new QName(JG_NS_URI, "ip");
-
-    public static final QName EL_SERVICES_PROVIDER_DOMAIN_PORT = new QName(JG_NS_URI, "port");
-
-    public static final QName EL_SERVICES_PROVIDER_DOMAIN_AUTH_NAME = new QName(JG_NS_URI, "auth-name");
-
-    public static final QName EL_SERVICES_CONSUMER_DOMAIN = new QName(JG_NS_URI, "consumer-domain");
-
-    public static final String ATTR_SERVICES_CONSUMER_DOMAIN_ID = "id";
-
-    public static final String ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT = "transport";
-
-    public static final QName EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME = new QName(JG_NS_URI, "auth-name");
-
-    public static final String EL_PROVIDES_PROVIDER_DOMAIN = "provider-domain";
-
-    public static final QName EL_PROVIDES_INTERFACE_NAME = new QName(JG_NS_URI, "provider-interface-name");
-
-    public static final QName EL_PROVIDES_SERVICE_NAME = new QName(JG_NS_URI, "provider-service-name");
-
-    public static final QName EL_PROVIDES_ENDPOINT_NAME = new QName(JG_NS_URI, "provider-endpoint-name");
-
-    public static final QName EL_CONSUMES_CONSUMER_DOMAIN = new QName(JG_NS_URI, "consumer-domain");
-
-    public static final int DEFAULT_PORT = 7500;
+            JbiGatewayJBIHelper.unmarshaller = unmarshaller;
+        } catch (final JAXBException | SAXException ex) {
+            exception = new PEtALSCDKException(ex);
+        }
+    }
 
     private JbiGatewayJBIHelper() {
     }
 
-    public static List<JbiTransportListener> getListeners(final @Nullable Component component)
+    private static @Nullable <T> T asObject(final Node e, final Class<T> clazz) throws PEtALSCDKException {
+        final Object o = unmarshal(e);
+        if (o instanceof JAXBElement<?> && clazz.isInstance(((JAXBElement<?>) o).getValue())) {
+            @SuppressWarnings("unchecked")
+            final T value = (T) ((JAXBElement<?>) o).getValue();
+            return value;
+        } else if (clazz.isInstance(o)) {
+            @SuppressWarnings("unchecked")
+            final T o2 = (T) o;
+            return o2;
+        } else {
+            return null;
+        }
+    }
+
+    private static @Nullable Object asObject(final Node e) throws PEtALSCDKException {
+        return asObject(e, Object.class);
+    }
+
+    private static @Nullable JAXBElement<?> asJAXBElement(final Node e) throws PEtALSCDKException {
+        final Object o = unmarshal(e);
+        if (o instanceof JAXBElement<?>) {
+            return (JAXBElement<?>) o;
+        } else {
+            return null;
+        }
+    }
+
+    private static @Nullable Object unmarshal(final Node e) throws PEtALSCDKException {
+        final Unmarshaller unmarshallerl = unmarshaller;
+        if (unmarshallerl != null) {
+            try {
+                final Object o = unmarshallerl.unmarshal(e);
+                assert o != null;
+                return o;
+            } catch (final JAXBException ex) {
+                throw new PEtALSCDKException(ex);
+            }
+        } else {
+            final PEtALSCDKException exceptionl = exception;
+            if (exceptionl != null) {
+                throw exceptionl;
+            } else {
+                throw new PEtALSCDKException("Impossible case");
+            }
+        }
+    }
+
+    public static boolean isRestrictedToComponentListeners(final @Nullable Component component) throws PEtALSCDKException {
+        assert component != null;
+        for (final Element e : component.getAny()) {
+            assert e!= null;
+            final JAXBElement<?> el = asJAXBElement(e);
+            if (el != null && EL_RESTRICT_TO_COMPONENT_LISTENERS.equals(el.getName())
+                    && el.getValue() instanceof Boolean) {
+                return (Boolean) el.getValue();
+            }
+        }
+        return false;
+    }
+
+    public static Collection<JbiTransportListener> getListeners(final @Nullable Component component)
             throws PEtALSCDKException {
         assert component != null;
         final List<JbiTransportListener> res = new ArrayList<>();
         for (final Element e : component.getAny()) {
             assert e != null;
-            if (hasQName(e, EL_TRANSPORT_LISTENER)) {
-                assert e != null;
-                final String container = EL_TRANSPORT_LISTENER.getLocalPart();
-                assert container != null;
-                final String id = getAttribute(e, ATTR_TRANSPORT_LISTENER_ID, container);
-                final int port = getElementAsInt(e, EL_TRANSPORT_LISTENER_PORT, container, DEFAULT_PORT);
-                res.add(new JbiTransportListener(id, port));
+            final Object o = asObject(e);
+            // TODO test QName too?
+            if (o instanceof JbiTransportListener) {
+                res.add((JbiTransportListener) o);
             }
         }
         return res;
     }
 
-    public static List<JbiConsumerDomain> getConsumerDomains(final @Nullable Services services) throws PEtALSCDKException {
+    public static Collection<JbiConsumerDomain> getConsumerDomains(final @Nullable Services services)
+            throws PEtALSCDKException {
         assert services != null;
         final List<JbiConsumerDomain> res = new ArrayList<>();
         for (final Element e : services.getAnyOrAny()) {
             assert e != null;
-            if (hasQName(e, EL_SERVICES_CONSUMER_DOMAIN)) {
-                final String container = EL_SERVICES_CONSUMER_DOMAIN.getLocalPart();
-                assert container != null;
-                final String id = getAttribute(e, ATTR_SERVICES_CONSUMER_DOMAIN_ID, container);
-                final String transport = getAttribute(e, ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT, container);
-                final String authName = getElement(e, EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME, container, null);
-
-                res.add(new JbiConsumerDomain(id, transport, authName));
+            final Object o = asObject(e);
+            // TODO test QName too?
+            if (o instanceof JbiConsumerDomain) {
+                res.add((JbiConsumerDomain) o);
             }
         }
         return res;
     }
 
-    public static List<JbiProviderDomain> getProviderDomains(final @Nullable Services services)
+    public static Collection<JbiProviderDomain> getProviderDomains(final @Nullable Services services)
             throws PEtALSCDKException {
         assert services != null;
         final List<JbiProviderDomain> res = new ArrayList<>();
         for (final Element e : services.getAnyOrAny()) {
             assert e != null;
-            if (hasQName(e, EL_SERVICES_PROVIDER_DOMAIN)) {
-                final String container = EL_SERVICES_PROVIDER_DOMAIN.getLocalPart();
-                assert container != null;
-                final String id = getAttribute(e, ATTR_SERVICES_PROVIDER_DOMAIN_ID, container);
-                final String ip = getElement(e, EL_SERVICES_PROVIDER_DOMAIN_IP, container, null);
-                final int port = getElementAsInt(e, EL_SERVICES_PROVIDER_DOMAIN_PORT, container, DEFAULT_PORT);
-                final String authName = getElement(e, EL_SERVICES_PROVIDER_DOMAIN_AUTH_NAME, container, null);
-
-                res.add(new JbiProviderDomain(id, ip, port, authName));
+            final Object o = asObject(e);
+            // TODO test QName too?
+            if (o instanceof JbiProviderDomain) {
+                res.add((JbiProviderDomain) o);
             }
         }
         return res;
     }
 
-    public static ServiceKey getDeclaredServiceKey(final Provides provides) {
-        String endpointName = null;
-        QName serviceName = null;
-        QName interfaceName = null;
+    public static String getProviderDomain(final @Nullable Provides provides) throws PEtALSCDKException {
+        assert provides != null;
+        String res = null;
         for (final Element e : provides.getAny()) {
             assert e != null;
-            if (hasQName(e, EL_PROVIDES_INTERFACE_NAME)) {
-                if (interfaceName != null) {
-                    // TODO error
+            final Object o = asObject(e);
+            // TODO test QName too?
+            if (o instanceof JbiProvidesConfig) {
+                if (res != null) {
+                    throw new PEtALSCDKException(String.format("Duplicate provider mapping in Provides for '%s/%s/%s'",
+                            provides.getInterfaceName(), provides.getServiceName(), provides.getEndpointName()));
                 }
-                // TODO
-            } else if (hasQName(e, EL_PROVIDES_SERVICE_NAME)) {
-                if (serviceName != null) {
-                    // TODO error
-                }
-                // TODO
-            } else if (hasQName(e, EL_PROVIDES_ENDPOINT_NAME)) {
-                if (endpointName != null) {
-                    // TODO error
-                }
-                // TODO
+                res = ((JbiProvidesConfig) o).getDomain();
             }
         }
-        return new ServiceKey(endpointName, serviceName, interfaceName);
-    }
-
-    private static String getAttribute(final Element e, final String name, final String container)
-            throws PEtALSCDKException {
-        final String res = e.getAttribute(name);
-        assert res != null;
-        if (StringUtils.isEmpty(res)) {
-            throw new PEtALSCDKException(String.format("Attribute %s missing in element %s", name, container));
+        if (res == null) {
+            throw new PEtALSCDKException(String.format("Missing provider mapping in Provides for '%s/%s/%s'",
+                    provides.getInterfaceName(), provides.getServiceName(), provides.getEndpointName()));
         }
         return res;
     }
 
-    private static String getElement(final Element e, final QName name, final String container,
-            final @Nullable String defaultValue) throws PEtALSCDKException {
-        final NodeList es = e.getElementsByTagNameNS(name.getNamespaceURI(), name.getLocalPart());
-        if (es.getLength() < 1) {
-            if (defaultValue == null) {
-                throw new PEtALSCDKException(String.format("Element %s missing in element %s", name, container));
-            } else {
-                return defaultValue;
+    public static Collection<String> getConsumerDomain(final @Nullable Consumes consumes) throws PEtALSCDKException {
+        assert consumes != null;
+        final List<String> res = new ArrayList<>();
+        for (final Element e : consumes.getAny()) {
+            assert e != null;
+            final Object o = asObject(e);
+            // TODO test QName too?
+            if (o instanceof JbiConsumesConfig) {
+                res.add(((JbiConsumesConfig) o).getDomain());
             }
-        } else if (es.getLength() > 1) {
-            throw new PEtALSCDKException(
-                    String.format("Only one element %s is allowed in element %s", name, container));
         }
-        final String res = es.item(0).getTextContent();
-        assert res != null;
-        if (StringUtils.isEmpty(res)) {
-            throw new PEtALSCDKException(
-                    String.format("Content missing for element %s in element %s", name, container));
+        if (res.isEmpty()) {
+            throw new PEtALSCDKException(String.format("Missing consumer mapping in Provides for '%s/%s/%s'",
+                    consumes.getInterfaceName(), consumes.getServiceName(), consumes.getEndpointName()));
         }
         return res;
     }
 
-    private static int getElementAsInt(final Element e, final QName name, final String container,
-            final int defaultValue) throws PEtALSCDKException {
-        final String string = getElement(e, name, container, "" + defaultValue);
-        final int res;
-        try {
-            res = Integer.parseInt(string);
-        } catch (final NumberFormatException e1) {
-            throw new PEtALSCDKException(
-                    String.format("Invalid value '%s' for element %s of element %s", string, name, container));
+    public static ServiceKey getDeclaredServiceKey(final Provides provides) throws PEtALSCDKException {
+        ServiceKey res = null;
+        for (final Element e : provides.getAny()) {
+            assert e != null;
+            final Object o = asObject(e);
+            // TODO test QName too?
+            if (o instanceof JbiProvidesConfig) {
+                if (res != null) {
+                    throw new PEtALSCDKException(String.format("Duplicate provider mapping in Provides for '%s/%s/%s'",
+                            provides.getInterfaceName(), provides.getServiceName(), provides.getEndpointName()));
+                }
+                final JbiProvidesConfig jpm = ((JbiProvidesConfig) o);
+                res = new ServiceKey(jpm.getProviderEndpointName(), jpm.getProviderServiceName(),
+                        jpm.getProviderInterfaceName());
+            }
+        }
+        if (res == null) {
+            throw new PEtALSCDKException(String.format("Missing provider mapping in Provides for '%s/%s/%s'",
+                    provides.getInterfaceName(), provides.getServiceName(), provides.getEndpointName()));
         }
         return res;
-    }
-
-    private static boolean hasQName(final Node e, final QName name) {
-        return new QName(e.getNamespaceURI(), e.getLocalName()).equals(name);
-    }
-
-    /**
-     * Defined in component jbi.xml of provider partners
-     */
-    public static class JbiTransportListener {
-
-        public final String id;
-
-        public final int port;
-
-        public JbiTransportListener(final String id, final int port) {
-            this.id = id;
-            this.port = port;
-        }
-        
-        @Override
-        public String toString() {
-            return id + "[" + port + "]";
-        }
-    }
-
-    /**
-     * Defined in SU jbi.xml of consumer partners
-     */
-    public static class JbiProviderDomain {
-
-        public final String id;
-
-        public final String ip;
-
-        public final int port;
-
-        public final String authName;
-
-        public JbiProviderDomain(final String id, final String ip, final int port, final String authName) {
-            this.id = id;
-            this.ip = ip;
-            this.port = port;
-            this.authName = authName;
-        }
-
-    }
-
-    /**
-     * Defined in SU jbi.xml of provider partners
-     */
-    public static class JbiConsumerDomain {
-
-        public final String id;
-
-        // TODO why not have multiple possible transports???!
-        public final String transport;
-
-        public final String authName;
-
-        public JbiConsumerDomain(String id, String transport, String authName) {
-            this.id = id;
-            this.transport = transport;
-            this.authName = authName;
-        }
     }
 }

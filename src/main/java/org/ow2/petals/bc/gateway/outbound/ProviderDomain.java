@@ -25,10 +25,11 @@ import javax.jbi.messaging.MessageExchange;
 import javax.jbi.servicedesc.ServiceEndpoint;
 
 import org.ow2.petals.bc.gateway.JbiGatewayComponent;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
-import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.JbiProviderDomain;
+import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
@@ -54,7 +55,7 @@ public class ProviderDomain {
         this.jpd = jpd;
     }
 
-    public void registerProvides(final Provides provides) {
+    public void registerProvides(final Provides provides) throws PEtALSCDKException {
         final ServiceProviderEndpointKey key = new ServiceProviderEndpointKey(provides);
         // TODO convert string to qname??!
         final ServiceKey service = JbiGatewayJBIHelper.getDeclaredServiceKey(provides);
