@@ -35,17 +35,18 @@
       </jbi:bootstrap-class-path>
       
       <!-- CDK specific fields -->
-      <cdk:acceptor-pool-size>5</cdk:acceptor-pool-size>
+      <cdk:acceptor-pool-size />
       <cdk:acceptor-retry-number />
       <cdk:acceptor-retry-wait />
       <cdk:acceptor-stop-max-wait />
-      <cdk:message-processor-max-pool-size />
-      <cdk:processor-pool-size>10</cdk:processor-pool-size>
+      <cdk:processor-pool-size />
       <cdk:processor-max-pool-size />
       <cdk:processor-keep-alive-time />
       <cdk:processor-stop-max-wait />
       <cdk:time-beetween-async-cleaner-runs />
       <cdk:properties-file />
+      <cdk:monitoring-sampling-period />
+
       <cdk:jbi-listener-class-name>org.ow2.petals.bc.gateway.JbiGatewayJBIListener</cdk:jbi-listener-class-name>
       
       <!-- Component specific configuration -->
