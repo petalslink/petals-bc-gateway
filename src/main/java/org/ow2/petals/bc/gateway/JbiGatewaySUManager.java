@@ -94,8 +94,6 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
 
         final Collection<JbiConsumerDomain> jcds = JbiGatewayJBIHelper
                 .getConsumerDomains(suDH.getDescriptor().getServices());
-        final Collection<JbiProviderDomain> jpds = JbiGatewayJBIHelper
-                .getProviderDomains(suDH.getDescriptor().getServices());
 
         final Collection<JbiTransportListener> tls = JbiGatewayJBIHelper
                 .getTransportListeners(suDH.getDescriptor().getServices());
@@ -104,43 +102,8 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
             throw new PEtALSCDKException("Defining transporter listeners in the SU is forbidden by the component");
         }
 
-        final Map<String, List<Entry<Provides, JbiProvidesConfig>>> pd2provides = new HashMap<>();
-        for (final Provides provides : suDH.getDescriptor().getServices().getProvides()) {
-            assert provides != null;
-            final JbiProvidesConfig config = JbiGatewayJBIHelper.getProviderConfig(provides);
-            List<Entry<Provides, JbiProvidesConfig>> list = pd2provides.get(config.getDomain());
-            if (list == null) {
-                boolean found = false;
-                for (final JbiProviderDomain jpd : jpds) {
-                    if (jpd.getId().equals(config.getDomain())) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    throw new PEtALSCDKException(
-                            String.format("No provider domain was defined in the SU for '%s'", config.getDomain()));
-                }
-                list = new ArrayList<>();
-                pd2provides.put(config.getDomain(), list);
-            }
-            list.add(new Entry<Provides, JbiProvidesConfig>() {
-                @Override
-                public JbiProvidesConfig getValue() {
-                    return config;
-                }
-
-                @Override
-                public Provides getKey() {
-                    return provides;
-                }
-
-                @Override
-                public JbiProvidesConfig setValue(final @Nullable JbiProvidesConfig value) {
-                    throw new UnsupportedOperationException();
-                }
-            });
-        }
+        final Map<JbiProviderDomain, List<Entry<Provides, JbiProvidesConfig>>> pd2provides = extractProvidesPerDomain(
+                suDH);
 
         final String ownerSU = suDH.getName();
         assert ownerSU != null;
@@ -163,12 +126,12 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
                 consumerDomains.put(jcd.getAuthName(), cd);
             }
 
-            for (final JbiProviderDomain jpd : jpds) {
+            for (final Entry<JbiProviderDomain, List<Entry<Provides, JbiProvidesConfig>>> entry : pd2provides
+                    .entrySet()) {
+                final JbiProviderDomain jpd = entry.getKey();
+                final List<Entry<Provides, JbiProvidesConfig>> list = entry.getValue();
+                assert list != null;
                 this.jbiProviderDomains.put(ownerSU + ":" + jpd.getId(), jpd);
-                List<Entry<Provides, JbiProvidesConfig>> list = pd2provides.get(jpd.getId());
-                if (list == null) {
-                    list = new ArrayList<>();
-                }
                 getComponent().registerProviderDomain(ownerSU, jpd, list);
             }
         } catch (final Exception e) {
@@ -179,7 +142,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
                 consumerDomains.remove(jcd.getAuthName());
             }
 
-            for (final JbiProviderDomain jpd : jpds) {
+            for (final JbiProviderDomain jpd : pd2provides.keySet()) {
                 jbiProviderDomains.remove(ownerSU + ":" + jpd.getId());
                 try {
                     getComponent().deregisterProviderDomain(ownerSU, jpd);
@@ -201,6 +164,48 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
         }
     }
 
+    private Map<JbiProviderDomain, List<Entry<Provides, JbiProvidesConfig>>> extractProvidesPerDomain(
+            final ServiceUnitDataHandler suDH) throws PEtALSCDKException {
+
+        final Map<String, JbiProviderDomain> jpds = new HashMap<>();
+        final Map<JbiProviderDomain, List<Entry<Provides, JbiProvidesConfig>>> pd2provides = new HashMap<>();
+
+        for (final JbiProviderDomain jpd : JbiGatewayJBIHelper.getProviderDomains(suDH.getDescriptor().getServices())) {
+            final List<Entry<Provides, JbiProvidesConfig>> list = new ArrayList<>();
+            jpds.put(jpd.getId(), jpd);
+            pd2provides.put(jpd, list);
+        }
+
+        for (final Provides provides : suDH.getDescriptor().getServices().getProvides()) {
+            assert provides != null;
+            final JbiProvidesConfig config = JbiGatewayJBIHelper.getProviderConfig(provides);
+            final JbiProviderDomain jpd = jpds.get(config.getDomain());
+            if (jpd == null) {
+                throw new PEtALSCDKException(
+                        String.format("No provider domain was defined in the SU for '%s'", config.getDomain()));
+            }
+            // it must be non-null
+            final List<Entry<Provides, JbiProvidesConfig>> list = pd2provides.get(jpd);
+            list.add(new Entry<Provides, JbiProvidesConfig>() {
+                @Override
+                public JbiProvidesConfig getValue() {
+                    return config;
+                }
+
+                @Override
+                public Provides getKey() {
+                    return provides;
+                }
+
+                @Override
+                public JbiProvidesConfig setValue(final @Nullable JbiProvidesConfig value) {
+                    throw new UnsupportedOperationException();
+                }
+            });
+        }
+        return pd2provides;
+    }
+
     /**
      * The {@link Consumes} are only registered on start, not before
      */
@@ -209,10 +214,13 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
         assert suDH != null;
 
         final List<Consumes> registered = new ArrayList<>();
+        final String ownerSU = suDH.getName();
+        assert ownerSU != null;
+
         try {
             for (final Consumes consumes : suDH.getDescriptor().getServices().getConsumes()) {
                 assert consumes != null;
-                for (final ConsumerDomain cd : getConsumerDomains(suDH.getName(), consumes)) {
+                for (final ConsumerDomain cd : getConsumerDomains(ownerSU, consumes)) {
                     cd.register(consumes);
                 }
                 registered.add(consumes);
@@ -221,7 +229,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
             this.logger.warning("Error during SU start, undoing everything");
             for (final Consumes consumes : registered) {
                 assert consumes != null;
-                for (final ConsumerDomain cd : getConsumerDomains(suDH.getName(), consumes)) {
+                for (final ConsumerDomain cd : getConsumerDomains(ownerSU, consumes)) {
                     try {
                         cd.deregister(consumes);
                     } catch (final Exception e1) {
@@ -237,10 +245,14 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
     protected void doStop(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
         assert suDH != null;
 
+        final String ownerSU = suDH.getName();
+        assert ownerSU != null;
+
         final List<Throwable> exceptions = new ArrayList<>();
         for (final Consumes consumes : suDH.getDescriptor().getServices().getConsumes()) {
             assert consumes != null;
-            for (final ConsumerDomain cd : getConsumerDomains(suDH.getName(), consumes)) {
+
+            for (final ConsumerDomain cd : getConsumerDomains(ownerSU, consumes)) {
                 try {
                     cd.deregister(consumes);
                 } catch (final Exception e) {

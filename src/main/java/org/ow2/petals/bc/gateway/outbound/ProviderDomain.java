@@ -64,6 +64,7 @@ public class ProviderDomain {
     public void addedProviderService(final ServiceKey service) {
         try {
             // TODO we absolutely need to provide the wsdl too so that the context can get it!
+            // TODO we need to activate that ONLY on init!
             final ServiceEndpoint endpoint = component.getContext().activateEndpoint(service.service,
                     service.endpointName);
             final ServiceProviderEndpointKey key = new ServiceProviderEndpointKey(endpoint);
