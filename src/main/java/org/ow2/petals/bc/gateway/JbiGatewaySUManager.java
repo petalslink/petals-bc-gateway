@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.logging.Level;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.inbound.ConsumerAuthenticator;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.inbound.TransportListener;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
@@ -48,7 +49,7 @@ import io.netty.channel.Channel;
  * @author vnoel
  *
  */
-public class JbiGatewaySUManager extends AbstractServiceUnitManager {
+public class JbiGatewaySUManager extends AbstractServiceUnitManager implements ConsumerAuthenticator {
 
     /**
      * These are the consumer domains declared in the SU jbi.xml.
@@ -72,10 +73,6 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
      * 
      * The accesses are not very frequent, so no need to introduce a specific performance oriented locking. We just rely
      * on simple synchronization.
-     * 
-     * TODO The key is for now the auth-name declared in the jbi.xml, but later we need to introduce something better to
-     * identify consumer and not simply a string Because this corresponds to a validity check of the consumer. e.g., a
-     * public key fingerprint or something like that
      */
     @SuppressWarnings("null")
     private final Map<String, ConsumerDomain> consumerDomains = Collections
@@ -113,7 +110,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                 .getTransportListeners(suDH.getDescriptor().getServices());
         if (JbiGatewayJBIHelper.isRestrictedToComponentListeners(
                 getComponent().getJbiComponentDescriptor().getComponent()) && !tls.isEmpty()) {
-            throw new PEtALSCDKException("Defining transporter listener in the SU is forbidden by the component");
+            throw new PEtALSCDKException("Defining transporter listeners in the SU is forbidden by the component");
         }
 
         final List<Provides> registered = new ArrayList<>();
@@ -130,7 +127,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                                     jcd.getTransport(), jcd.getId(), suDH.getName()));
                 }
                 jbiConsumerDomains.put(jcd.getId(), jcd);
-                consumerDomains.put(jcd.getAuthName(), new ConsumerDomain(getComponent(), jcd));
+                consumerDomains.put(jcd.getAuthName(), new ConsumerDomain(getComponent().getSender(), jcd));
             }
 
             for (final JbiProviderDomain jpd : jpds) {
@@ -188,7 +185,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         try {
             for (final Consumes consumes : suDH.getDescriptor().getServices().getConsumes()) {
                 assert consumes != null;
-                for (final ConsumerDomain cd : getConsumerDomain(consumes)) {
+                for (final ConsumerDomain cd : getConsumerDomains(consumes)) {
                     cd.register(consumes);
                 }
                 registered.add(consumes);
@@ -198,7 +195,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
             for (final Consumes consumes : registered) {
                 try {
                     assert consumes != null;
-                    for (final ConsumerDomain cd : getConsumerDomain(consumes)) {
+                    for (final ConsumerDomain cd : getConsumerDomains(consumes)) {
                         cd.deregister(consumes);
                     }
                 } catch (final Exception e1) {
@@ -217,7 +214,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         for (final Consumes consumes : suDH.getDescriptor().getServices().getConsumes()) {
             assert consumes != null;
             try {
-                for (final ConsumerDomain cd : getConsumerDomain(consumes)) {
+                for (final ConsumerDomain cd : getConsumerDomains(consumes)) {
                     cd.deregister(consumes);
                 }
             } catch (final Exception e) {
@@ -304,7 +301,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         return pd;
     }
 
-    private Collection<ConsumerDomain> getConsumerDomain(final Consumes consumes) throws PEtALSCDKException {
+    private Collection<ConsumerDomain> getConsumerDomains(final Consumes consumes) throws PEtALSCDKException {
         final List<ConsumerDomain> cds = new ArrayList<>();
         for (final String consumerDomainId : JbiGatewayJBIHelper.getConsumerDomain(consumes)) {
             final JbiConsumerDomain jcd = jbiConsumerDomains.get(consumerDomainId);
@@ -312,7 +309,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                 throw new PEtALSCDKException(
                         String.format("No consumer domain was defined in the SU for '%s'", consumerDomainId));
             }
-            final ConsumerDomain cd = getConsumerDomain(jcd.getAuthName());
+            final ConsumerDomain cd = consumerDomains.get(jcd.getAuthName());
             // it can't be null, the SUManager should have created it!
             assert cd != null;
             cds.add(cd);
@@ -320,7 +317,8 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         return cds;
     }
 
-    public @Nullable ConsumerDomain getConsumerDomain(final String consumerAuthName) {
-        return consumerDomains.get(consumerAuthName);
+    @Override
+    public @Nullable ConsumerDomain authenticate(final String authName) {
+        return consumerDomains.get(authName);
     }
 }

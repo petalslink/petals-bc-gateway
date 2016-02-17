@@ -24,7 +24,7 @@ import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.ow2.petals.bc.gateway.JbiGatewayComponent;
+import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
@@ -73,10 +73,10 @@ public class ConsumerDomain {
 
     public final JbiConsumerDomain jcd;
 
-    private final JbiGatewayComponent component;
+    private final JBISender sender;
 
-    public ConsumerDomain(final JbiGatewayComponent component, final JbiConsumerDomain jcd) {
-        this.component = component;
+    public ConsumerDomain(final JBISender sender, final JbiConsumerDomain jcd) {
+        this.sender = sender;
         this.jcd = jcd;
     }
 
@@ -142,6 +142,6 @@ public class ConsumerDomain {
     }
 
     public void send(final ChannelHandlerContext ctx, final TransportedMessage m) {
-        component.getSender().send(ctx, m);
+        this.sender.send(ctx, m);
     }
 }

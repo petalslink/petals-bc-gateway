@@ -26,9 +26,9 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 
 /**
- * Responsible of dispatching initialising the connection with a consumer partner (corresponding to one of our
- * {@link ConsumerDomain}) by authenticating it and then to dispatch the received messages to the
- * {@link JbiGatewayJBISender}.
+ * 
+ * Responsible of dispatching, for a given consumer partner {@link ConsumerDomain} once it has been authenticated by
+ * {@link TransportDispatcher}, the received messages to the {@link JbiGatewayJBISender}.
  * 
  * There is one instance of this class per active connection.
  * 

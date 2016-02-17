@@ -18,7 +18,7 @@
 package org.ow2.petals.bc.gateway.outbound;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.JbiGatewayComponent;
+import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedToConsumerDomainAddedConsumes;
@@ -29,13 +29,13 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 
 public class TransportClient extends ChannelInboundHandlerAdapter {
 
-    private final JbiGatewayComponent component;
+    private final JBISender sender;
 
     private final ProviderDomain pd;
 
     // TODO we need a logger per connection maybe...
-    public TransportClient(final JbiGatewayComponent component, final ProviderDomain pd) {
-        this.component = component;
+    public TransportClient(final JBISender sender, final ProviderDomain pd) {
+        this.sender = sender;
         this.pd = pd;
     }
 
@@ -56,7 +56,7 @@ public class TransportClient extends ChannelInboundHandlerAdapter {
         } else if (msg instanceof TransportedMessage) {
             // this can't happen, we are the one sending new exchanges!
             assert !(msg instanceof TransportedNewMessage);
-            component.getSender().send(ctx, (TransportedMessage) msg);
+            this.sender.send(ctx, (TransportedMessage) msg);
         } else if (msg instanceof TransportedToConsumerDomainAddedConsumes) {
             pd.addedProviderService(((TransportedToConsumerDomainAddedConsumes) msg).service);
         } else if (msg instanceof TransportedToConsumerDomainRemovedConsumes) {

@@ -18,8 +18,6 @@
 package org.ow2.petals.bc.gateway.inbound;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.JbiGatewayComponent;
-import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
@@ -27,7 +25,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelPipeline;
 
 /**
- * Dispatch a connection to the correct {@link ConsumerDomain}.
+ * Dispatch a connection (from {@link TransportListener}) to the correct {@link ConsumerDomain}.
  * 
  * @author vnoel
  *
@@ -35,13 +33,10 @@ import io.netty.channel.ChannelPipeline;
 @Sharable
 public class TransportDispatcher extends ChannelInboundHandlerAdapter {
 
-    private final JbiGatewayComponent component;
+    private final ConsumerAuthenticator authenticator;
 
-    private final JbiTransportListener jtl;
-
-    public TransportDispatcher(final JbiGatewayComponent component, final JbiTransportListener jtl) {
-        this.component = component;
-        this.jtl = jtl;
+    public TransportDispatcher(final ConsumerAuthenticator authenticator) {
+        this.authenticator = authenticator;
     }
 
     @Override
@@ -62,10 +57,10 @@ public class TransportDispatcher extends ChannelInboundHandlerAdapter {
 
         // this corresponds to authenticating the consumer partner
         // TODO make that better
-        final ConsumerDomain cd = component.getServiceUnitManager().getConsumerDomain(consumerAuthName);
+        final ConsumerDomain cd = authenticator.authenticate(consumerAuthName);
 
         // accept corresponds to validate that the current transport can be used for this consumer partner
-        if (cd == null || !cd.accept(jtl.getId())) {
+        if (cd == null) {
             // TODO replace that with an exception!
             ctx.writeAndFlush(String.format("Unauthorised auth-name '%s", consumerAuthName));
             // TODO is that all I have to do??

@@ -18,7 +18,6 @@
 package org.ow2.petals.bc.gateway.inbound;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.JbiGatewayComponent;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -41,22 +40,26 @@ import io.netty.handler.codec.serialization.ObjectEncoder;
  * @author vnoel
  *
  */
-public class TransportListener {
-
-    private final @Nullable String ownerSU;
+public class TransportListener implements ConsumerAuthenticator {
 
     private final ServerBootstrap bootstrap;
 
-    /**
-     * Shared between all the connections of this {@link TransportListener}.
-     */
-    private final TransportDispatcher dispatcher;
+    private final ConsumerAuthenticator authenticator;
+
+    private final JbiTransportListener jtl;
 
     @Nullable
     private Channel channel;
 
-    public TransportListener(final JbiGatewayComponent component, final @Nullable String ownerSU,
-            final JbiTransportListener jtl, final ServerBootstrap partialBootstrap) {
+    public TransportListener(final ConsumerAuthenticator authenticator, final JbiTransportListener jtl,
+            final ServerBootstrap partialBootstrap) {
+
+        this.authenticator = authenticator;
+        this.jtl = jtl;
+
+        // shared between all the connections of this listener
+        final TransportDispatcher dispatcher = new TransportDispatcher(this);
+
         final ServerBootstrap bootstrap = partialBootstrap.childHandler(new ChannelInitializer<Channel>() {
             @Override
             protected void initChannel(final @Nullable Channel ch) throws Exception {
@@ -71,12 +74,6 @@ public class TransportListener {
         }).localAddress(jtl.getPort());
         assert bootstrap != null;
         this.bootstrap = bootstrap;
-        this.dispatcher = new TransportDispatcher(component, jtl);
-        this.ownerSU = ownerSU;
-    }
-
-    public @Nullable String getOwnerSU() {
-        return this.ownerSU;
     }
 
     public void bind() throws InterruptedException {
@@ -92,6 +89,16 @@ public class TransportListener {
             // TODO should I do that sync?
             channel.close();
             this.channel = null;
+        }
+    }
+
+    @Override
+    public @Nullable ConsumerDomain authenticate(final String authName) {
+        final ConsumerDomain cd = this.authenticator.authenticate(authName);
+        if (cd != null && cd.accept(jtl.getId())) {
+            return cd;
+        } else {
+            return null;
         }
     }
 }

@@ -126,7 +126,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
     public ProviderDomain createConnection(final String name, final JbiProviderDomain jpd) {
         // TODO should provider domain share their connections if they point to the same ip/port?
         final ProviderDomain pd = new ProviderDomain(this, jpd);
-        clients.put(name, new TransportConnection(this, pd, newClientBootstrap()));
+        clients.put(name, new TransportConnection(getSender(), pd, newClientBootstrap()));
         return pd;
     }
 
@@ -213,7 +213,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
 
     private TransportListener addTransporterListener(final @Nullable String ownerSU, final JbiTransportListener jtl)
             throws PEtALSCDKException {
-        final TransportListener tl = new TransportListener(this, ownerSU, jtl, newServerBootstrap());
+        final TransportListener tl = new TransportListener(getServiceUnitManager(), jtl, newServerBootstrap());
         if (listeners.putIfAbsent(getTransportListenerName(ownerSU, jtl.getId()), tl) != null) {
             throw new PEtALSCDKException(String.format("Duplicate transporter id '%s'", jtl.getId()));
         }

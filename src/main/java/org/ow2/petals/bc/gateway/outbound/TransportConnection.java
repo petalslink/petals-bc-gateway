@@ -18,7 +18,7 @@
 package org.ow2.petals.bc.gateway.outbound;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.JbiGatewayComponent;
+import org.ow2.petals.bc.gateway.JBISender;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -39,8 +39,7 @@ public class TransportConnection {
     @Nullable
     private Channel channel;
 
-    public TransportConnection(final JbiGatewayComponent component, final ProviderDomain pd,
-            final Bootstrap partialBootstrap) {
+    public TransportConnection(final JBISender sender, final ProviderDomain pd, final Bootstrap partialBootstrap) {
         final Bootstrap bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
             @Override
             protected void initChannel(final @Nullable Channel ch) throws Exception {
@@ -49,7 +48,7 @@ public class TransportConnection {
                 final ChannelPipeline p = ch.pipeline();
                 p.addLast(new ObjectEncoder());
                 p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
-                p.addLast(new TransportClient(component, pd));
+                p.addLast(new TransportClient(sender, pd));
             }
         }).remoteAddress(pd.jpd.getIp(), pd.jpd.getPort());
         assert bootstrap != null;

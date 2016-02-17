@@ -46,7 +46,7 @@ import io.netty.channel.ChannelHandlerContext;
  * Or between {@link TransportClient} (who gives us {@link TransportedMessage}s and {@link ChannelHandlerContext}s as
  * answers to our exchanges) and the bus from the consumer partner point of view.
  */
-public class JbiGatewayJBISender extends AbstractListener {
+public class JbiGatewayJBISender extends AbstractListener implements JBISender {
 
     public JbiGatewayJBISender(final JbiGatewayComponent component) {
         init(component);
@@ -66,6 +66,7 @@ public class JbiGatewayJBISender extends AbstractListener {
      * As consumer partner: this handle the second and fourth (in case of InOutOnly) parts of an exchange, i.e., when we
      * receive answers from a provider partner.
      */
+    @Override
     public void send(final ChannelHandlerContext ctx, final TransportedMessage m) {
         if (m instanceof TransportedNewMessage) {
             // provider: it is the first part of an exchange
