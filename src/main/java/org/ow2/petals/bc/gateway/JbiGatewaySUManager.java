@@ -70,7 +70,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
      * These are the actual consumer partner actually connected to us, potentially through multiple {@link Channel}
      * and/or {@link TransportListener}.
      * 
-     * They are indexed by their auth-name!
+     * They are indexed by their auth-name! TODO which must be unique accross SUs !!!!
      * 
      * The accesses are not very frequent, so no need to introduce a specific performance oriented locking. We just rely
      * on simple synchronization.
@@ -142,51 +142,56 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
             });
         }
 
+        final String ownerSU = suDH.getName();
+        assert ownerSU != null;
+
         try {
             for (final JbiTransportListener jtl : tls) {
-                getComponent().addSUTransporterListener(suDH.getName(), jtl);
+                assert jtl != null;
+                getComponent().addSUTransporterListener(ownerSU, jtl);
             }
 
             for (final JbiConsumerDomain jcd : jcds) {
-                final TransportListener tl = getComponent().getTransportListener(suDH.getName(), jcd.getTransport());
+                final TransportListener tl = getComponent().getTransportListener(ownerSU, jcd.getTransport());
                 if (tl == null) {
                     throw new PEtALSCDKException(
                             String.format("Missing transporter '%s' needed by consumer domain '%s' in SU '%s'",
-                                    jcd.getTransport(), jcd.getId(), suDH.getName()));
+                                    jcd.getTransport(), jcd.getId(), ownerSU));
                 }
-                jbiConsumerDomains.put(jcd.getId(), jcd);
+                jbiConsumerDomains.put(ownerSU + ":" + jcd.getId(), jcd);
                 final ConsumerDomain cd = new ConsumerDomain(getComponent().getSender(), jcd);
                 consumerDomains.put(jcd.getAuthName(), cd);
             }
 
             for (final JbiProviderDomain jpd : jpds) {
-                this.jbiProviderDomains.put(jpd.getId(), jpd);
+                this.jbiProviderDomains.put(ownerSU + ":" + jpd.getId(), jpd);
                 List<Entry<Provides, JbiProvidesConfig>> list = pd2provides.get(jpd.getId());
                 if (list == null) {
-                    list = Collections.emptyList();
+                    list = new ArrayList<>();
                 }
-                getComponent().registerProviderDomain(suDH.getName(), jpd, list);
+                getComponent().registerProviderDomain(ownerSU, jpd, list);
             }
         } catch (final Exception e) {
             this.logger.log(Level.SEVERE, "Error during SU deploy, undoing everything");
 
             for (final JbiConsumerDomain jcd : jcds) {
-                jbiConsumerDomains.remove(jcd.getId());
+                jbiConsumerDomains.remove(ownerSU + ":" + jcd.getId());
                 consumerDomains.remove(jcd.getAuthName());
             }
 
             for (final JbiProviderDomain jpd : jpds) {
-                jbiProviderDomains.remove(jpd.getId());
+                jbiProviderDomains.remove(ownerSU + ":" + jpd.getId());
                 try {
-                    getComponent().deregisterProviderDomain(suDH.getName(), jpd);
+                    getComponent().deregisterProviderDomain(ownerSU, jpd);
                 } catch (final Exception e1) {
                     this.logger.log(Level.WARNING, "Error while removing provider domain", e1);
                 }
             }
 
             for (final JbiTransportListener jtl : tls) {
+                assert jtl != null;
                 try {
-                    getComponent().removeSUTransporterListener(suDH.getName(), jtl);
+                    getComponent().removeSUTransporterListener(ownerSU, jtl);
                 } catch (final Exception e1) {
                     this.logger.log(Level.WARNING, "Error while removing SU transporter listener", e1);
                 }
@@ -207,7 +212,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
         try {
             for (final Consumes consumes : suDH.getDescriptor().getServices().getConsumes()) {
                 assert consumes != null;
-                for (final ConsumerDomain cd : getConsumerDomains(consumes)) {
+                for (final ConsumerDomain cd : getConsumerDomains(suDH.getName(), consumes)) {
                     cd.register(consumes);
                 }
                 registered.add(consumes);
@@ -216,7 +221,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
             this.logger.warning("Error during SU start, undoing everything");
             for (final Consumes consumes : registered) {
                 assert consumes != null;
-                for (final ConsumerDomain cd : getConsumerDomains(consumes)) {
+                for (final ConsumerDomain cd : getConsumerDomains(suDH.getName(), consumes)) {
                     try {
                         cd.deregister(consumes);
                     } catch (final Exception e1) {
@@ -235,7 +240,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
         final List<Throwable> exceptions = new ArrayList<>();
         for (final Consumes consumes : suDH.getDescriptor().getServices().getConsumes()) {
             assert consumes != null;
-            for (final ConsumerDomain cd : getConsumerDomains(consumes)) {
+            for (final ConsumerDomain cd : getConsumerDomains(suDH.getName(), consumes)) {
                 try {
                     cd.deregister(consumes);
                 } catch (final Exception e) {
@@ -257,17 +262,25 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
     protected void doUndeploy(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
         assert suDH != null;
 
+        final String ownerSU = suDH.getName();
+        assert ownerSU != null;
+
         final List<Throwable> exceptions = new ArrayList<>();
 
-        for (final JbiConsumerDomain jcd : jbiConsumerDomains.values()) {
-            jbiConsumerDomains.remove(jcd.getId());
+        final Collection<JbiConsumerDomain> jcds = JbiGatewayJBIHelper
+                .getConsumerDomains(suDH.getDescriptor().getServices());
+        final Collection<JbiProviderDomain> jpds = JbiGatewayJBIHelper
+                .getProviderDomains(suDH.getDescriptor().getServices());
+
+        for (final JbiConsumerDomain jcd : jcds) {
+            jbiConsumerDomains.remove(ownerSU + ":" + jcd.getId());
             consumerDomains.remove(jcd.getAuthName());
         }
 
-        for (final JbiProviderDomain jpd : jbiProviderDomains.values()) {
-            jbiProviderDomains.remove(jpd.getId());
+        for (final JbiProviderDomain jpd : jpds) {
+            jbiProviderDomains.remove(ownerSU + ":" + jpd.getId());
             try {
-                getComponent().deregisterProviderDomain(suDH.getName(), jpd);
+                getComponent().deregisterProviderDomain(ownerSU, jpd);
             } catch (final Exception e) {
                 exceptions.add(e);
             }
@@ -289,13 +302,14 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
         return (JbiGatewayComponent) component;
     }
 
-    private Collection<ConsumerDomain> getConsumerDomains(final Consumes consumes) throws PEtALSCDKException {
+    private Collection<ConsumerDomain> getConsumerDomains(final String ownerSU, final Consumes consumes)
+            throws PEtALSCDKException {
         final List<ConsumerDomain> cds = new ArrayList<>();
         for (final String consumerDomainId : JbiGatewayJBIHelper.getConsumerDomain(consumes)) {
-            final JbiConsumerDomain jcd = jbiConsumerDomains.get(consumerDomainId);
+            final JbiConsumerDomain jcd = jbiConsumerDomains.get(ownerSU + ":" + consumerDomainId);
             if (jcd == null) {
-                throw new PEtALSCDKException(
-                        String.format("No consumer domain was defined in the SU for '%s'", consumerDomainId));
+                throw new PEtALSCDKException(String.format("No consumer domain was defined in the SU '%s' for '%s'",
+                        ownerSU, consumerDomainId));
             }
             final ConsumerDomain cd = consumerDomains.get(jcd.getAuthName());
             // it can't be null, the SUManager should have created it!
