@@ -57,6 +57,7 @@ public class TransportConnection {
     }
 
     public void connect() throws InterruptedException {
+        // TODO should I do that async?
         final Channel channel = bootstrap.connect().sync().channel();
         assert channel != null;
         this.channel = channel;
@@ -65,7 +66,9 @@ public class TransportConnection {
     public void disconnect() {
         final Channel channel = this.channel;
         if (channel != null && channel.isOpen()) {
+            // TODO should I do that sync?
             channel.close();
+            this.channel = null;
         }
     }
 }

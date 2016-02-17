@@ -73,6 +73,7 @@ public class TransportListener {
     }
 
     public void bind() throws InterruptedException {
+        // TODO should I do that async?
         final Channel channel = bootstrap.bind().sync().channel();
         assert channel != null;
         this.channel = channel;
@@ -80,8 +81,10 @@ public class TransportListener {
 
     public void unbind() {
         final Channel channel = this.channel;
-        if (channel != null) {
+        if (channel != null && channel.isOpen()) {
+            // TODO should I do that sync?
             channel.close();
+            this.channel = null;
         }
     }
 }
