@@ -127,7 +127,8 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
                                     jcd.getTransport(), jcd.getId(), suDH.getName()));
                 }
                 jbiConsumerDomains.put(jcd.getId(), jcd);
-                consumerDomains.put(jcd.getAuthName(), new ConsumerDomain(getComponent().getSender(), jcd));
+                final ConsumerDomain cd = new ConsumerDomain(getComponent().getSender(), jcd);
+                consumerDomains.put(jcd.getAuthName(), cd);
             }
 
             for (final JbiProviderDomain jpd : jpds) {
@@ -146,15 +147,6 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
         } catch (final Exception e) {
             this.logger.log(Level.SEVERE, "Error during SU deploy, undoing everything");
 
-            for (final Provides provides : registered) {
-                assert provides != null;
-                try {
-                    getProviderDomain(provides).deregisterProvides(provides);
-                } catch (final Exception e1) {
-                    this.logger.log(Level.WARNING, "Error while deregistering provides", e1);
-                }
-            }
-
             for (final JbiConsumerDomain jcd : jcds) {
                 jbiConsumerDomains.remove(jcd.getId());
                 consumerDomains.remove(jcd.getAuthName());
@@ -163,11 +155,19 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
             for (final JbiProviderDomain jpd : jpds) {
                 jbiProviderDomains.remove(jpd.getId());
                 providerDomains.remove(jpd.getId());
-                getComponent().deleteConnection(createConnectionName(suDH, jpd));
+                try {
+                    getComponent().deleteConnection(createConnectionName(suDH, jpd));
+                } catch (final Exception e1) {
+                    this.logger.log(Level.WARNING, "Error while removing provider domain", e1);
+                }
             }
 
             for (final JbiTransportListener jtl : tls) {
-                getComponent().removeSUTransporterListener(suDH.getName(), jtl);
+                try {
+                    getComponent().removeSUTransporterListener(suDH.getName(), jtl);
+                } catch (final Exception e1) {
+                    this.logger.log(Level.WARNING, "Error while removing SU transporter listener", e1);
+                }
             }
 
             throw e;
@@ -193,13 +193,13 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
         } catch (final Exception e) {
             this.logger.warning("Error during SU start, undoing everything");
             for (final Consumes consumes : registered) {
-                try {
-                    assert consumes != null;
-                    for (final ConsumerDomain cd : getConsumerDomains(consumes)) {
+                assert consumes != null;
+                for (final ConsumerDomain cd : getConsumerDomains(consumes)) {
+                    try {
                         cd.deregister(consumes);
+                    } catch (final Exception e1) {
+                        this.logger.log(Level.WARNING, "Error while deregistering consumes", e1);
                     }
-                } catch (final Exception e1) {
-                    this.logger.log(Level.WARNING, "Error while deregistering consumes", e1);
                 }
             }
             throw e;
@@ -213,12 +213,12 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
         final List<Throwable> exceptions = new ArrayList<>();
         for (final Consumes consumes : suDH.getDescriptor().getServices().getConsumes()) {
             assert consumes != null;
-            try {
-                for (final ConsumerDomain cd : getConsumerDomains(consumes)) {
+            for (final ConsumerDomain cd : getConsumerDomains(consumes)) {
+                try {
                     cd.deregister(consumes);
+                } catch (final Exception e) {
+                    exceptions.add(e);
                 }
-            } catch (final Exception e) {
-                exceptions.add(e);
             }
         }
 
@@ -236,26 +236,17 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
         assert suDH != null;
 
         final List<Throwable> exceptions = new ArrayList<>();
-        for (final Provides provides : suDH.getDescriptor().getServices().getProvides()) {
-            assert provides != null;
-            try {
-                getProviderDomain(provides).deregisterProvides(provides);
-            } catch (final Exception e) {
-                exceptions.add(e);
-            }
-        }
 
         for (final JbiConsumerDomain jcd : jbiConsumerDomains.values()) {
             jbiConsumerDomains.remove(jcd.getId());
             consumerDomains.remove(jcd.getAuthName());
         }
 
-        // TODO prefer to have a private collection for the connections?
-        final Collection<JbiProviderDomain> jpds = JbiGatewayJBIHelper
-                .getProviderDomains(suDH.getDescriptor().getServices());
-        for (final JbiProviderDomain jpd : jpds) {
-            jbiConsumerDomains.remove(jpd.getId());
+        for (final JbiProviderDomain jpd : jbiProviderDomains.values()) {
+            jbiProviderDomains.remove(jpd.getId());
+            providerDomains.remove(jpd.getId());
             try {
+                // TODO prefer to have a private collection for the connections?
                 getComponent().deleteConnection(createConnectionName(suDH, jpd));
             } catch (final Exception e) {
                 exceptions.add(e);
