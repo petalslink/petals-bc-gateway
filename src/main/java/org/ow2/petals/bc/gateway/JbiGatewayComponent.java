@@ -17,11 +17,10 @@
  */
 package org.ow2.petals.bc.gateway;
 
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
 
 import javax.jbi.JBIException;
@@ -34,6 +33,7 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.bc.gateway.outbound.TransportConnection;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
+import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.bc.AbstractBindingComponent;
 import org.ow2.petals.component.framework.su.AbstractServiceUnitManager;
 import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
@@ -76,11 +76,13 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
     private EventLoopGroup clientsGroup;
 
     /**
-     * No need for synchronisation: this is initialised in {@link #doInit()} and that's all!
+     * Only modification from SUs (see {@link #addSUTransporterListener(String, JbiTransportListener)}) are concurrent
      */
-    private final Map<String, TransportListener> listeners = new HashMap<>();
+    private final ConcurrentMap<String, TransportListener> listeners = new ConcurrentHashMap<>();
 
-    private final Map<String, TransportConnection> clients = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, TransportConnection> clients = new ConcurrentHashMap<>();
+
+    private boolean started = false;
 
     @Override
     protected void doInit() throws JBIException {
@@ -97,13 +99,11 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
 
             for (final JbiTransportListener jtl : JbiGatewayJBIHelper
                     .getListeners(getJbiComponentDescriptor().getComponent())) {
-                listeners.put(jtl.getId(), new TransportListener(this, jtl, newServerBootstrap()));
-                if (getLogger().isLoggable(Level.CONFIG)) {
-                    getLogger().config(String.format("Transporter added: %s", jtl));
-                }
+                assert jtl != null;
+                addTransporterListener(null, jtl);
             }
         } catch (final Exception e) {
-            getLogger().log(Level.SEVERE, "Error during component initialisation, undoing everything");
+            getLogger().log(Level.SEVERE, "Error during component init, undoing everything");
             if (bossGroup != null) {
                 bossGroup.shutdownGracefully();
                 bossGroup = null;
@@ -119,7 +119,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
 
             // we can simply clear, nothing was started
             listeners.clear();
-            throw new JBIException("Error while initialising component", e);
+            throw new JBIException("Error during component init", e);
         }
     }
 
@@ -190,14 +190,49 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
                     getLogger().log(Level.WARNING, "Error while stopping listeners", e1);
                 }
             }
-            throw new JBIException("Error while starting component", e);
+            throw new JBIException("Error during component start", e);
         }
 
         // TODO resume/start connections to provider domains
+
+        this.started = true;
+    }
+
+    public void addSUTransporterListener(final String ownerSU, final JbiTransportListener jtl)
+            throws PEtALSCDKException {
+        final TransportListener tl = addTransporterListener(ownerSU, jtl);
+        if (started) {
+            try {
+                tl.bind();
+            } catch (final Exception e) {
+                // normally this shouldn't really happen, but well...
+                throw new PEtALSCDKException(String.format("Error while starting transporter '%s'", jtl));
+            }
+        }
+    }
+
+    private TransportListener addTransporterListener(final @Nullable String ownerSU, final JbiTransportListener jtl)
+            throws PEtALSCDKException {
+        final TransportListener tl = new TransportListener(this, ownerSU, jtl, newServerBootstrap());
+        if (listeners.putIfAbsent(getTransportListenerName(ownerSU, jtl.getId()), tl) != null) {
+            throw new PEtALSCDKException(String.format("Duplicate transporter id '%s'", jtl.getId()));
+        }
+        if (getLogger().isLoggable(Level.CONFIG)) {
+            getLogger().config(String.format(
+                    "Transporter '%s' added " + (ownerSU != null ? "for SU '%s'" : "for component"), jtl, ownerSU));
+        }
+        return tl;
+    }
+
+    private String getTransportListenerName(final @Nullable String ownerSU, final String transportId) {
+        return (ownerSU == null ? "c-" : (ownerSU + "-")) + transportId;
     }
 
     @Override
     protected void doStop() throws JBIException {
+
+        this.started = false;
+
         final List<Throwable> exceptions = new LinkedList<>();
         for (final TransportListener tl : this.listeners.values()) {
             try {
@@ -219,8 +254,22 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
         }
     }
 
-    public @Nullable TransportListener getTransportListener(final String transportId) {
-        return listeners.get(transportId);
+    public void removeSUTransporterListener(final String ownerSU, final JbiTransportListener jtl) {
+        final TransportListener tl = this.listeners.remove(getTransportListenerName(ownerSU, jtl.getId()));
+        if (getLogger().isLoggable(Level.CONFIG)) {
+            getLogger().config(String.format(
+                    "Transporter '%s' removed " + (ownerSU != null ? "for SU '%s'" : "for component"), jtl, ownerSU));
+        }
+        tl.unbind();
+    }
+
+    public @Nullable TransportListener getTransportListener(final String ownerSU, final String transportId) {
+        final TransportListener tl = listeners.get(getTransportListenerName(ownerSU, transportId));
+        if (tl == null) {
+            return listeners.get(getTransportListenerName(null, transportId));
+        } else {
+            return tl;
+        }
     }
 
     public @Nullable ProviderDomain getProviderDomain(final ServiceProviderEndpointKey key) {
@@ -248,5 +297,4 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
         assert suManager != null;
         return (JbiGatewaySUManager) suManager;
     }
-
 }

@@ -30,6 +30,7 @@ import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.inbound.TransportListener;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.component.framework.AbstractComponent;
@@ -53,8 +54,6 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
      * These are the consumer domains declared in the SU jbi.xml.
      * 
      * They are indexed by their id!
-     * 
-     * TODO this is only useful for {@link #getConsumerDomain(Consumes)} to work...
      */
     private final Map<String, JbiConsumerDomain> jbiConsumerDomains = new HashMap<>();
 
@@ -62,8 +61,6 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
      * These are the provider domains declared in the SU jbi.xml.
      * 
      * They are indexed by their id!
-     * 
-     * TODO this is only useful for {@link #getProviderDomain(Provides)} to work...
      */
     private final Map<String, JbiProviderDomain> jbiProviderDomains = new HashMap<>();
 
@@ -112,13 +109,21 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         final Collection<JbiProviderDomain> jpds = JbiGatewayJBIHelper
                 .getProviderDomains(suDH.getDescriptor().getServices());
 
+        final Collection<JbiTransportListener> tls = JbiGatewayJBIHelper
+                .getTransportListeners(suDH.getDescriptor().getServices());
+        if (JbiGatewayJBIHelper.isRestrictedToComponentListeners(
+                getComponent().getJbiComponentDescriptor().getComponent()) && !tls.isEmpty()) {
+            throw new PEtALSCDKException("Defining transporter listener in the SU is forbidden by the component");
+        }
 
         final List<Provides> registered = new ArrayList<>();
         try {
-            // TODO add the SU transporter-listener
+            for (final JbiTransportListener jtl : tls) {
+                getComponent().addSUTransporterListener(suDH.getName(), jtl);
+            }
 
             for (final JbiConsumerDomain jcd : jcds) {
-                final TransportListener tl = getComponent().getTransportListener(jcd.getTransport());
+                final TransportListener tl = getComponent().getTransportListener(suDH.getName(), jcd.getTransport());
                 if (tl == null) {
                     throw new PEtALSCDKException(
                             String.format("Missing transporter '%s' needed by consumer domain '%s' in SU '%s'",
@@ -162,6 +167,10 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                 jbiProviderDomains.remove(jpd.getId());
                 providerDomains.remove(jpd.getId());
                 getComponent().deleteConnection(createConnectionName(suDH, jpd));
+            }
+
+            for (final JbiTransportListener jtl : tls) {
+                getComponent().removeSUTransporterListener(suDH.getName(), jtl);
             }
 
             throw e;
@@ -268,6 +277,8 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
     /**
      * TODO this name is not necessarily unique...
+     * 
+     * TODO move that computation in the component
      */
     private String createConnectionName(final ServiceUnitDataHandler suDH, final JbiProviderDomain jpd) {
         return suDH.getName() + "/" + jpd.getId();

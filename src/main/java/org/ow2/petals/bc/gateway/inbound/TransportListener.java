@@ -43,6 +43,8 @@ import io.netty.handler.codec.serialization.ObjectEncoder;
  */
 public class TransportListener {
 
+    private final @Nullable String ownerSU;
+
     private final ServerBootstrap bootstrap;
 
     /**
@@ -53,8 +55,8 @@ public class TransportListener {
     @Nullable
     private Channel channel;
 
-    public TransportListener(final JbiGatewayComponent component, final JbiTransportListener jtl,
-            final ServerBootstrap partialBootstrap) {
+    public TransportListener(final JbiGatewayComponent component, final @Nullable String ownerSU,
+            final JbiTransportListener jtl, final ServerBootstrap partialBootstrap) {
         final ServerBootstrap bootstrap = partialBootstrap.childHandler(new ChannelInitializer<Channel>() {
             @Override
             protected void initChannel(final @Nullable Channel ch) throws Exception {
@@ -70,6 +72,11 @@ public class TransportListener {
         assert bootstrap != null;
         this.bootstrap = bootstrap;
         this.dispatcher = new TransportDispatcher(component, jtl);
+        this.ownerSU = ownerSU;
+    }
+
+    public @Nullable String getOwnerSU() {
+        return this.ownerSU;
     }
 
     public void bind() throws InterruptedException {
