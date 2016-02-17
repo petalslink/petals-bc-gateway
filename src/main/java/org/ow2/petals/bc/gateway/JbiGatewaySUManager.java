@@ -260,16 +260,13 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
             }
             throw ex;
         }
-
     }
 
     /**
-     * TODO this name is not necessarily unique...
-     * 
      * TODO move that computation in the component
      */
     private String createConnectionName(final ServiceUnitDataHandler suDH, final JbiProviderDomain jpd) {
-        return suDH.getName() + "/" + jpd.getId();
+        return suDH.getName() + ":" + jpd.getId();
     }
 
     @Override
@@ -308,6 +305,9 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
         return cds;
     }
 
+    /**
+     * TODO move that to component
+     */
     @Override
     public @Nullable ConsumerDomain authenticate(final String authName) {
         return consumerDomains.get(authName);

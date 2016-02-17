@@ -225,7 +225,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
     }
 
     private String getTransportListenerName(final @Nullable String ownerSU, final String transportId) {
-        return (ownerSU == null ? "c-" : (ownerSU + "-")) + transportId;
+        return (ownerSU == null ? "c:" : (ownerSU + ":")) + transportId;
     }
 
     @Override
