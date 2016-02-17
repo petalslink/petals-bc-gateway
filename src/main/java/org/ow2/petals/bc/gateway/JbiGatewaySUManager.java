@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.logging.Level;
 
 import org.eclipse.jdt.annotation.Nullable;
@@ -31,8 +32,8 @@ import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.inbound.TransportListener;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
-import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.component.framework.AbstractComponent;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
@@ -73,22 +74,12 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
      * 
      * The accesses are not very frequent, so no need to introduce a specific performance oriented locking. We just rely
      * on simple synchronization.
+     * 
+     * TODO replace this by constructing it at deploy
      */
     @SuppressWarnings("null")
     private final Map<String, ConsumerDomain> consumerDomains = Collections
             .synchronizedMap(new HashMap<String, ConsumerDomain>());
-
-    /**
-     * The key is the provider domain id!
-     * 
-     * The accesses are not very frequent, so no need to introduce a specific performance oriented locking. We just rely
-     * on simple synchronization.
-     * 
-     * TODO we also need a map between created endpoints and ProviderDomain!
-     */
-    @SuppressWarnings("null")
-    private final Map<String, ProviderDomain> providerDomains = Collections
-            .synchronizedMap(new HashMap<String, ProviderDomain>());
 
     public JbiGatewaySUManager(final JbiGatewayComponent component) {
         super(component);
@@ -113,7 +104,44 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
             throw new PEtALSCDKException("Defining transporter listeners in the SU is forbidden by the component");
         }
 
-        final List<Provides> registered = new ArrayList<>();
+        final Map<String, List<Entry<Provides, JbiProvidesConfig>>> pd2provides = new HashMap<>();
+        for (final Provides provides : suDH.getDescriptor().getServices().getProvides()) {
+            assert provides != null;
+            final JbiProvidesConfig config = JbiGatewayJBIHelper.getProviderConfig(provides);
+            List<Entry<Provides, JbiProvidesConfig>> list = pd2provides.get(config.getDomain());
+            if (list == null) {
+                boolean found = false;
+                for (final JbiProviderDomain jpd : jpds) {
+                    if (jpd.getId().equals(config.getDomain())) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    throw new PEtALSCDKException(
+                            String.format("No provider domain was defined in the SU for '%s'", config.getDomain()));
+                }
+                list = new ArrayList<>();
+                pd2provides.put(config.getDomain(), list);
+            }
+            list.add(new Entry<Provides, JbiProvidesConfig>() {
+                @Override
+                public JbiProvidesConfig getValue() {
+                    return config;
+                }
+
+                @Override
+                public Provides getKey() {
+                    return provides;
+                }
+
+                @Override
+                public JbiProvidesConfig setValue(final @Nullable JbiProvidesConfig value) {
+                    throw new UnsupportedOperationException();
+                }
+            });
+        }
+
         try {
             for (final JbiTransportListener jtl : tls) {
                 getComponent().addSUTransporterListener(suDH.getName(), jtl);
@@ -133,16 +161,11 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
 
             for (final JbiProviderDomain jpd : jpds) {
                 this.jbiProviderDomains.put(jpd.getId(), jpd);
-                // TODO create that only after we parsed the Provides and we have the list of concerned provides to pass
-                // it to its constructor! (and also so that we did all the desired checks)
-                final ProviderDomain pd = getComponent().createConnection(createConnectionName(suDH, jpd), jpd);
-                providerDomains.put(jpd.getId(), pd);
-            }
-
-            for (final Provides provides : suDH.getDescriptor().getServices().getProvides()) {
-                assert provides != null;
-                getProviderDomain(provides).registerProvides(provides);
-                registered.add(provides);
+                List<Entry<Provides, JbiProvidesConfig>> list = pd2provides.get(jpd.getId());
+                if (list == null) {
+                    list = Collections.emptyList();
+                }
+                getComponent().registerProviderDomain(suDH.getName(), jpd, list);
             }
         } catch (final Exception e) {
             this.logger.log(Level.SEVERE, "Error during SU deploy, undoing everything");
@@ -154,9 +177,8 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
 
             for (final JbiProviderDomain jpd : jpds) {
                 jbiProviderDomains.remove(jpd.getId());
-                providerDomains.remove(jpd.getId());
                 try {
-                    getComponent().deleteConnection(createConnectionName(suDH, jpd));
+                    getComponent().deregisterProviderDomain(suDH.getName(), jpd);
                 } catch (final Exception e1) {
                     this.logger.log(Level.WARNING, "Error while removing provider domain", e1);
                 }
@@ -244,10 +266,8 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
 
         for (final JbiProviderDomain jpd : jbiProviderDomains.values()) {
             jbiProviderDomains.remove(jpd.getId());
-            providerDomains.remove(jpd.getId());
             try {
-                // TODO prefer to have a private collection for the connections?
-                getComponent().deleteConnection(createConnectionName(suDH, jpd));
+                getComponent().deregisterProviderDomain(suDH.getName(), jpd);
             } catch (final Exception e) {
                 exceptions.add(e);
             }
@@ -262,31 +282,11 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
         }
     }
 
-    /**
-     * TODO move that computation in the component
-     */
-    private String createConnectionName(final ServiceUnitDataHandler suDH, final JbiProviderDomain jpd) {
-        return suDH.getName() + ":" + jpd.getId();
-    }
-
     @Override
     public JbiGatewayComponent getComponent() {
         final AbstractComponent component = super.getComponent();
         assert component != null;
         return (JbiGatewayComponent) component;
-    }
-
-    private ProviderDomain getProviderDomain(final Provides provides) throws PEtALSCDKException {
-        final String providerDomainId = JbiGatewayJBIHelper.getProviderDomain(provides);
-        final JbiProviderDomain jpd = jbiProviderDomains.get(providerDomainId);
-        if (jpd == null) {
-            throw new PEtALSCDKException(
-                    String.format("No provider domain was defined in the SU for '%s'", providerDomainId));
-        }
-        final ProviderDomain pd = providerDomains.get(providerDomainId);
-        // it can't be null, the SUManager should have created it!
-        assert pd != null;
-        return pd;
     }
 
     private Collection<ConsumerDomain> getConsumerDomains(final Consumes consumes) throws PEtALSCDKException {

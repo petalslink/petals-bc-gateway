@@ -38,7 +38,6 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.ObjectFactory;
-import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Component;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
@@ -213,12 +212,5 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
             res.add(domain);
         }
         return res;
-    }
-
-    public static ServiceKey getDeclaredServiceKey(final Provides provides) throws PEtALSCDKException {
-        final JbiProvidesConfig config = getProviderConfig(provides);
-
-        return new ServiceKey(config.getProviderEndpointName(), config.getProviderServiceName(),
-                config.getProviderInterfaceName());
     }
 }

@@ -19,6 +19,7 @@ package org.ow2.petals.bc.gateway;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
@@ -29,12 +30,14 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.inbound.TransportListener;
 import org.ow2.petals.bc.gateway.inbound.TransportServer;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.bc.gateway.outbound.TransportConnection;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.bc.AbstractBindingComponent;
+import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.su.AbstractServiceUnitManager;
 import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
 
@@ -123,15 +126,16 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
         }
     }
 
-    public ProviderDomain createConnection(final String name, final JbiProviderDomain jpd) {
+    public void registerProviderDomain(final String ownerSU, final JbiProviderDomain jpd,
+            final List<Entry<Provides, JbiProvidesConfig>> provides) {
         // TODO should provider domain share their connections if they point to the same ip/port?
-        final ProviderDomain pd = new ProviderDomain(this, jpd);
-        clients.put(name, new TransportConnection(getSender(), pd, newClientBootstrap()));
-        return pd;
+        final ProviderDomain pd = new ProviderDomain(this, jpd, provides);
+        clients.put(getConnectionName(ownerSU, jpd.getId()),
+                new TransportConnection(getSender(), pd, newClientBootstrap()));
     }
 
-    public void deleteConnection(final String name) {
-        final TransportConnection conn = clients.remove(name);
+    public void deregisterProviderDomain(final String ownerSU, final JbiProviderDomain jpd) {
+        final TransportConnection conn = clients.remove(getConnectionName(ownerSU, jpd.getId()));
         if (conn != null) {
             conn.disconnect();
         }
@@ -224,6 +228,10 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
         return tl;
     }
 
+    private String getConnectionName(final String ownerSU, final String providerDomainId) {
+        return ownerSU + ":" + providerDomainId;
+    }
+
     private String getTransportListenerName(final @Nullable String ownerSU, final String transportId) {
         return (ownerSU == null ? "c:" : (ownerSU + ":")) + transportId;
     }
@@ -273,7 +281,12 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
     }
 
     public @Nullable ProviderDomain getProviderDomain(final ServiceProviderEndpointKey key) {
-        // TODO
+        for (final TransportConnection tc : clients.values()) {
+            // TODO that's not very efficient... improve that later!
+            if (tc.getProviderDomain().handle(key)) {
+                return tc.getProviderDomain();
+            }
+        }
         return null;
     }
 

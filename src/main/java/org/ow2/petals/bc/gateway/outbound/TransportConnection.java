@@ -39,7 +39,10 @@ public class TransportConnection {
     @Nullable
     private Channel channel;
 
+    private final ProviderDomain pd;
+
     public TransportConnection(final JBISender sender, final ProviderDomain pd, final Bootstrap partialBootstrap) {
+        this.pd = pd;
         final Bootstrap bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
             @Override
             protected void initChannel(final @Nullable Channel ch) throws Exception {
@@ -53,6 +56,10 @@ public class TransportConnection {
         }).remoteAddress(pd.jpd.getIp(), pd.jpd.getPort());
         assert bootstrap != null;
         this.bootstrap = bootstrap;
+    }
+
+    public ProviderDomain getProviderDomain() {
+        return pd;
     }
 
     public void connect() throws InterruptedException {

@@ -17,7 +17,9 @@
  */
 package org.ow2.petals.bc.gateway.outbound;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.jbi.JBIException;
@@ -26,10 +28,9 @@ import javax.jbi.servicedesc.ServiceEndpoint;
 
 import org.ow2.petals.bc.gateway.JbiGatewayComponent;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
-import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
-import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
@@ -37,10 +38,6 @@ import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
 /**
  * There is one instance of this class per opened connection to a consumer partner.
  *
- * TODO there is a small inconsistency in this architecture because it assumes that provides can be registered AFTER we
- * get new provider services, but it is not true since a {@link ProviderDomain} is associated to only one SU. We should
- * get them through the constructor instead thus!
- * 
  */
 public class ProviderDomain {
 
@@ -50,36 +47,47 @@ public class ProviderDomain {
 
     private final Map<ServiceProviderEndpointKey, ServiceKey> mapping = new ConcurrentHashMap<>();
 
-    public ProviderDomain(final JbiGatewayComponent component, final JbiProviderDomain jpd) {
+    private final Map<ServiceProviderEndpointKey, ServiceEndpoint> mapping2 = new ConcurrentHashMap<>();
+
+    public ProviderDomain(final JbiGatewayComponent component, final JbiProviderDomain jpd,
+            final List<Entry<Provides, JbiProvidesConfig>> provides) {
         this.component = component;
         this.jpd = jpd;
+        for (final Entry<Provides, JbiProvidesConfig> e : provides) {
+            mapping.put(new ServiceProviderEndpointKey(e.getKey()), new ServiceKey(e.getValue()));
+        }
     }
 
-    public void registerProvides(final Provides provides) throws PEtALSCDKException {
-        final ServiceProviderEndpointKey key = new ServiceProviderEndpointKey(provides);
-        // TODO convert string to qname??!
-        final ServiceKey service = JbiGatewayJBIHelper.getDeclaredServiceKey(provides);
-        mapping.put(key, service);
-    }
-
-    public void deregisterProvides(final Provides provides) {
-        final ServiceProviderEndpointKey key = new ServiceProviderEndpointKey(provides);
-        mapping.remove(key);
-    }
-
+    /**
+     * This corresponds to consumes being declared in the provider domain that we mirror on this side
+     */
     public void addedProviderService(final ServiceKey service) {
         try {
             // TODO we absolutely need to provide the wsdl too so that the context can get it!
             final ServiceEndpoint endpoint = component.getContext().activateEndpoint(service.service,
                     service.endpointName);
-            mapping.put(new ServiceProviderEndpointKey(endpoint), service);
+            final ServiceProviderEndpointKey key = new ServiceProviderEndpointKey(endpoint);
+            mapping.put(key, service);
+            mapping2.put(key, endpoint);
         } catch (final JBIException e) {
             // TODO send exception over the channel
         }
     }
 
     public void removedProviderService(final ServiceKey service) {
-        // TODO remove an endpoint
+        try {
+            final ServiceProviderEndpointKey key = new ServiceProviderEndpointKey(service.service,
+                    service.endpointName);
+            mapping.remove(key);
+            final ServiceEndpoint endpoint = mapping2.remove(key);
+            component.getContext().deactivateEndpoint(endpoint);
+        } catch (final JBIException e) {
+            // TODO log exception
+        }
+    }
+
+    public boolean handle(final ServiceProviderEndpointKey key) {
+        return mapping.containsKey(key);
     }
 
     public void send(final ServiceProviderEndpointKey key, final Exchange exchange) {

@@ -22,6 +22,7 @@ import java.io.Serializable;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 
 /**
@@ -48,6 +49,10 @@ public class ServiceKey implements Serializable {
         this.endpointName = endpointName;
         this.service = service;
         this.interfaceName = interfaceName;
+    }
+
+    public ServiceKey(final JbiProvidesConfig config) {
+        this(config.getProviderEndpointName(), config.getProviderServiceName(), config.getProviderInterfaceName());
     }
 
     public ServiceKey(final Consumes consumes) {
