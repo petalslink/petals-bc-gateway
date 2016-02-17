@@ -60,13 +60,6 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
     private final Map<String, JbiConsumerDomain> jbiConsumerDomains = new HashMap<>();
 
     /**
-     * These are the provider domains declared in the SU jbi.xml.
-     * 
-     * They are indexed by their id!
-     */
-    private final Map<String, JbiProviderDomain> jbiProviderDomains = new HashMap<>();
-
-    /**
      * These are the actual consumer partner actually connected to us, potentially through multiple {@link Channel}
      * and/or {@link TransportListener}.
      * 
@@ -131,9 +124,9 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
             for (final Entry<JbiProviderDomain, List<Entry<Provides, JbiProvidesConfig>>> entry : pd2provides
                     .entrySet()) {
                 final JbiProviderDomain jpd = entry.getKey();
+                assert jpd != null;
                 final List<Entry<Provides, JbiProvidesConfig>> list = entry.getValue();
                 assert list != null;
-                this.jbiProviderDomains.put(ownerSU + ":" + jpd.getId(), jpd);
                 getComponent().registerProviderDomain(ownerSU, jpd, list);
             }
         } catch (final Exception e) {
@@ -145,7 +138,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
             }
 
             for (final JbiProviderDomain jpd : pd2provides.keySet()) {
-                jbiProviderDomains.remove(ownerSU + ":" + jpd.getId());
+                assert jpd != null;
                 try {
                     getComponent().deregisterProviderDomain(ownerSU, jpd);
                 } catch (final Exception e1) {
@@ -292,7 +285,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
         }
 
         for (final JbiProviderDomain jpd : jpds) {
-            jbiProviderDomains.remove(ownerSU + ":" + jpd.getId());
+            assert jpd != null;
             try {
                 getComponent().deregisterProviderDomain(ownerSU, jpd);
             } catch (final Exception e) {
