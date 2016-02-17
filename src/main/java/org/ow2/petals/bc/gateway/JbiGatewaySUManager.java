@@ -33,7 +33,6 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.component.framework.AbstractComponent;
-import org.ow2.petals.component.framework.api.configuration.SuConfigurationParameters;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
@@ -45,8 +44,6 @@ import io.netty.channel.Channel;
 /**
  * There is one instance of this class for the whole component.
  * 
- * TODO check that it is actually ok w.r.t. SU lifecycle (for Consumes in particular...)
- * 
  * @author vnoel
  *
  */
@@ -57,7 +54,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
      * 
      * They are indexed by their id!
      * 
-     * TODO this is only useful for {@link #getConsumerDomain(Consumes, SuConfigurationParameters)} to work...
+     * TODO this is only useful for {@link #getConsumerDomain(Consumes)} to work...
      */
     private final Map<String, JbiConsumerDomain> jbiConsumerDomains = new HashMap<>();
 
@@ -66,7 +63,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
      * 
      * They are indexed by their id!
      * 
-     * TODO this is only useful for {@link #getProviderDomain(Provides, SuConfigurationParameters)} to work...
+     * TODO this is only useful for {@link #getProviderDomain(Provides)} to work...
      */
     private final Map<String, JbiProviderDomain> jbiProviderDomains = new HashMap<>();
 
@@ -103,13 +100,20 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         super(component);
     }
 
+    /**
+     * The {@link Provides} must be working after deploy!
+     */
     @Override
     protected void doDeploy(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
         assert suDH != null;
+
         final Collection<JbiConsumerDomain> jcds = JbiGatewayJBIHelper
                 .getConsumerDomains(suDH.getDescriptor().getServices());
         final Collection<JbiProviderDomain> jpds = JbiGatewayJBIHelper
                 .getProviderDomains(suDH.getDescriptor().getServices());
+
+
+        final List<Provides> registered = new ArrayList<>();
         try {
             // TODO add the SU transporter-listener
 
@@ -131,8 +135,15 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                 final ProviderDomain pd = getComponent().createConnection(createConnectionName(suDH, jpd), jpd);
                 providerDomains.put(jpd.getId(), pd);
             }
+
+            for (final Provides provides : suDH.getDescriptor().getServices().getProvides()) {
+                assert provides != null;
+                getProviderDomain(provides).registerProvides(provides);
+                registered.add(provides);
+            }
         } catch (final Exception e) {
-            this.logger.log(Level.SEVERE, "Error during SU initialisation, undoing everything");
+            this.logger.log(Level.SEVERE, "Error during SU deploy, undoing everything");
+
             for (final JbiConsumerDomain jcd : jcds) {
                 jbiConsumerDomains.remove(jcd.getId());
                 consumerDomains.remove(jcd.getAuthName());
@@ -142,8 +153,26 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                 jbiConsumerDomains.remove(jpd.getId());
                 getComponent().deleteConnection(createConnectionName(suDH, jpd));
             }
+
+            for (final Provides provides : registered) {
+                assert provides != null;
+                try {
+                    getProviderDomain(provides).deregisterProvides(provides);
+                } catch (final Exception e1) {
+                    this.logger.log(Level.WARNING, "Error while deregistering provides", e1);
+                }
+            }
+
             throw e;
         }
+    }
+
+    /**
+     * The {@link Consumes} are only registered on start, not before
+     */
+    @Override
+    protected void doStart(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
+        assert suDH != null;
 
         final List<Consumes> registered = new ArrayList<>();
         try {
@@ -155,7 +184,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                 registered.add(consumes);
             }
         } catch (final Exception e) {
-            this.logger.warning("Error while registering consumes to the consumer domains, undoing everything");
+            this.logger.warning("Error during SU start, undoing everything");
             for (final Consumes consumes : registered) {
                 try {
                     assert consumes != null;
@@ -168,28 +197,10 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
             }
             throw e;
         }
-
-        try {
-            for (final Provides provides : suDH.getDescriptor().getServices().getProvides()) {
-                assert provides != null;
-                getProviderDomain(provides).registerProvides(provides);
-            }
-        } catch (final Exception e) {
-            this.logger.warning("Error while registering provides to the provider domains, undoing everything");
-        }
-
-
-    }
-
-    /**
-     * TODO this name is not necessarily unique...
-     */
-    private String createConnectionName(final ServiceUnitDataHandler suDH, final JbiProviderDomain jpd) {
-        return suDH.getName() + "/" + jpd.getId();
     }
 
     @Override
-    protected void doUndeploy(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
+    protected void doStop(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
         assert suDH != null;
 
         final List<Throwable> exceptions = new ArrayList<>();
@@ -204,6 +215,20 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
             }
         }
 
+        if (!exceptions.isEmpty()) {
+            final PEtALSCDKException ex = new PEtALSCDKException("Errors during SU stop");
+            for (final Throwable e : exceptions) {
+                ex.addSuppressed(e);
+            }
+            throw ex;
+        }
+    }
+
+    @Override
+    protected void doUndeploy(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
+        assert suDH != null;
+
+        final List<Throwable> exceptions = new ArrayList<>();
         for (final Provides provides : suDH.getDescriptor().getServices().getProvides()) {
             assert provides != null;
             try {
@@ -231,13 +256,20 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         }
 
         if (!exceptions.isEmpty()) {
-            final PEtALSCDKException ex = new PEtALSCDKException("Errors while deregistering consumes");
+            final PEtALSCDKException ex = new PEtALSCDKException("Errors during SU undeploy");
             for (final Throwable e : exceptions) {
                 ex.addSuppressed(e);
             }
             throw ex;
         }
 
+    }
+
+    /**
+     * TODO this name is not necessarily unique...
+     */
+    private String createConnectionName(final ServiceUnitDataHandler suDH, final JbiProviderDomain jpd) {
+        return suDH.getName() + "/" + jpd.getId();
     }
 
     @Override
