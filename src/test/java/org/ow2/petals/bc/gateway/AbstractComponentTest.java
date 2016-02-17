@@ -154,7 +154,7 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
                 assert jbiDocument != null;
                 assert service != null;
 
-                final Element mapping = addElement(jbiDocument, service, EL_CONSUMES_CONSUMER);
+                final Element mapping = addElement(jbiDocument, service, EL_CONSUMER);
                 mapping.setAttribute(ATTR_CONSUMES_CONSUMER_DOMAIN, TEST_CONSUMER_DOMAIN);
             }
 
@@ -164,7 +164,7 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
 
                 final Element services = getOrCreateServicesElement(jbiDocument);
 
-                final Element cDomain = addOrReplaceElement(jbiDocument, services, EL_SERVICES_CONSUMER_DOMAIN);
+                final Element cDomain = addOrReplaceElement(jbiDocument, services, EL_CONSUMER_DOMAIN);
                 cDomain.setAttribute(ATTR_SERVICES_CONSUMER_DOMAIN_ID, TEST_CONSUMER_DOMAIN);
                 cDomain.setAttribute(ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT, TEST_TRANSPORT_NAME);
                 

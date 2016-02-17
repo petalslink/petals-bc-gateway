@@ -24,13 +24,9 @@ import org.ow2.petals.component.framework.junit.JbiConstants;
 
 public interface JbiGatewayTestConstants extends JbiGatewayConstants, JbiConstants {
 
-    public static final QName EL_TRANSPORT_LISTENER = new QName(JG_NS_URI, "transport-listener");
-
     public static final String ATTR_TRANSPORT_LISTENER_ID = "id";
 
     public static final QName EL_TRANSPORT_LISTENER_PORT = new QName(JG_NS_URI, "port");
-
-    public static final QName EL_SERVICES_PROVIDER_DOMAIN = new QName(JG_NS_URI, "provider-domain");
 
     public static final String ATTR_SERVICES_PROVIDER_DOMAIN_ID = "id";
 
@@ -40,15 +36,11 @@ public interface JbiGatewayTestConstants extends JbiGatewayConstants, JbiConstan
 
     public static final QName EL_SERVICES_PROVIDER_DOMAIN_AUTH_NAME = new QName(JG_NS_URI, "auth-name");
 
-    public static final QName EL_SERVICES_CONSUMER_DOMAIN = new QName(JG_NS_URI, "consumer-domain");
-
     public static final String ATTR_SERVICES_CONSUMER_DOMAIN_ID = "id";
 
     public static final String ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT = "transport";
 
     public static final QName EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME = new QName(JG_NS_URI, "auth-name");
-
-    public static final String EL_PROVIDES_PROVIDER = "provider";
 
     public static final String ATTR_PROVIDES_PROVIDER_DOMAIN = "domain";
 
@@ -57,8 +49,6 @@ public interface JbiGatewayTestConstants extends JbiGatewayConstants, JbiConstan
     public static final QName EL_PROVIDES_SERVICE_NAME = new QName(JG_NS_URI, "provider-service-name");
 
     public static final QName EL_PROVIDES_ENDPOINT_NAME = new QName(JG_NS_URI, "provider-endpoint-name");
-
-    public static final QName EL_CONSUMES_CONSUMER = new QName(JG_NS_URI, "consumer");
 
     public static final String ATTR_CONSUMES_CONSUMER_DOMAIN = "domain";
 

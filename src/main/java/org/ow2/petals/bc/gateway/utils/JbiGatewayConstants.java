@@ -19,10 +19,32 @@ package org.ow2.petals.bc.gateway.utils;
 
 import javax.xml.namespace.QName;
 
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.ObjectFactory;
+
 public interface JbiGatewayConstants {
 
-    public static final String JG_NS_URI = "http://petals.ow2.org/components/petals-bc-jbi-gateway/version-1.0";
+    public static final ObjectFactory FACTORY = new ObjectFactory();
 
-    public static final QName EL_RESTRICT_TO_COMPONENT_LISTENERS = new QName(JG_NS_URI, "restrict-to-component-listeners");
+    @SuppressWarnings("null")
+    public static final QName EL_RESTRICT_TO_COMPONENT_LISTENERS = FACTORY.createRestrictToComponentListeners(null)
+            .getName();
+
+    @SuppressWarnings("null")
+    public static final String JG_NS_URI = EL_RESTRICT_TO_COMPONENT_LISTENERS.getNamespaceURI();
+
+    @SuppressWarnings("null")
+    public static final QName EL_TRANSPORT_LISTENER = FACTORY.createTransportListener(null).getName();
+
+    @SuppressWarnings("null")
+    public static final QName EL_CONSUMER_DOMAIN = FACTORY.createConsumerDomain(null).getName();
+
+    @SuppressWarnings("null")
+    public static final QName EL_PROVIDER_DOMAIN = FACTORY.createProviderDomain(null).getName();
+
+    @SuppressWarnings("null")
+    public static final QName EL_PROVIDER = FACTORY.createProvider(null).getName();
+
+    @SuppressWarnings("null")
+    public static final QName EL_CONSUMER = FACTORY.createConsumer(null).getName();
 
 }
