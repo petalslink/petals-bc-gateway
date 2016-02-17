@@ -144,16 +144,6 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         } catch (final Exception e) {
             this.logger.log(Level.SEVERE, "Error during SU deploy, undoing everything");
 
-            for (final JbiConsumerDomain jcd : jcds) {
-                jbiConsumerDomains.remove(jcd.getId());
-                consumerDomains.remove(jcd.getAuthName());
-            }
-            for (final JbiProviderDomain jpd : jpds) {
-                assert jpd != null;
-                jbiConsumerDomains.remove(jpd.getId());
-                getComponent().deleteConnection(createConnectionName(suDH, jpd));
-            }
-
             for (final Provides provides : registered) {
                 assert provides != null;
                 try {
@@ -161,6 +151,17 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                 } catch (final Exception e1) {
                     this.logger.log(Level.WARNING, "Error while deregistering provides", e1);
                 }
+            }
+
+            for (final JbiConsumerDomain jcd : jcds) {
+                jbiConsumerDomains.remove(jcd.getId());
+                consumerDomains.remove(jcd.getAuthName());
+            }
+
+            for (final JbiProviderDomain jpd : jpds) {
+                jbiProviderDomains.remove(jpd.getId());
+                providerDomains.remove(jpd.getId());
+                getComponent().deleteConnection(createConnectionName(suDH, jpd));
             }
 
             throw e;
