@@ -179,25 +179,38 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
     @Override
     protected void doStart() throws JBIException {
         try {
-            for (final TransportListener tl : this.listeners.values()) {
+            for (final TransportListener tl : listeners.values()) {
                 // Bind and start to accept incoming connections.
                 tl.bind();
             }
+
+            for (final TransportConnection tc : clients.values()) {
+                tc.connect();
+            }
         } catch (final Exception e) {
             // normally this shouldn't really happen, but well...
-            getLogger().log(Level.SEVERE, "Error during component start, stopping listeners");
-            for (final TransportListener tl : this.listeners.values()) {
+            getLogger().log(Level.SEVERE, "Error during component start, stopping listeners and clients");
+
+            for (final TransportConnection tc : clients.values()) {
+                try {
+                    tc.disconnect();
+                } catch (final Exception e1) {
+                    // normally this shouldn't really happen, but well...
+                    getLogger().log(Level.WARNING, "Error while stopping client", e1);
+                }
+            }
+
+            for (final TransportListener tl : listeners.values()) {
                 try {
                     tl.unbind();
                 } catch (final Exception e1) {
                     // normally this shouldn't really happen, but well...
-                    getLogger().log(Level.WARNING, "Error while stopping listeners", e1);
+                    getLogger().log(Level.WARNING, "Error while stopping listener", e1);
                 }
             }
+
             throw new JBIException("Error during component start", e);
         }
-
-        // TODO resume/start connections to provider domains
 
         this.started = true;
     }
@@ -242,6 +255,16 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
         this.started = false;
 
         final List<Throwable> exceptions = new LinkedList<>();
+
+        for (final TransportConnection tc : clients.values()) {
+            try {
+                tc.disconnect();
+            } catch (final Exception e1) {
+                // normally this shouldn't really happen, but well...
+                exceptions.add(e1);
+            }
+        }
+
         for (final TransportListener tl : this.listeners.values()) {
             try {
                 tl.unbind();
@@ -250,8 +273,6 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
                 exceptions.add(e1);
             }
         }
-
-        // TODO pause/stop connections to provider domains
 
         if (!exceptions.isEmpty()) {
             final JBIException ex = new JBIException("Errors while stopping listeners");

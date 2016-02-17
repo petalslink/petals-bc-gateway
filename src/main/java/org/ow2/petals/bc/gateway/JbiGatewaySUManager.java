@@ -75,7 +75,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
      * The accesses are not very frequent, so no need to introduce a specific performance oriented locking. We just rely
      * on simple synchronization.
      * 
-     * TODO replace this by constructing it at deploy
+     * TODO replace this by constructing it at deploy and moving it to component
      */
     @SuppressWarnings("null")
     private final Map<String, ConsumerDomain> consumerDomains = Collections
@@ -121,8 +121,10 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
                             String.format("Missing transporter '%s' needed by consumer domain '%s' in SU '%s'",
                                     jcd.getTransport(), jcd.getId(), ownerSU));
                 }
+                // TODO move this in the component
                 jbiConsumerDomains.put(ownerSU + ":" + jcd.getId(), jcd);
                 final ConsumerDomain cd = new ConsumerDomain(getComponent().getSender(), jcd);
+                // TODO this could be moved at the transporter level (or ConsumerAuthenticator)
                 consumerDomains.put(jcd.getAuthName(), cd);
             }
 
