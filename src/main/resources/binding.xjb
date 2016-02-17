@@ -16,11 +16,10 @@
  along with this program/library; If not, see <http://www.gnu.org/licenses/>
  for the GNU Lesser General Public License version 2.1.
 -->
-<jaxb:bindings version="2.0"
-	xmlns:jaxb="http://java.sun.com/xml/ns/jaxb" xmlns:xs="http://www.w3.org/2001/XMLSchema">
-	<jaxb:bindings schemaLocation="JBIGatewayExtensions.xsd" node="/xs:schema">
-		<jaxb:schemaBindings>
-			<jaxb:package name="org.ow2.petals.bc.gateway.jbidescriptor.generated" />
-		</jaxb:schemaBindings>
-	</jaxb:bindings>
+<jaxb:bindings version="2.0" xmlns:jaxb="http://java.sun.com/xml/ns/jaxb" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+   <jaxb:bindings schemaLocation="JBIGatewayExtensions.xsd" node="/xs:schema">
+      <jaxb:schemaBindings>
+         <jaxb:package name="org.ow2.petals.bc.gateway.jbidescriptor.generated" />
+      </jaxb:schemaBindings>
+   </jaxb:bindings>
 </jaxb:bindings>
