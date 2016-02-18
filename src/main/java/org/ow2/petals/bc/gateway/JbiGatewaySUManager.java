@@ -59,11 +59,10 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         final Services services = suDH.getDescriptor().getServices();
 
-        final Collection<JbiConsumerDomain> jcds = JbiGatewayJBIHelper.getConsumerDomains(services);
-        final Collection<JbiTransportListener> tls = JbiGatewayJBIHelper.getTransportListeners(services);
+        final Collection<JbiTransportListener> jtls = JbiGatewayJBIHelper.getTransportListeners(services);
 
         if (JbiGatewayJBIHelper.isRestrictedToComponentListeners(
-                getComponent().getJbiComponentDescriptor().getComponent()) && !tls.isEmpty()) {
+                getComponent().getJbiComponentDescriptor().getComponent()) && !jtls.isEmpty()) {
             throw new PEtALSCDKException("Defining transporter listeners in the SU is forbidden by the component");
         }
 
@@ -76,9 +75,9 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         assert ownerSU != null;
 
         try {
-            for (final JbiTransportListener jtl : tls) {
+            for (final JbiTransportListener jtl : jtls) {
                 assert jtl != null;
-                getComponent().addSUTransporterListener(ownerSU, jtl);
+                getComponent().registerTransportListener(ownerSU, jtl);
             }
 
             for (final Entry<JbiConsumerDomain, Collection<Consumes>> entry : cd2consumes.entrySet()) {
@@ -101,7 +100,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                 }
             }
 
-            for (final JbiConsumerDomain jcd : jcds) {
+            for (final JbiConsumerDomain jcd : cd2consumes.keySet()) {
                 assert jcd != null;
                 try {
                     getComponent().deregisterConsumerDomain(ownerSU, jcd);
@@ -110,10 +109,10 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                 }
             }
 
-            for (final JbiTransportListener jtl : tls) {
+            for (final JbiTransportListener jtl : jtls) {
                 assert jtl != null;
                 try {
-                    getComponent().removeSUTransporterListener(ownerSU, jtl);
+                    getComponent().deregisterTransportListener(ownerSU, jtl);
                 } catch (final Exception e1) {
                     this.logger.log(Level.WARNING, "Error while removing SU transporter listener", e1);
                 }
@@ -149,10 +148,19 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         final List<Throwable> exceptions = new ArrayList<>();
 
-        final Collection<JbiConsumerDomain> jcds = JbiGatewayJBIHelper
-                .getConsumerDomains(suDH.getDescriptor().getServices());
-        final Collection<JbiProviderDomain> jpds = JbiGatewayJBIHelper
-                .getProviderDomains(suDH.getDescriptor().getServices());
+        final Services services = suDH.getDescriptor().getServices();
+        final Collection<JbiConsumerDomain> jcds = JbiGatewayJBIHelper.getConsumerDomains(services);
+        final Collection<JbiProviderDomain> jpds = JbiGatewayJBIHelper.getProviderDomains(services);
+        final Collection<JbiTransportListener> jtls = JbiGatewayJBIHelper.getTransportListeners(services);
+
+        for (final JbiProviderDomain jpd : jpds) {
+            assert jpd != null;
+            try {
+                getComponent().deregisterProviderDomain(ownerSU, jpd);
+            } catch (final Exception e) {
+                exceptions.add(e);
+            }
+        }
 
         for (final JbiConsumerDomain jcd : jcds) {
             assert jcd != null;
@@ -163,10 +171,10 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
             }
         }
 
-        for (final JbiProviderDomain jpd : jpds) {
-            assert jpd != null;
+        for (final JbiTransportListener jtl : jtls) {
+            assert jtl != null;
             try {
-                getComponent().deregisterProviderDomain(ownerSU, jpd);
+                getComponent().deregisterTransportListener(ownerSU, jtl);
             } catch (final Exception e) {
                 exceptions.add(e);
             }

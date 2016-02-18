@@ -85,7 +85,8 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     private EventLoopGroup clientsGroup;
 
     /**
-     * Only modification from SUs (see {@link #addSUTransporterListener(String, JbiTransportListener)}) are concurrent
+     * Only modification from SUs (see {@link #registerTransportListener(String, JbiTransportListener)}) are
+     * concurrent
      */
     private final ConcurrentMap<String, TransportListener> listeners = new ConcurrentHashMap<>();
 
@@ -232,7 +233,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         this.started = true;
     }
 
-    public void addSUTransporterListener(final String ownerSU, final JbiTransportListener jtl)
+    public void registerTransportListener(final String ownerSU, final JbiTransportListener jtl)
             throws PEtALSCDKException {
         final TransportListener tl = addTransporterListener(ownerSU, jtl);
         if (started) {
@@ -303,7 +304,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
     }
 
-    public void removeSUTransporterListener(final String ownerSU, final JbiTransportListener jtl) {
+    public void deregisterTransportListener(final String ownerSU, final JbiTransportListener jtl) {
         final TransportListener tl = this.listeners.remove(getTransportListenerName(ownerSU, jtl.getId()));
         if (getLogger().isLoggable(Level.CONFIG)) {
             getLogger().config(String.format(
