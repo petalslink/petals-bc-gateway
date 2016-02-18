@@ -24,6 +24,7 @@ import javax.jbi.messaging.MessageExchange;
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.JbiGatewayJBISender;
+import org.ow2.petals.bc.gateway.inbound.ConsumerAuthenticator;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
@@ -45,24 +46,27 @@ import io.netty.handler.codec.serialization.ObjectEncoder;
  */
 public class ProviderDomain {
 
-    public final JbiProviderDomain jpd;
-
-    @Nullable
-    private Channel channel;
+    private final JbiProviderDomain jpd;
 
     private final ProviderMatcher matcher;
 
     private final Bootstrap bootstrap;
 
+    @Nullable
+    private Channel channel;
+
+    // TODO add a logger
     public ProviderDomain(final ProviderMatcher matcher, final JbiProviderDomain jpd,
             final Collection<JbiProvidesConfig> provides, final JBISender sender, final Bootstrap partialBootstrap)
                     throws PEtALSCDKException {
         this.matcher = matcher;
         this.jpd = jpd;
+
         for (final JbiProvidesConfig jpc : provides) {
             assert jpc != null;
             matcher.register(new ServiceKey(jpc), this, false);
         }
+
         final Bootstrap bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
             @Override
             protected void initChannel(final @Nullable Channel ch) throws Exception {
@@ -131,5 +135,14 @@ public class ProviderDomain {
     public void exceptionReceived(final Exception msg) {
         // TODO just log it: receiving an exception here means that there is nothing to do, it is just
         // information for us.
+    }
+
+    /**
+     * TODO replace that by something complexer, see {@link ConsumerAuthenticator}.
+     */
+    public String getAuthName() {
+        final String authName = jpd.getAuthName();
+        assert authName != null;
+        return authName;
     }
 }

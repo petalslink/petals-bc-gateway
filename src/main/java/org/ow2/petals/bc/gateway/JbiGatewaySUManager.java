@@ -19,17 +19,12 @@ package org.ow2.petals.bc.gateway;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.logging.Level;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.inbound.ConsumerAuthenticator;
-import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
-import org.ow2.petals.bc.gateway.inbound.TransportListener;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
@@ -43,30 +38,13 @@ import org.ow2.petals.component.framework.jbidescriptor.generated.Services;
 import org.ow2.petals.component.framework.su.AbstractServiceUnitManager;
 import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 
-import io.netty.channel.Channel;
-
 /**
  * There is one instance of this class for the whole component.
  * 
  * @author vnoel
  *
  */
-public class JbiGatewaySUManager extends AbstractServiceUnitManager implements ConsumerAuthenticator {
-
-    /**
-     * These are the actual consumer partner actually connected to us, potentially through multiple {@link Channel}
-     * and/or {@link TransportListener}.
-     * 
-     * They are indexed by their auth-name! TODO which must be unique accross SUs !!!!
-     * 
-     * The accesses are not very frequent, so no need to introduce a specific performance oriented locking. We just rely
-     * on simple synchronization.
-     * 
-     * TODO replace this by constructing it at deploy and moving it to component
-     */
-    @SuppressWarnings("null")
-    private final Map<String, ConsumerDomain> consumerDomains = Collections
-            .synchronizedMap(new HashMap<String, ConsumerDomain>());
+public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
     public JbiGatewaySUManager(final JbiGatewayComponent component) {
         super(component);
@@ -104,26 +82,12 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
             }
 
             for (final Entry<JbiConsumerDomain, Collection<Consumes>> entry : cd2consumes.entrySet()) {
-                final JbiConsumerDomain jcd = entry.getKey();
-                // this is there only for the test... TODO why not directly register it now?
-                final TransportListener tl = getComponent().getTransportListener(ownerSU, jcd.getTransport());
-                if (tl == null) {
-                    throw new PEtALSCDKException(
-                            String.format("Missing transporter '%s' needed by consumer domain '%s' in SU '%s'",
-                                    jcd.getTransport(), jcd.getId(), ownerSU));
-                }
-                final ConsumerDomain cd = new ConsumerDomain(jcd, entry.getValue());
-                // TODO this could be moved at the transporter level (or ConsumerAuthenticator)
-                consumerDomains.put(jcd.getAuthName(), cd);
+                getComponent().registerConsumerDomain(ownerSU, entry.getKey(), entry.getValue());
             }
 
             for (final Entry<JbiProviderDomain, Collection<JbiProvidesConfig>> entry : pd2provides
                     .entrySet()) {
-                final JbiProviderDomain jpd = entry.getKey();
-                assert jpd != null;
-                final Collection<JbiProvidesConfig> list = entry.getValue();
-                assert list != null;
-                getComponent().registerProviderDomain(ownerSU, jpd, list);
+                getComponent().registerProviderDomain(ownerSU, entry.getKey(), entry.getValue());
             }
         } catch (final Exception e) {
             this.logger.log(Level.SEVERE, "Error during SU deploy, undoing everything");
@@ -138,7 +102,12 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
             }
 
             for (final JbiConsumerDomain jcd : jcds) {
-                consumerDomains.remove(jcd.getAuthName());
+                assert jcd != null;
+                try {
+                    getComponent().deregisterConsumerDomain(ownerSU, jcd);
+                } catch (final Exception e1) {
+                    this.logger.log(Level.WARNING, "Error while removing consumer domain", e1);
+                }
             }
 
             for (final JbiTransportListener jtl : tls) {
@@ -186,7 +155,12 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
                 .getProviderDomains(suDH.getDescriptor().getServices());
 
         for (final JbiConsumerDomain jcd : jcds) {
-            consumerDomains.remove(jcd.getAuthName());
+            assert jcd != null;
+            try {
+                getComponent().deregisterConsumerDomain(ownerSU, jcd);
+            } catch (final Exception e) {
+                exceptions.add(e);
+            }
         }
 
         for (final JbiProviderDomain jpd : jpds) {
@@ -212,13 +186,5 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
         final AbstractComponent component = super.getComponent();
         assert component != null;
         return (JbiGatewayComponent) component;
-    }
-
-    /**
-     * TODO move that to component
-     */
-    @Override
-    public @Nullable ConsumerDomain authenticate(final String authName) {
-        return consumerDomains.get(authName);
     }
 }

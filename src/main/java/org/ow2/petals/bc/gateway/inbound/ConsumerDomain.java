@@ -53,6 +53,8 @@ public class ConsumerDomain {
 
     /**
      * The channels from this consumer domain (there can be more than one in case of HA or stuffs like that for example)
+     * 
+     * TODO store a name or something to identify it and log stuffs
      */
     @SuppressWarnings("null")
     private final Set<ChannelHandlerContext> channels = Collections
@@ -60,6 +62,7 @@ public class ConsumerDomain {
 
     public final JbiConsumerDomain jcd;
 
+    // TODO add a logger
     public ConsumerDomain(final JbiConsumerDomain jcd, final Collection<Consumes> consumes) {
         this.jcd = jcd;
         for (final Consumes c : consumes) {
@@ -81,16 +84,7 @@ public class ConsumerDomain {
         channels.remove(ctx);
     }
 
-    /**
-     * Ensure the transport is accepted for this consumer domain
-     * 
-     * TODO support many transports?
-     */
-    public boolean accept(final String transportId) {
-        return jcd.getTransport().equals(transportId);
-    }
-
-    public void exceptionReceived(final Exception msg) {
+    public void exceptionReceived(final ChannelHandlerContext ctx, final Exception msg) {
         // TODO just print it: receiving an exception here means that there is nothing to do, it is just
         // information for us.
     }

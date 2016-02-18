@@ -17,9 +17,14 @@
  */
 package org.ow2.petals.bc.gateway.inbound;
 
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
+import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -45,17 +50,23 @@ public class TransportListener implements ConsumerAuthenticator {
 
     private final ServerBootstrap bootstrap;
 
-    private final ConsumerAuthenticator authenticator;
-
     private final JbiTransportListener jtl;
 
     @Nullable
     private Channel channel;
 
-    public TransportListener(final JBISender sender, final ConsumerAuthenticator authenticator,
-            final JbiTransportListener jtl, final ServerBootstrap partialBootstrap) {
+    /**
+     * These are the actual consumer partner actually connected to us, potentially through multiple {@link Channel}.
+     * 
+     * Careful, here the key is the auth-name, so it must be unique across SUs!!
+     * 
+     */
+    private final ConcurrentMap<String, ConsumerDomain> consumers = new ConcurrentHashMap<>();
 
-        this.authenticator = authenticator;
+
+    public TransportListener(final JBISender sender, final JbiTransportListener jtl,
+            final ServerBootstrap partialBootstrap) {
+
         this.jtl = jtl;
 
         // shared between all the connections of this listener
@@ -95,11 +106,17 @@ public class TransportListener implements ConsumerAuthenticator {
 
     @Override
     public @Nullable ConsumerDomain authenticate(final String authName) {
-        final ConsumerDomain cd = this.authenticator.authenticate(authName);
-        if (cd != null && cd.accept(jtl.getId())) {
-            return cd;
-        } else {
-            return null;
+        return consumers.get(authName);
+    }
+
+    public void register(final JbiConsumerDomain jcd, final ConsumerDomain cd) throws PEtALSCDKException {
+        if (consumers.putIfAbsent(jcd.getAuthName(), cd) != null) {
+            throw new PEtALSCDKException(
+                    "Duplicate auth name '" + jcd.getAuthName() + "' in transporter " + jtl.getId());
         }
+    }
+
+    public void deregistrer(JbiConsumerDomain jcd) {
+        consumers.remove(jcd.getAuthName());
     }
 }

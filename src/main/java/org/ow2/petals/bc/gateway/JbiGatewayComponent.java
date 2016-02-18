@@ -28,8 +28,10 @@ import javax.jbi.JBIException;
 import javax.jbi.servicedesc.ServiceEndpoint;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.inbound.TransportListener;
 import org.ow2.petals.bc.gateway.inbound.TransportServer;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
@@ -40,6 +42,7 @@ import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.bc.AbstractBindingComponent;
+import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.su.AbstractServiceUnitManager;
 import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
@@ -86,7 +89,9 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
      */
     private final ConcurrentMap<String, TransportListener> listeners = new ConcurrentHashMap<>();
 
-    private final ConcurrentMap<String, ProviderDomain> clients = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ProviderDomain> providers = new ConcurrentHashMap<>();
+
+    private final ConcurrentMap<ServiceProviderEndpointKey, Pair<ServiceEndpoint, Pair<ServiceKey, ProviderDomain>>> services = new ConcurrentHashMap<>();
 
     private boolean started = false;
 
@@ -133,14 +138,24 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             final Collection<JbiProvidesConfig> provides) throws PEtALSCDKException {
         // TODO should provider domain share their connections if they point to the same ip/port?
         final ProviderDomain pd = new ProviderDomain(this, jpd, provides, getSender(), newClientBootstrap());
-        clients.put(getConnectionName(ownerSU, jpd.getId()), pd);
+        providers.put(getConnectionName(ownerSU, jpd.getId()), pd);
     }
 
     public void deregisterProviderDomain(final String ownerSU, final JbiProviderDomain jpd) {
-        final ProviderDomain conn = clients.remove(getConnectionName(ownerSU, jpd.getId()));
+        final ProviderDomain conn = providers.remove(getConnectionName(ownerSU, jpd.getId()));
         if (conn != null) {
             conn.disconnect();
         }
+    }
+
+    public void registerConsumerDomain(final String ownerSU, final JbiConsumerDomain jcd,
+            final Collection<Consumes> consumes) throws PEtALSCDKException {
+        // TODO support many transports?
+        getTransportListener(ownerSU, jcd.getTransport()).register(jcd, new ConsumerDomain(jcd, consumes));
+    }
+
+    public void deregisterConsumerDomain(String ownerSU, JbiConsumerDomain jcd) throws PEtALSCDKException {
+        getTransportListener(ownerSU, jcd.getTransport()).deregistrer(jcd);
     }
 
     private Bootstrap newClientBootstrap() {
@@ -186,14 +201,14 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
                 tl.bind();
             }
 
-            for (final ProviderDomain tc : clients.values()) {
+            for (final ProviderDomain tc : providers.values()) {
                 tc.connect();
             }
         } catch (final Exception e) {
             // normally this shouldn't really happen, but well...
             getLogger().log(Level.SEVERE, "Error during component start, stopping listeners and clients");
 
-            for (final ProviderDomain tc : clients.values()) {
+            for (final ProviderDomain tc : providers.values()) {
                 try {
                     tc.disconnect();
                 } catch (final Exception e1) {
@@ -232,8 +247,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
     private TransportListener addTransporterListener(final @Nullable String ownerSU, final JbiTransportListener jtl)
             throws PEtALSCDKException {
-        final TransportListener tl = new TransportListener(getSender(), getServiceUnitManager(), jtl,
-                newServerBootstrap());
+        final TransportListener tl = new TransportListener(getSender(), jtl, newServerBootstrap());
         if (listeners.putIfAbsent(getTransportListenerName(ownerSU, jtl.getId()), tl) != null) {
             throw new PEtALSCDKException(String.format("Duplicate transporter id '%s'", jtl.getId()));
         }
@@ -253,7 +267,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     /**
-     * TODO do we want to stop all connections
+     * TODO do we want to stop all connections? or should we simply pause the event loop?!?!
      */
     @Override
     protected void doStop() throws JBIException {
@@ -262,7 +276,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
         final List<Throwable> exceptions = new LinkedList<>();
 
-        for (final ProviderDomain tc : clients.values()) {
+        for (final ProviderDomain tc : providers.values()) {
             try {
                 tc.disconnect();
             } catch (final Exception e1) {
@@ -298,20 +312,25 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         tl.unbind();
     }
 
-    public @Nullable TransportListener getTransportListener(final String ownerSU, final String transportId) {
+    public TransportListener getTransportListener(final String ownerSU, final String transportId)
+            throws PEtALSCDKException {
         final TransportListener tl = listeners.get(getTransportListenerName(ownerSU, transportId));
         if (tl == null) {
-            return listeners.get(getTransportListenerName(null, transportId));
+            final TransportListener tl2 = listeners.get(getTransportListenerName(null, transportId));
+            if (tl2 == null) {
+                throw new PEtALSCDKException(
+                        String.format("Missing transporter '%s' for SU '%s'", transportId, ownerSU));
+            } else {
+                return tl2;
+            }
         } else {
             return tl;
         }
     }
 
-    private final ConcurrentMap<ServiceProviderEndpointKey, Pair<ServiceEndpoint, Pair<ServiceKey, ProviderDomain>>> providers = new ConcurrentHashMap<>();
-
     @Override
     public @Nullable Pair<ServiceKey, ProviderDomain> matches(final ServiceProviderEndpointKey key) {
-        return providers.get(key).getB();
+        return services.get(key).getB();
     }
 
     @Override
@@ -334,7 +353,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
         assert endpoint != null;
 
-        if (providers.putIfAbsent(key, new Pair<>(endpoint, new Pair<>(sk, pd))) != null) {
+        if (services.putIfAbsent(key, new Pair<>(endpoint, new Pair<>(sk, pd))) != null) {
             // shouldn't happen because activation wouldn't have worked then...
             Exception e = null;
             if (activate) {
@@ -354,7 +373,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
     @Override
     public void deregister(final ServiceKey sk) throws PEtALSCDKException {
-        final Pair<ServiceEndpoint, Pair<ServiceKey, ProviderDomain>> removed = providers
+        final Pair<ServiceEndpoint, Pair<ServiceKey, ProviderDomain>> removed = services
                 .remove(new ServiceProviderEndpointKey(sk.service, sk.endpointName));
 
         if (removed != null) {

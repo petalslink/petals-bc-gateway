@@ -84,7 +84,7 @@ public class TransportServer extends ChannelInboundHandlerAdapter {
 
         // TODO notification or other things?
         if (msg instanceof Exception) {
-            cd.exceptionReceived((Exception) msg);
+            cd.exceptionReceived(ctx, (Exception) msg);
         } else if (msg instanceof TransportedMessage) {
             sender.send(ctx, (TransportedMessage) msg);
         } else {

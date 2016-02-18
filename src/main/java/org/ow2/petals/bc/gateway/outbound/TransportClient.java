@@ -33,7 +33,6 @@ public class TransportClient extends ChannelInboundHandlerAdapter {
 
     private final ProviderDomain pd;
 
-    // TODO we need a logger per connection maybe...
     public TransportClient(final JBISender sender, final ProviderDomain pd) {
         this.sender = sender;
         this.pd = pd;
@@ -42,7 +41,7 @@ public class TransportClient extends ChannelInboundHandlerAdapter {
     @Override
     public void channelActive(final @Nullable ChannelHandlerContext ctx) throws Exception {
         assert ctx != null;
-        ctx.writeAndFlush(pd.jpd.getAuthName());
+        ctx.writeAndFlush(pd.getAuthName());
     }
 
     @Override
