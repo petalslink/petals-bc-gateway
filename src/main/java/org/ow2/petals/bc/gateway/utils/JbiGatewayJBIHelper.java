@@ -200,16 +200,16 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         return domain;
     }
 
-    public static Map<JbiProviderDomain, Collection<JbiProvidesConfig>> getProvidesPerDomain(
+    public static Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> getProvidesPerDomain(
             final @Nullable Services services) throws PEtALSCDKException {
         assert services != null;
 
         final Map<String, JbiProviderDomain> jpds = new HashMap<>();
-        final Map<JbiProviderDomain, Collection<JbiProvidesConfig>> pd2provides = new HashMap<>();
+        final Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> pd2provides = new HashMap<>();
 
         for (final JbiProviderDomain jpd : getProviderDomains(services)) {
             jpds.put(jpd.getId(), jpd);
-            pd2provides.put(jpd, new ArrayList<JbiProvidesConfig>());
+            pd2provides.put(jpd, new ArrayList<Pair<Provides, JbiProvidesConfig>>());
         }
 
         for (final Provides provides : services.getProvides()) {
@@ -220,7 +220,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
                 throw new PEtALSCDKException(
                         String.format("No provider domain was defined in the SU for '%s'", config.getDomain()));
             }
-            pd2provides.get(jpd).add(config);
+            pd2provides.get(jpd).add(new Pair<>(provides, config));
         }
         return pd2provides;
     }

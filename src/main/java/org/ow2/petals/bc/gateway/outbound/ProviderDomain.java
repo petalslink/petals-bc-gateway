@@ -29,8 +29,10 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
+import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.api.message.Exchange;
+import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.w3c.dom.Document;
 
 import io.netty.bootstrap.Bootstrap;
@@ -58,15 +60,16 @@ public class ProviderDomain {
 
     // TODO add a logger
     public ProviderDomain(final ProviderMatcher matcher, final JbiProviderDomain jpd,
-            final Collection<JbiProvidesConfig> provides, final JBISender sender, final Bootstrap partialBootstrap)
-                    throws PEtALSCDKException {
+            final Collection<Pair<Provides, JbiProvidesConfig>> provides, final JBISender sender,
+            final Bootstrap partialBootstrap) throws PEtALSCDKException {
         this.matcher = matcher;
         this.jpd = jpd;
 
         // TODO what about WSDL rewriting for these??
-        for (final JbiProvidesConfig jpc : provides) {
-            assert jpc != null;
-            matcher.register(new ServiceKey(jpc), this);
+        for (final Pair<Provides, JbiProvidesConfig> p : provides) {
+            assert p != null;
+            // TODO we need also to pass the Provides so that the key is used for here, and the provides for matching!
+            matcher.register(new ServiceKey(p.getB()), this, p.getA());
         }
 
         final Bootstrap bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {

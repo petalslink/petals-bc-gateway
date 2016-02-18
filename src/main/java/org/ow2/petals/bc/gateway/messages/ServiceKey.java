@@ -41,11 +41,12 @@ public class ServiceKey implements Serializable {
     @Nullable
     public final QName service;
 
-    @Nullable
+    /**
+     * Interface name is never null
+     */
     public final QName interfaceName;
 
-    public ServiceKey(final @Nullable String endpointName, final @Nullable QName service,
-            final @Nullable QName interfaceName) {
+    public ServiceKey(final @Nullable String endpointName, final @Nullable QName service, final QName interfaceName) {
         this.endpointName = endpointName;
         this.service = service;
         this.interfaceName = interfaceName;
@@ -83,10 +84,7 @@ public class ServiceKey implements Serializable {
                 return false;
         } else if (!endpointName.equals(other.endpointName))
             return false;
-        if (interfaceName == null) {
-            if (other.interfaceName != null)
-                return false;
-        } else if (!interfaceName.equals(other.interfaceName))
+        if (!interfaceName.equals(other.interfaceName))
             return false;
         if (service == null) {
             if (other.service != null)

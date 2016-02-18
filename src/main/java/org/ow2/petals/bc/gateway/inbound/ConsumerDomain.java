@@ -75,8 +75,7 @@ public class ConsumerDomain {
     private final ComponentContext cc;
 
     // TODO add a logger
-    public ConsumerDomain(final ComponentContext cc, final JbiConsumerDomain jcd,
-            final Collection<Consumes> consumes) {
+    public ConsumerDomain(final ComponentContext cc, final JbiConsumerDomain jcd, final Collection<Consumes> consumes) {
         this.cc = cc;
         this.jcd = jcd;
         for (final Consumes c : consumes) {

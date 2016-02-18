@@ -43,6 +43,7 @@ import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.bc.AbstractBindingComponent;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
+import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.su.AbstractServiceUnitManager;
 import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
@@ -86,8 +87,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     private EventLoopGroup clientsGroup;
 
     /**
-     * Only modification from SUs (see {@link #registerTransportListener(String, JbiTransportListener)}) are
-     * concurrent
+     * Only modification from SUs (see {@link #registerTransportListener(String, JbiTransportListener)}) are concurrent
      */
     private final ConcurrentMap<String, TransportListener> listeners = new ConcurrentHashMap<>();
 
@@ -137,7 +137,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     public void registerProviderDomain(final String ownerSU, final JbiProviderDomain jpd,
-            final Collection<JbiProvidesConfig> provides) throws PEtALSCDKException {
+            final Collection<Pair<Provides, JbiProvidesConfig>> provides) throws PEtALSCDKException {
         // TODO should provider domain share their connections if they point to the same ip/port?
         final ProviderDomain pd = new ProviderDomain(this, jpd, provides, getSender(), newClientBootstrap());
         providers.put(getConnectionName(ownerSU, jpd.getId()), pd);
@@ -339,12 +339,13 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     @Override
     public void register(final ServiceKey sk, final ProviderDomain pd, final @Nullable Document description)
             throws PEtALSCDKException {
-        this.register(sk, pd, description, false);
+        this.register(sk, pd, description, null);
     }
 
     @Override
-    public void register(final ServiceKey sk, final ProviderDomain pd) throws PEtALSCDKException {
-        this.register(sk, pd, null, true);
+    public void register(final ServiceKey sk, final ProviderDomain pd, final Provides provides)
+            throws PEtALSCDKException {
+        this.register(sk, pd, null, provides);
     }
 
     /**
@@ -353,19 +354,22 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
      * TODO the service key should have at least service name and endpoint name!
      */
     private void register(final ServiceKey sk, final ProviderDomain pd, final @Nullable Document description,
-            boolean activate) throws PEtALSCDKException {
-        final ServiceProviderEndpointKey key = new ServiceProviderEndpointKey(sk.service, sk.endpointName);
+            final @Nullable Provides provides) throws PEtALSCDKException {
 
-        // TODO we need to activate or get that only on SU INIT!
         final ServiceEndpoint endpoint;
-        if (activate) {
-            // TODO we need to store that somewhere so that we can override getServiceDescription!
+        final ServiceProviderEndpointKey key;
+        if (provides == null) {
+            key = new ServiceProviderEndpointKey(sk.service, sk.endpointName);
+            // TODO we need to store the Document somewhere so that we can override getServiceDescription!
             try {
+                // TODO we need to activate or get that only on SU INIT!
                 endpoint = getContext().activateEndpoint(sk.service, sk.endpointName);
             } catch (final JBIException e) {
                 throw new PEtALSCDKException(e);
             }
         } else {
+            key = new ServiceProviderEndpointKey(provides);
+            // TODO we need to get that only on SU INIT!
             final ServiceUnitDataHandler suDH = getServiceUnitManager().getSUDataHandler(key);
             endpoint = suDH.getEndpoint(key);
         }
@@ -374,7 +378,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         if (services.putIfAbsent(key, new Pair<>(endpoint, new Pair<>(sk, pd))) != null) {
             // shouldn't happen because activation wouldn't have worked then, but well...
             final PEtALSCDKException t = new PEtALSCDKException("Duplicate service " + sk);
-            if (activate) {
+            if (provides == null) {
                 try {
                     getContext().deactivateEndpoint(endpoint);
                 } catch (final JBIException ex) {

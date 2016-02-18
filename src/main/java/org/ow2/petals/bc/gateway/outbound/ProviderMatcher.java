@@ -21,6 +21,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
+import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
 import org.w3c.dom.Document;
 
@@ -31,7 +32,7 @@ public interface ProviderMatcher {
 
     void register(ServiceKey sk, ProviderDomain pd, @Nullable Document description) throws PEtALSCDKException;
 
-    void register(ServiceKey sk, ProviderDomain pd) throws PEtALSCDKException;
+    void register(ServiceKey sk, ProviderDomain pd, Provides provides) throws PEtALSCDKException;
 
     void deregister(ServiceKey sk) throws PEtALSCDKException;
 }
