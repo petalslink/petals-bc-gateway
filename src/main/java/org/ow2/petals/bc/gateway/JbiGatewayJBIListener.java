@@ -21,7 +21,9 @@ import javax.jbi.messaging.MessagingException;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JbiGatewayJBISender.JbiGatewaySenderAsyncContext;
+import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
+import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.component.framework.AbstractComponent;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
@@ -48,10 +50,10 @@ public class JbiGatewayJBIListener extends AbstractJBIListener {
         if (exchange.isActiveStatus() && exchange.isProviderRole()) {
             // most of the messages arriving are not for a provides but for one of our dynamically created endpoints
             final ServiceProviderEndpointKey key = new ServiceProviderEndpointKey(exchange.getEndpoint());
-            final ProviderDomain pd = getComponent().getProviderDomain(key);
+            Pair<ServiceKey, ProviderDomain> pd = getComponent().matches(key);
             if (pd != null) {
                 // TODO find back the ServiceKey that was received by the consumer partner..
-                pd.send(key, exchange);
+                pd.getB().send(pd.getA(), exchange);
             } else {
                 // TODO this should not happen... it is not for us!
             }

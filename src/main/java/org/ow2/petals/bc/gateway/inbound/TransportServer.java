@@ -82,13 +82,13 @@ public class TransportServer extends ChannelInboundHandlerAdapter {
         assert ctx != null;
         assert msg != null;
 
+        // TODO notification or other things?
         if (msg instanceof Exception) {
-            // TODO just print it: receiving an exception here means that there is nothing to do, it is just
-            // information for us.
+            cd.exceptionReceived((Exception) msg);
         } else if (msg instanceof TransportedMessage) {
             sender.send(ctx, (TransportedMessage) msg);
         } else {
-            // TODO notification or other things?
+            // TODO handle unexpected content
         }
     }
 

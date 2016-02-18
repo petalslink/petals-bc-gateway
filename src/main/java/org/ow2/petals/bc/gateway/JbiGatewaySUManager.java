@@ -35,7 +35,6 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
-import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.component.framework.AbstractComponent;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
@@ -90,7 +89,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
             throw new PEtALSCDKException("Defining transporter listeners in the SU is forbidden by the component");
         }
 
-        final Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> pd2provides = JbiGatewayJBIHelper
+        final Map<JbiProviderDomain, Collection<JbiProvidesConfig>> pd2provides = JbiGatewayJBIHelper
                 .getProvidesPerDomain(services);
         final Map<JbiConsumerDomain, Collection<Consumes>> cd2consumes = JbiGatewayJBIHelper
                 .getConsumesPerDomain(services);
@@ -118,20 +117,16 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
                 consumerDomains.put(jcd.getAuthName(), cd);
             }
 
-            for (final Entry<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> entry : pd2provides
+            for (final Entry<JbiProviderDomain, Collection<JbiProvidesConfig>> entry : pd2provides
                     .entrySet()) {
                 final JbiProviderDomain jpd = entry.getKey();
                 assert jpd != null;
-                final Collection<Pair<Provides, JbiProvidesConfig>> list = entry.getValue();
+                final Collection<JbiProvidesConfig> list = entry.getValue();
                 assert list != null;
                 getComponent().registerProviderDomain(ownerSU, jpd, list);
             }
         } catch (final Exception e) {
             this.logger.log(Level.SEVERE, "Error during SU deploy, undoing everything");
-
-            for (final JbiConsumerDomain jcd : jcds) {
-                consumerDomains.remove(jcd.getAuthName());
-            }
 
             for (final JbiProviderDomain jpd : pd2provides.keySet()) {
                 assert jpd != null;
@@ -140,6 +135,10 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
                 } catch (final Exception e1) {
                     this.logger.log(Level.WARNING, "Error while removing provider domain", e1);
                 }
+            }
+
+            for (final JbiConsumerDomain jcd : jcds) {
+                consumerDomains.remove(jcd.getAuthName());
             }
 
             for (final JbiTransportListener jtl : tls) {

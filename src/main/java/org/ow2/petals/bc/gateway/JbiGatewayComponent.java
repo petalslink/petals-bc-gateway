@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
 
 import javax.jbi.JBIException;
+import javax.jbi.servicedesc.ServiceEndpoint;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.inbound.TransportListener;
@@ -32,13 +33,15 @@ import org.ow2.petals.bc.gateway.inbound.TransportServer;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
+import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
+import org.ow2.petals.bc.gateway.outbound.ProviderMatcher;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.bc.AbstractBindingComponent;
-import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.su.AbstractServiceUnitManager;
+import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
 
 import io.netty.bootstrap.Bootstrap;
@@ -61,7 +64,7 @@ import io.netty.handler.logging.LoggingHandler;
  * @author vnoel
  *
  */
-public class JbiGatewayComponent extends AbstractBindingComponent {
+public class JbiGatewayComponent extends AbstractBindingComponent implements ProviderMatcher {
 
     /**
      * We need only one sender per component because it is stateless (for the functionalities we use)
@@ -127,10 +130,9 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
     }
 
     public void registerProviderDomain(final String ownerSU, final JbiProviderDomain jpd,
-            final Collection<Pair<Provides, JbiProvidesConfig>> provides) {
+            final Collection<JbiProvidesConfig> provides) throws PEtALSCDKException {
         // TODO should provider domain share their connections if they point to the same ip/port?
-        final ProviderDomain pd = new ProviderDomain(this.getContext(), jpd, provides, getSender(),
-                newClientBootstrap());
+        final ProviderDomain pd = new ProviderDomain(this, jpd, provides, getSender(), newClientBootstrap());
         clients.put(getConnectionName(ownerSU, jpd.getId()), pd);
     }
 
@@ -250,6 +252,9 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
         return (ownerSU == null ? "c:" : (ownerSU + ":")) + transportId;
     }
 
+    /**
+     * TODO do we want to stop all connections
+     */
     @Override
     protected void doStop() throws JBIException {
 
@@ -302,14 +307,65 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
         }
     }
 
-    public @Nullable ProviderDomain getProviderDomain(final ServiceProviderEndpointKey key) {
-        for (final ProviderDomain tc : clients.values()) {
-            // TODO that's not very efficient... improve that later!
-            if (tc.handle(key)) {
-                return tc;
+    private final ConcurrentMap<ServiceProviderEndpointKey, Pair<ServiceEndpoint, Pair<ServiceKey, ProviderDomain>>> providers = new ConcurrentHashMap<>();
+
+    @Override
+    public @Nullable Pair<ServiceKey, ProviderDomain> matches(final ServiceProviderEndpointKey key) {
+        return providers.get(key).getB();
+    }
+
+    @Override
+    public void register(final ServiceKey sk, final ProviderDomain pd, final boolean activate)
+            throws PEtALSCDKException {
+        final ServiceProviderEndpointKey key = new ServiceProviderEndpointKey(sk.service, sk.endpointName);
+
+        final ServiceEndpoint endpoint;
+        if (activate) {
+            // TODO we absolutely need to provide the wsdl too so that the context can get it!
+            // TODO we need to activate that ONLY on init!
+            try {
+                endpoint = getContext().activateEndpoint(sk.service, sk.endpointName);
+            } catch (final JBIException e) {
+                throw new PEtALSCDKException(e);
             }
+        } else {
+            final ServiceUnitDataHandler suDH = getServiceUnitManager().getSUDataHandler(key);
+            endpoint = suDH.getEndpoint(key);
         }
-        return null;
+        assert endpoint != null;
+
+        if (providers.putIfAbsent(key, new Pair<>(endpoint, new Pair<>(sk, pd))) != null) {
+            // shouldn't happen because activation wouldn't have worked then...
+            Exception e = null;
+            if (activate) {
+                try {
+                    getContext().deactivateEndpoint(endpoint);
+                } catch (final JBIException ex) {
+                    e = ex;
+                }
+            }
+            PEtALSCDKException t = new PEtALSCDKException("Duplicate service " + sk);
+            if (e != null) {
+                t.addSuppressed(e);
+            }
+            throw t;
+        }
+    }
+
+    @Override
+    public void deregister(final ServiceKey sk) throws PEtALSCDKException {
+        final Pair<ServiceEndpoint, Pair<ServiceKey, ProviderDomain>> removed = providers
+                .remove(new ServiceProviderEndpointKey(sk.service, sk.endpointName));
+
+        if (removed != null) {
+            try {
+                getContext().deactivateEndpoint(removed.getA());
+            } catch (final JBIException e) {
+                throw new PEtALSCDKException(e);
+            }
+        } else {
+            throw new PEtALSCDKException("Unknown service key " + sk);
+        }
     }
 
     /**

@@ -51,8 +51,7 @@ public class TransportClient extends ChannelInboundHandlerAdapter {
         assert msg != null;
 
         if (msg instanceof Exception) {
-            // TODO just log it: receiving an exception here means that there is nothing to do, it is just
-            // information for us.
+            pd.exceptionReceived((Exception) msg);
         } else if (msg instanceof TransportedMessage) {
             // this can't happen, we are the one sending new exchanges!
             assert !(msg instanceof TransportedNewMessage);
@@ -61,6 +60,8 @@ public class TransportClient extends ChannelInboundHandlerAdapter {
             pd.addedProviderService(((TransportedToConsumerDomainAddedConsumes) msg).service);
         } else if (msg instanceof TransportedToConsumerDomainRemovedConsumes) {
             pd.removedProviderService(((TransportedToConsumerDomainRemovedConsumes) msg).service);
+        } else {
+            // TODO handle unexpected content
         }
     }
 

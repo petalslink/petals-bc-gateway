@@ -105,4 +105,9 @@ public class ConsumerDomain {
     public boolean accept(final String transportId) {
         return jcd.getTransport().equals(transportId);
     }
+
+    public void exceptionReceived(final Exception msg) {
+        // TODO just print it: receiving an exception here means that there is nothing to do, it is just
+        // information for us.
+    }
 }
