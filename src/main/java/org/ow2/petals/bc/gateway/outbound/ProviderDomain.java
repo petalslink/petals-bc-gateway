@@ -26,6 +26,7 @@ import javax.jbi.component.ComponentContext;
 import javax.jbi.messaging.MessageExchange;
 import javax.jbi.servicedesc.ServiceEndpoint;
 
+import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.JbiGatewayJBISender;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
@@ -38,6 +39,12 @@ import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
 
 import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
+import io.netty.handler.codec.serialization.ClassResolvers;
+import io.netty.handler.codec.serialization.ObjectDecoder;
+import io.netty.handler.codec.serialization.ObjectEncoder;
 
 /**
  * There is one instance of this class per opened connection to a provider partner.
@@ -47,9 +54,12 @@ public class ProviderDomain {
 
     public final JbiProviderDomain jpd;
 
+    @Nullable
+    private Channel channel;
+
     private final ComponentContext cc;
-    
-    private final TransportConnection connection;
+
+    private final Bootstrap bootstrap;
 
     private final Map<ServiceProviderEndpointKey, ServiceKey> mapping = new ConcurrentHashMap<>();
 
@@ -61,9 +71,22 @@ public class ProviderDomain {
         this.cc = cc;
         this.jpd = jpd;
         for (final Pair<Provides, JbiProvidesConfig> e : provides) {
+            // TODO and what is the endpoint for mapping2??
             mapping.put(new ServiceProviderEndpointKey(e.getA()), new ServiceKey(e.getB()));
         }
-        this.connection = new TransportConnection(sender, this, partialBootstrap);
+        final Bootstrap bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
+            @Override
+            protected void initChannel(final @Nullable Channel ch) throws Exception {
+                assert ch != null;
+                // This mirror the protocol used in TransporterListener
+                final ChannelPipeline p = ch.pipeline();
+                p.addLast(new ObjectEncoder());
+                p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
+                p.addLast(new TransportClient(sender, ProviderDomain.this));
+            }
+        }).remoteAddress(jpd.getIp(), jpd.getPort());
+        assert bootstrap != null;
+        this.bootstrap = bootstrap;
     }
 
     /**
@@ -110,17 +133,28 @@ public class ProviderDomain {
             final MessageExchange mex = exchange.getMessageExchange();
             assert mex != null;
             final TransportedNewMessage m = new TransportedNewMessage(service, mex);
-            this.connection.send(m);
+            final Channel channel = this.channel;
+            // we can't be disconnected in that case because the component is stopped and we don't process messages!
+            assert channel != null;
+            channel.writeAndFlush(m);
         } else {
             // TODO throw exception (but this should normally not happen...)
         }
     }
 
-    public void disconnect() {
-        this.connection.disconnect();
+    public void connect() throws InterruptedException {
+        // TODO should I do that async?
+        final Channel channel = bootstrap.connect().sync().channel();
+        assert channel != null;
+        this.channel = channel;
     }
 
-    public void connect() throws InterruptedException {
-        this.connection.connect();
+    public void disconnect() {
+        final Channel channel = this.channel;
+        if (channel != null && channel.isOpen()) {
+            // TODO should I do that sync?
+            channel.close();
+            this.channel = null;
+        }
     }
 }

@@ -20,7 +20,6 @@ package org.ow2.petals.bc.gateway.inbound;
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
-import org.ow2.petals.bc.gateway.outbound.TransportConnection;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -38,9 +37,6 @@ import io.netty.handler.codec.serialization.ObjectEncoder;
  * 
  * TODO for now, we use ONE channel for both technical messages and business messages: we should check what are the
  * shortcoming of this in terms of performances...
- * 
- * TODO Like with {@link TransportConnection}, maybe we should remove this class and have {@link ConsumerDomain}
- * directly own the Channel
  * 
  * @author vnoel
  *
