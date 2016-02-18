@@ -17,17 +17,27 @@
  */
 package org.ow2.petals.bc.gateway.inbound;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import javax.jbi.JBIException;
+import javax.jbi.component.ComponentContext;
+import javax.jbi.servicedesc.ServiceEndpoint;
+import javax.xml.namespace.QName;
+
+import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedToConsumerDomainAddedConsumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
+import org.w3c.dom.Document;
 
 import io.netty.channel.ChannelHandlerContext;
 
@@ -62,8 +72,12 @@ public class ConsumerDomain {
 
     public final JbiConsumerDomain jcd;
 
+    private final ComponentContext cc;
+
     // TODO add a logger
-    public ConsumerDomain(final JbiConsumerDomain jcd, final Collection<Consumes> consumes) {
+    public ConsumerDomain(final ComponentContext cc, final JbiConsumerDomain jcd,
+            final Collection<Consumes> consumes) {
+        this.cc = cc;
         this.jcd = jcd;
         for (final Consumes c : consumes) {
             assert c != null;
@@ -73,11 +87,71 @@ public class ConsumerDomain {
 
     public void registerChannel(final ChannelHandlerContext ctx) {
         channels.add(ctx);
-        for (final ServiceKey key : services.keySet()) {
-            assert key != null;
-            ctx.write(new TransportedToConsumerDomainAddedConsumes(key));
+        for (final Entry<ServiceKey, Consumes> entry : services.entrySet()) {
+            // TODO cache the description
+            final Document desc = getDescription(entry.getValue());
+            ctx.write(new TransportedToConsumerDomainAddedConsumes(entry.getKey(), desc));
         }
         ctx.flush();
+    }
+
+    /**
+     * This will return the first {@link Document} that is non-null on a {@link ServiceEndpoint} that matches the
+     * {@link Consumes}.
+     * 
+     * @param consumes
+     * @return
+     */
+    private @Nullable Document getDescription(final Consumes consumes) {
+        final String endpointName = consumes.getEndpointName();
+        final QName serviceName = consumes.getServiceName();
+        final QName interfaceName = consumes.getInterfaceName();
+        final ServiceEndpoint[] endpoints;
+        if (endpointName != null && serviceName != null) {
+            final ServiceEndpoint endpoint = cc.getEndpoint(serviceName, endpointName);
+            if (endpoint != null && (interfaceName == null || matches(endpoint, interfaceName))) {
+                endpoints = new ServiceEndpoint[] { endpoint };
+            } else {
+                // TODO log
+                endpoints = new ServiceEndpoint[0];
+            }
+        } else if (serviceName != null) {
+            final ServiceEndpoint[] preMatch = cc.getEndpointsForService(serviceName);
+            if (interfaceName != null) {
+                final List<ServiceEndpoint> matched = new ArrayList<>();
+                for (final ServiceEndpoint endpoint : preMatch) {
+                    assert endpoint != null;
+                    if (matches(endpoint, interfaceName)) {
+                        matched.add(endpoint);
+                    }
+                }
+                endpoints = matched.toArray(new ServiceEndpoint[matched.size()]);
+            } else {
+                endpoints = preMatch;
+            }
+        } else {
+            endpoints = cc.getEndpoints(interfaceName);
+        }
+        for (final ServiceEndpoint endpoint : endpoints) {
+            try {
+                Document desc = cc.getEndpointDescriptor(endpoint);
+                if (desc != null) {
+                    return desc;
+                }
+            } catch (final JBIException e) {
+                // TODO log but should not happen normally!
+            }
+        }
+        return null;
+    }
+
+    private boolean matches(final ServiceEndpoint endpoint, final QName interfaceName) {
+        for (final QName itf : endpoint.getInterfaces()) {
+            if (interfaceName.equals(itf)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void deregisterChannel(final ChannelHandlerContext ctx) {

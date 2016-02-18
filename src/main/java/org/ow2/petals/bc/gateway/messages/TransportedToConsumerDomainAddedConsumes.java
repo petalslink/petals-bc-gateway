@@ -17,12 +17,19 @@
  */
 package org.ow2.petals.bc.gateway.messages;
 
+import org.eclipse.jdt.annotation.Nullable;
+import org.w3c.dom.Document;
+
 public class TransportedToConsumerDomainAddedConsumes extends TransportedForService {
 
     private static final long serialVersionUID = -2818905233890110391L;
 
-    public TransportedToConsumerDomainAddedConsumes(final ServiceKey key) {
+    // TODO or should we serialize it ourselves?
+    public final @Nullable Document description;
+
+    public TransportedToConsumerDomainAddedConsumes(final ServiceKey key, final @Nullable Document description) {
         super(key);
+        this.description = description;
     }
 
 }

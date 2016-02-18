@@ -31,6 +31,7 @@ import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.api.message.Exchange;
+import org.w3c.dom.Document;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -62,9 +63,10 @@ public class ProviderDomain {
         this.matcher = matcher;
         this.jpd = jpd;
 
+        // TODO what about WSDL rewriting for these??
         for (final JbiProvidesConfig jpc : provides) {
             assert jpc != null;
-            matcher.register(new ServiceKey(jpc), this, false);
+            matcher.register(new ServiceKey(jpc), this);
         }
 
         final Bootstrap bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
@@ -85,9 +87,11 @@ public class ProviderDomain {
     /**
      * This corresponds to consumes being declared in the provider domain that we mirror on this side
      */
-    public void addedProviderService(final ServiceKey service) {
+    public void addedProviderService(final ServiceKey service, final @Nullable Document description) {
+        // TODO we should be able to disable the activation of consumes (i.e., only use the provides then!)
+        // TODO should we register endpoint for unexisting service on the other side????
         try {
-            matcher.register(service, this, true);
+            matcher.register(service, this, description);
         } catch (final Exception e) {
             // TODO send exception over the channel
         }

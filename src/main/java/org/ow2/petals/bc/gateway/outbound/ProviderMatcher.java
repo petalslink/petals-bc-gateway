@@ -22,13 +22,16 @@ import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
+import org.w3c.dom.Document;
 
 public interface ProviderMatcher {
 
     @Nullable
     Pair<ServiceKey, ProviderDomain> matches(ServiceProviderEndpointKey key);
 
-    void register(ServiceKey sk, ProviderDomain pd, boolean activate) throws PEtALSCDKException;
+    void register(ServiceKey sk, ProviderDomain pd, @Nullable Document description) throws PEtALSCDKException;
+
+    void register(ServiceKey sk, ProviderDomain pd) throws PEtALSCDKException;
 
     void deregister(ServiceKey sk) throws PEtALSCDKException;
 }

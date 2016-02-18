@@ -46,6 +46,7 @@ import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.su.AbstractServiceUnitManager;
 import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
+import org.w3c.dom.Document;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
@@ -152,7 +153,8 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     public void registerConsumerDomain(final String ownerSU, final JbiConsumerDomain jcd,
             final Collection<Consumes> consumes) throws PEtALSCDKException {
         // TODO support many transports?
-        getTransportListener(ownerSU, jcd.getTransport()).register(jcd, new ConsumerDomain(jcd, consumes));
+        getTransportListener(ownerSU, jcd.getTransport()).register(jcd,
+                new ConsumerDomain(getContext(), jcd, consumes));
     }
 
     public void deregisterConsumerDomain(String ownerSU, JbiConsumerDomain jcd) throws PEtALSCDKException {
@@ -335,14 +337,29 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     @Override
-    public void register(final ServiceKey sk, final ProviderDomain pd, final boolean activate)
+    public void register(final ServiceKey sk, final ProviderDomain pd, final @Nullable Document description)
             throws PEtALSCDKException {
+        this.register(sk, pd, description, false);
+    }
+
+    @Override
+    public void register(final ServiceKey sk, final ProviderDomain pd) throws PEtALSCDKException {
+        this.register(sk, pd, null, true);
+    }
+
+    /**
+     * TODO if description is null, we should reask for it later!
+     * 
+     * TODO the service key should have at least service name and endpoint name!
+     */
+    private void register(final ServiceKey sk, final ProviderDomain pd, final @Nullable Document description,
+            boolean activate) throws PEtALSCDKException {
         final ServiceProviderEndpointKey key = new ServiceProviderEndpointKey(sk.service, sk.endpointName);
 
+        // TODO we need to activate or get that only on SU INIT!
         final ServiceEndpoint endpoint;
         if (activate) {
-            // TODO we absolutely need to provide the wsdl too so that the context can get it!
-            // TODO we need to activate that ONLY on init!
+            // TODO we need to store that somewhere so that we can override getServiceDescription!
             try {
                 endpoint = getContext().activateEndpoint(sk.service, sk.endpointName);
             } catch (final JBIException e) {
@@ -355,18 +372,14 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         assert endpoint != null;
 
         if (services.putIfAbsent(key, new Pair<>(endpoint, new Pair<>(sk, pd))) != null) {
-            // shouldn't happen because activation wouldn't have worked then...
-            Exception e = null;
+            // shouldn't happen because activation wouldn't have worked then, but well...
+            final PEtALSCDKException t = new PEtALSCDKException("Duplicate service " + sk);
             if (activate) {
                 try {
                     getContext().deactivateEndpoint(endpoint);
                 } catch (final JBIException ex) {
-                    e = ex;
+                    t.addSuppressed(ex);
                 }
-            }
-            PEtALSCDKException t = new PEtALSCDKException("Duplicate service " + sk);
-            if (e != null) {
-                t.addSuppressed(e);
             }
             throw t;
         }

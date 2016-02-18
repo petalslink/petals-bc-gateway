@@ -56,7 +56,8 @@ public class TransportClient extends ChannelInboundHandlerAdapter {
             assert !(msg instanceof TransportedNewMessage);
             sender.send(ctx, (TransportedMessage) msg);
         } else if (msg instanceof TransportedToConsumerDomainAddedConsumes) {
-            pd.addedProviderService(((TransportedToConsumerDomainAddedConsumes) msg).service);
+            final TransportedToConsumerDomainAddedConsumes m = (TransportedToConsumerDomainAddedConsumes) msg;
+            pd.addedProviderService(m.service, m.description);
         } else if (msg instanceof TransportedToConsumerDomainRemovedConsumes) {
             pd.removedProviderService(((TransportedToConsumerDomainRemovedConsumes) msg).service);
         } else {
