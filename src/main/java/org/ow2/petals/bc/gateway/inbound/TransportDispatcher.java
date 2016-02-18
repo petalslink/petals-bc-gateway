@@ -18,6 +18,7 @@
 package org.ow2.petals.bc.gateway.inbound;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.JBISender;
 
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
@@ -35,7 +36,10 @@ public class TransportDispatcher extends ChannelInboundHandlerAdapter {
 
     private final ConsumerAuthenticator authenticator;
 
-    public TransportDispatcher(final ConsumerAuthenticator authenticator) {
+    private final JBISender sender;
+
+    public TransportDispatcher(final JBISender sender, final ConsumerAuthenticator authenticator) {
+        this.sender = sender;
         this.authenticator = authenticator;
     }
 
@@ -52,7 +56,6 @@ public class TransportDispatcher extends ChannelInboundHandlerAdapter {
             return;
         }
 
-        // TODO test that too?
         final String consumerAuthName = (String) msg;
 
         // this corresponds to authenticating the consumer partner
@@ -70,7 +73,7 @@ public class TransportDispatcher extends ChannelInboundHandlerAdapter {
 
         final ChannelPipeline p = ctx.pipeline();
         p.remove(this);
-        p.addLast(new TransportServer(cd));
+        p.addLast(new TransportServer(sender, cd));
 
     }
 }

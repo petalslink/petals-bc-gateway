@@ -113,7 +113,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager implements C
                             String.format("Missing transporter '%s' needed by consumer domain '%s' in SU '%s'",
                                     jcd.getTransport(), jcd.getId(), ownerSU));
                 }
-                final ConsumerDomain cd = new ConsumerDomain(getComponent().getSender(), jcd, entry.getValue());
+                final ConsumerDomain cd = new ConsumerDomain(jcd, entry.getValue());
                 // TODO this could be moved at the transporter level (or ConsumerAuthenticator)
                 consumerDomains.put(jcd.getAuthName(), cd);
             }

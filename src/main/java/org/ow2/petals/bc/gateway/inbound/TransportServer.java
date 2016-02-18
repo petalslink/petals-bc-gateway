@@ -18,6 +18,7 @@
 package org.ow2.petals.bc.gateway.inbound;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.JbiGatewayJBISender;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 
@@ -39,8 +40,11 @@ public class TransportServer extends ChannelInboundHandlerAdapter {
 
     private final ConsumerDomain cd;
 
+    private final JBISender sender;
+
     // TODO we need a logger per server maybe... or per connection...
-    public TransportServer(final ConsumerDomain cd) {
+    public TransportServer(final JBISender sender, final ConsumerDomain cd) {
+        this.sender = sender;
         this.cd = cd;
     }
 
@@ -82,7 +86,7 @@ public class TransportServer extends ChannelInboundHandlerAdapter {
             // TODO just print it: receiving an exception here means that there is nothing to do, it is just
             // information for us.
         } else if (msg instanceof TransportedMessage) {
-            cd.send(ctx, (TransportedMessage) msg);
+            sender.send(ctx, (TransportedMessage) msg);
         } else {
             // TODO notification or other things?
         }

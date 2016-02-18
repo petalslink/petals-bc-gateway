@@ -33,7 +33,6 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
-import org.ow2.petals.bc.gateway.outbound.TransportConnection;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
@@ -84,7 +83,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
      */
     private final ConcurrentMap<String, TransportListener> listeners = new ConcurrentHashMap<>();
 
-    private final ConcurrentMap<String, TransportConnection> clients = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ProviderDomain> clients = new ConcurrentHashMap<>();
 
     private boolean started = false;
 
@@ -130,13 +129,13 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
     public void registerProviderDomain(final String ownerSU, final JbiProviderDomain jpd,
             final Collection<Pair<Provides, JbiProvidesConfig>> provides) {
         // TODO should provider domain share their connections if they point to the same ip/port?
-        final ProviderDomain pd = new ProviderDomain(this, jpd, provides);
-        clients.put(getConnectionName(ownerSU, jpd.getId()),
-                new TransportConnection(getSender(), pd, newClientBootstrap()));
+        final ProviderDomain pd = new ProviderDomain(this.getContext(), jpd, provides, getSender(),
+                newClientBootstrap());
+        clients.put(getConnectionName(ownerSU, jpd.getId()), pd);
     }
 
     public void deregisterProviderDomain(final String ownerSU, final JbiProviderDomain jpd) {
-        final TransportConnection conn = clients.remove(getConnectionName(ownerSU, jpd.getId()));
+        final ProviderDomain conn = clients.remove(getConnectionName(ownerSU, jpd.getId()));
         if (conn != null) {
             conn.disconnect();
         }
@@ -185,14 +184,14 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
                 tl.bind();
             }
 
-            for (final TransportConnection tc : clients.values()) {
+            for (final ProviderDomain tc : clients.values()) {
                 tc.connect();
             }
         } catch (final Exception e) {
             // normally this shouldn't really happen, but well...
             getLogger().log(Level.SEVERE, "Error during component start, stopping listeners and clients");
 
-            for (final TransportConnection tc : clients.values()) {
+            for (final ProviderDomain tc : clients.values()) {
                 try {
                     tc.disconnect();
                 } catch (final Exception e1) {
@@ -231,7 +230,8 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
 
     private TransportListener addTransporterListener(final @Nullable String ownerSU, final JbiTransportListener jtl)
             throws PEtALSCDKException {
-        final TransportListener tl = new TransportListener(getServiceUnitManager(), jtl, newServerBootstrap());
+        final TransportListener tl = new TransportListener(getSender(), getServiceUnitManager(), jtl,
+                newServerBootstrap());
         if (listeners.putIfAbsent(getTransportListenerName(ownerSU, jtl.getId()), tl) != null) {
             throw new PEtALSCDKException(String.format("Duplicate transporter id '%s'", jtl.getId()));
         }
@@ -257,7 +257,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
 
         final List<Throwable> exceptions = new LinkedList<>();
 
-        for (final TransportConnection tc : clients.values()) {
+        for (final ProviderDomain tc : clients.values()) {
             try {
                 tc.disconnect();
             } catch (final Exception e1) {
@@ -303,10 +303,10 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
     }
 
     public @Nullable ProviderDomain getProviderDomain(final ServiceProviderEndpointKey key) {
-        for (final TransportConnection tc : clients.values()) {
+        for (final ProviderDomain tc : clients.values()) {
             // TODO that's not very efficient... improve that later!
-            if (tc.getProviderDomain().handle(key)) {
-                return tc.getProviderDomain();
+            if (tc.handle(key)) {
+                return tc;
             }
         }
         return null;
@@ -316,7 +316,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
      * Used by the {@link TransportServer} to send exchanges. But they come back through one of the
      * {@link JbiGatewayJBIListener}.
      */
-    public JbiGatewayJBISender getSender() {
+    private JbiGatewayJBISender getSender() {
         assert sender != null;
         return sender;
     }

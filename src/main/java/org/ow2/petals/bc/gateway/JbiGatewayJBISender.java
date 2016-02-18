@@ -23,12 +23,14 @@ import javax.jbi.messaging.ExchangeStatus;
 import javax.jbi.messaging.MessageExchange;
 import javax.jbi.messaging.MessagingException;
 
+import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.inbound.TransportServer;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedLastMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedMiddleMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
+import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.bc.gateway.outbound.TransportClient;
 import org.ow2.petals.component.framework.AbstractComponent;
 import org.ow2.petals.component.framework.api.message.Exchange;
@@ -60,11 +62,11 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
     }
 
     /**
-     * As provider partner: this handle the first and third parts of an exchange, i.e., when we receive a message from a
-     * consumer partner.
+     * As provider partner (so called by {@link ConsumerDomain}): this handle the first and third parts of an exchange,
+     * i.e., when we receive a message from a consumer partner.
      * 
-     * As consumer partner: this handle the second and fourth (in case of InOutOnly) parts of an exchange, i.e., when we
-     * receive answers from a provider partner.
+     * As consumer partner (so called by {@link ProviderDomain}): this handle the second and fourth (in case of
+     * InOutOnly) parts of an exchange, i.e., when we receive answers from a provider partner.
      */
     @Override
     public void send(final ChannelHandlerContext ctx, final TransportedMessage m) {

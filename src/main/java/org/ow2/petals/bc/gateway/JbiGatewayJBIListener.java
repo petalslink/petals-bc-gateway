@@ -56,7 +56,7 @@ public class JbiGatewayJBIListener extends AbstractJBIListener {
                 // TODO this should not happen... it is not for us!
             }
         } else {
-            // TODO this should not happen... or maybe for the already expired async send?
+            // TODO this should not happen
         }
 
         return false;

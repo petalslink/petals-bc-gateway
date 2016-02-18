@@ -25,10 +25,8 @@ import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
-import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedToConsumerDomainAddedConsumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 
@@ -68,14 +66,11 @@ public class ConsumerDomain {
 
     public final JbiConsumerDomain jcd;
 
-    private final JBISender sender;
-
-    public ConsumerDomain(final JBISender sender, final JbiConsumerDomain jcd, final Collection<Consumes> consumes) {
-        this.sender = sender;
+    public ConsumerDomain(final JbiConsumerDomain jcd, final Collection<Consumes> consumes) {
         this.jcd = jcd;
         for (final Consumes c : consumes) {
-            final ServiceKey key = new ServiceKey(c);
-            services.put(key, c);
+            assert c != null;
+            services.put(new ServiceKey(c), c);
         }
     }
 
@@ -109,9 +104,5 @@ public class ConsumerDomain {
      */
     public boolean accept(final String transportId) {
         return jcd.getTransport().equals(transportId);
-    }
-
-    public void send(final ChannelHandlerContext ctx, final TransportedMessage m) {
-        this.sender.send(ctx, m);
     }
 }

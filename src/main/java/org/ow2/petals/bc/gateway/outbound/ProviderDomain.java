@@ -22,10 +22,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.jbi.JBIException;
+import javax.jbi.component.ComponentContext;
 import javax.jbi.messaging.MessageExchange;
 import javax.jbi.servicedesc.ServiceEndpoint;
 
-import org.ow2.petals.bc.gateway.JbiGatewayComponent;
+import org.ow2.petals.bc.gateway.JBISender;
+import org.ow2.petals.bc.gateway.JbiGatewayJBISender;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
@@ -35,27 +37,33 @@ import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
 
+import io.netty.bootstrap.Bootstrap;
+
 /**
- * There is one instance of this class per opened connection to a consumer partner.
+ * There is one instance of this class per opened connection to a provider partner.
  *
  */
 public class ProviderDomain {
 
-    public final JbiGatewayComponent component;
-
     public final JbiProviderDomain jpd;
+
+    private final ComponentContext cc;
+    
+    private final TransportConnection connection;
 
     private final Map<ServiceProviderEndpointKey, ServiceKey> mapping = new ConcurrentHashMap<>();
 
     private final Map<ServiceProviderEndpointKey, ServiceEndpoint> mapping2 = new ConcurrentHashMap<>();
 
-    public ProviderDomain(final JbiGatewayComponent component, final JbiProviderDomain jpd,
-            final Collection<Pair<Provides, JbiProvidesConfig>> provides) {
-        this.component = component;
+    public ProviderDomain(final ComponentContext cc, final JbiProviderDomain jpd,
+            final Collection<Pair<Provides, JbiProvidesConfig>> provides, final JBISender sender,
+            final Bootstrap partialBootstrap) {
+        this.cc = cc;
         this.jpd = jpd;
         for (final Pair<Provides, JbiProvidesConfig> e : provides) {
             mapping.put(new ServiceProviderEndpointKey(e.getA()), new ServiceKey(e.getB()));
         }
+        this.connection = new TransportConnection(sender, this, partialBootstrap);
     }
 
     /**
@@ -65,8 +73,7 @@ public class ProviderDomain {
         try {
             // TODO we absolutely need to provide the wsdl too so that the context can get it!
             // TODO we need to activate that ONLY on init!
-            final ServiceEndpoint endpoint = component.getContext().activateEndpoint(service.service,
-                    service.endpointName);
+            final ServiceEndpoint endpoint = cc.activateEndpoint(service.service, service.endpointName);
             final ServiceProviderEndpointKey key = new ServiceProviderEndpointKey(endpoint);
             mapping.put(key, service);
             mapping2.put(key, endpoint);
@@ -81,7 +88,7 @@ public class ProviderDomain {
                     service.endpointName);
             mapping.remove(key);
             final ServiceEndpoint endpoint = mapping2.remove(key);
-            component.getContext().deactivateEndpoint(endpoint);
+            cc.deactivateEndpoint(endpoint);
         } catch (final JBIException e) {
             // TODO log exception
         }
@@ -91,6 +98,11 @@ public class ProviderDomain {
         return mapping.containsKey(key);
     }
 
+    /**
+     * This is used to send to the channel for (1st step) exchanges arriving on JBI
+     * 
+     * 3rd is taken care of by {@link JbiGatewayJBISender} direcly!
+     */
     public void send(final ServiceProviderEndpointKey key, final Exchange exchange) {
         // depending on the key, find the corresponding ServiceKey and send the message
         final ServiceKey service = mapping.get(key);
@@ -98,10 +110,17 @@ public class ProviderDomain {
             final MessageExchange mex = exchange.getMessageExchange();
             assert mex != null;
             final TransportedNewMessage m = new TransportedNewMessage(service, mex);
-            // TODO send the exchange over the channel...
+            this.connection.send(m);
         } else {
-            // TODO throw exception
+            // TODO throw exception (but this should normally not happen...)
         }
     }
 
+    public void disconnect() {
+        this.connection.disconnect();
+    }
+
+    public void connect() throws InterruptedException {
+        this.connection.connect();
+    }
 }
