@@ -17,9 +17,9 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
@@ -35,6 +35,7 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.bc.gateway.outbound.TransportConnection;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
+import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.bc.AbstractBindingComponent;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
@@ -127,7 +128,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent {
     }
 
     public void registerProviderDomain(final String ownerSU, final JbiProviderDomain jpd,
-            final List<Entry<Provides, JbiProvidesConfig>> provides) {
+            final Collection<Pair<Provides, JbiProvidesConfig>> provides) {
         // TODO should provider domain share their connections if they point to the same ip/port?
         final ProviderDomain pd = new ProviderDomain(this, jpd, provides);
         clients.put(getConnectionName(ownerSU, jpd.getId()),

@@ -19,7 +19,9 @@ package org.ow2.petals.bc.gateway.utils;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.xml.XMLConstants;
 import javax.xml.bind.JAXBContext;
@@ -198,7 +200,59 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         return domain;
     }
 
-    public static Collection<String> getConsumerDomain(final @Nullable Consumes consumes) throws PEtALSCDKException {
+    public static Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> getProvidesPerDomain(
+            final @Nullable Services services) throws PEtALSCDKException {
+        assert services != null;
+
+        final Map<String, JbiProviderDomain> jpds = new HashMap<>();
+        final Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> pd2provides = new HashMap<>();
+
+        for (final JbiProviderDomain jpd : getProviderDomains(services)) {
+            jpds.put(jpd.getId(), jpd);
+            pd2provides.put(jpd, new ArrayList<Pair<Provides, JbiProvidesConfig>>());
+        }
+
+        for (final Provides provides : services.getProvides()) {
+            assert provides != null;
+            final JbiProvidesConfig config = JbiGatewayJBIHelper.getProviderConfig(provides);
+            final JbiProviderDomain jpd = jpds.get(config.getDomain());
+            if (jpd == null) {
+                throw new PEtALSCDKException(
+                        String.format("No provider domain was defined in the SU for '%s'", config.getDomain()));
+            }
+            pd2provides.get(jpd).add(new Pair<>(provides, config));
+        }
+        return pd2provides;
+    }
+
+    public static Map<JbiConsumerDomain, Collection<Consumes>> getConsumesPerDomain(final @Nullable Services services)
+            throws PEtALSCDKException {
+        assert services != null;
+
+        final Map<String, JbiConsumerDomain> jcds = new HashMap<>();
+        final Map<JbiConsumerDomain, Collection<Consumes>> cd2consumes = new HashMap<>();
+
+        for (final JbiConsumerDomain jcd : JbiGatewayJBIHelper.getConsumerDomains(services)) {
+            jcds.put(jcd.getId(), jcd);
+            cd2consumes.put(jcd, new ArrayList<Consumes>());
+        }
+
+        for (final Consumes consumes : services.getConsumes()) {
+            assert consumes != null;
+            for (final String cd : JbiGatewayJBIHelper.getConsumerDomains(consumes)) {
+                final JbiConsumerDomain jcd = jcds.get(cd);
+                if (jcd == null) {
+                    throw new PEtALSCDKException(
+                            String.format("No consumer domain was defined in the SU for '%s'", cd));
+                }
+                // it is non-null
+                cd2consumes.get(jcd).add(consumes);
+            }
+        }
+        return cd2consumes;
+    }
+
+    public static Collection<String> getConsumerDomains(final @Nullable Consumes consumes) throws PEtALSCDKException {
         assert consumes != null;
         final Collection<JbiConsumesConfig> confs = getAll(consumes.getAny(), EL_CONSUMER, JbiConsumesConfig.class);
         if (confs.isEmpty()) {
@@ -212,5 +266,24 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
             res.add(domain);
         }
         return res;
+    }
+
+    public static class Pair<A, B> {
+        private final A a;
+
+        private final B b;
+
+        public Pair(final A a, final B b) {
+            this.a = a;
+            this.b = b;
+        }
+
+        public A getA() {
+            return a;
+        }
+
+        public B getB() {
+            return b;
+        }
     }
 }

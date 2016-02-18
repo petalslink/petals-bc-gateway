@@ -17,9 +17,8 @@
  */
 package org.ow2.petals.bc.gateway.outbound;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.jbi.JBIException;
@@ -31,6 +30,7 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
+import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
@@ -50,11 +50,11 @@ public class ProviderDomain {
     private final Map<ServiceProviderEndpointKey, ServiceEndpoint> mapping2 = new ConcurrentHashMap<>();
 
     public ProviderDomain(final JbiGatewayComponent component, final JbiProviderDomain jpd,
-            final List<Entry<Provides, JbiProvidesConfig>> provides) {
+            final Collection<Pair<Provides, JbiProvidesConfig>> provides) {
         this.component = component;
         this.jpd = jpd;
-        for (final Entry<Provides, JbiProvidesConfig> e : provides) {
-            mapping.put(new ServiceProviderEndpointKey(e.getKey()), new ServiceKey(e.getValue()));
+        for (final Pair<Provides, JbiProvidesConfig> e : provides) {
+            mapping.put(new ServiceProviderEndpointKey(e.getA()), new ServiceKey(e.getB()));
         }
     }
 

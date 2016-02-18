@@ -17,6 +17,7 @@
  */
 package org.ow2.petals.bc.gateway.inbound;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -29,7 +30,6 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedToConsumerDomainAddedConsumes;
-import org.ow2.petals.bc.gateway.messages.TransportedToConsumerDomainRemovedConsumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 
 import io.netty.channel.ChannelHandlerContext;
@@ -42,6 +42,8 @@ import io.netty.channel.ChannelHandlerContext;
  * The main idea is that a given consumer partner can contact us (a provider partner) with multiple connections (for
  * example in case of HA) and each of these needs to know what are the consumes propagated to them.
  * 
+ * TODO how do we close this consumer domain?
+ * 
  * @author vnoel
  *
  */
@@ -51,13 +53,6 @@ public class ConsumerDomain {
      * This lock is here to prevent concurrent modifications of {@link #services} and {@link #channels}.
      * 
      * It ensures that any ordering of adding channels and listeners will be valid.
-     * 
-     * For example so that the consumer partner domain connected will get ALL the updates about services added or
-     * removed.
-     * 
-     * Note: actually, it is not SO important, because consumer domain and consumes are initialised together when an SU
-     * is loaded, but who knows in the future if we change the architecture and consumer domain are attached to the
-     * component directly too...
      */
     private final Lock lock = new ReentrantLock();
 
@@ -75,37 +70,12 @@ public class ConsumerDomain {
 
     private final JBISender sender;
 
-    public ConsumerDomain(final JBISender sender, final JbiConsumerDomain jcd) {
+    public ConsumerDomain(final JBISender sender, final JbiConsumerDomain jcd, final Collection<Consumes> consumes) {
         this.sender = sender;
         this.jcd = jcd;
-    }
-
-    public void register(final Consumes consumes) {
-        final ServiceKey key = new ServiceKey(consumes);
-        lock.lock();
-        try {
-            // TODO what if the key is already registered? it shouldn't be a problem in practice, but shouldn't we warn
-            // about it? Because it means there is overlapping consumes defined in the jbi descriptor... 
-            services.put(key, consumes);
-            for (final ChannelHandlerContext ctx : channels) {
-                ctx.writeAndFlush(new TransportedToConsumerDomainAddedConsumes(key));
-            }
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    public void deregister(final Consumes consumes) {
-        final ServiceKey key = new ServiceKey(consumes);
-        lock.lock();
-        try {
-            if (services.remove(key) != null) {
-                for (final ChannelHandlerContext ctx : channels) {
-                    ctx.writeAndFlush(new TransportedToConsumerDomainRemovedConsumes(key));
-                }
-            }
-        } finally {
-            lock.unlock();
+        for (final Consumes c : consumes) {
+            final ServiceKey key = new ServiceKey(c);
+            services.put(key, c);
         }
     }
 
