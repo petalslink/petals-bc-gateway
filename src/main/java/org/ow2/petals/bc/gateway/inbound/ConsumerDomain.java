@@ -18,12 +18,11 @@
 package org.ow2.petals.bc.gateway.inbound;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
@@ -48,13 +47,6 @@ import io.netty.channel.ChannelHandlerContext;
 public class ConsumerDomain {
 
     /**
-     * This lock is here to prevent concurrent modifications of {@link #services} and {@link #channels}.
-     * 
-     * It ensures that any ordering of adding channels and listeners will be valid.
-     */
-    private final Lock lock = new ReentrantLock();
-
-    /**
      * The keys of the {@link Consumes} propagated to this consumer domain.
      */
     private final Map<ServiceKey, Consumes> services = new HashMap<>();
@@ -62,7 +54,9 @@ public class ConsumerDomain {
     /**
      * The channels from this consumer domain (there can be more than one in case of HA or stuffs like that for example)
      */
-    private final Set<ChannelHandlerContext> channels = new HashSet<>();
+    @SuppressWarnings("null")
+    private final Set<ChannelHandlerContext> channels = Collections
+            .newSetFromMap(new ConcurrentHashMap<ChannelHandlerContext, Boolean>());
 
     public final JbiConsumerDomain jcd;
 
@@ -75,26 +69,16 @@ public class ConsumerDomain {
     }
 
     public void registerChannel(final ChannelHandlerContext ctx) {
-        lock.lock();
-        try {
-            channels.add(ctx);
-            for (final ServiceKey key : services.keySet()) {
-                assert key != null;
-                ctx.write(new TransportedToConsumerDomainAddedConsumes(key));
-            }
-            ctx.flush();
-        } finally {
-            lock.unlock();
+        channels.add(ctx);
+        for (final ServiceKey key : services.keySet()) {
+            assert key != null;
+            ctx.write(new TransportedToConsumerDomainAddedConsumes(key));
         }
+        ctx.flush();
     }
 
-    public void deregisterChannel(ChannelHandlerContext ctx) {
-        lock.lock();
-        try {
-            channels.remove(ctx);
-        } finally {
-            lock.unlock();
-        }
+    public void deregisterChannel(final ChannelHandlerContext ctx) {
+        channels.remove(ctx);
     }
 
     /**
