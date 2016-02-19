@@ -29,7 +29,7 @@ import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.listener.AbstractJBIListener;
 import org.ow2.petals.component.framework.process.async.AsyncContext;
-import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
+import org.ow2.petals.component.framework.util.ServiceEndpointKey;
 
 /**
  * There will be one instance of this class per thread of the component. The class is declared in the jbi.xml.
@@ -49,7 +49,7 @@ public class JbiGatewayJBIListener extends AbstractJBIListener {
 
         if (exchange.isActiveStatus() && exchange.isProviderRole()) {
             // most of the messages arriving are not for a provides but for one of our dynamically created endpoints
-            final ServiceProviderEndpointKey key = new ServiceProviderEndpointKey(exchange.getEndpoint());
+            final ServiceEndpointKey key = new ServiceEndpointKey(exchange.getEndpoint());
             Pair<ServiceKey, ProviderDomain> pd = getComponent().matches(key);
             if (pd != null) {
                 // TODO find back the ServiceKey that was received by the consumer partner..

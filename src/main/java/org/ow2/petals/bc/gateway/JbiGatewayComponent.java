@@ -46,7 +46,7 @@ import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.su.AbstractServiceUnitManager;
 import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
-import org.ow2.petals.component.framework.util.ServiceProviderEndpointKey;
+import org.ow2.petals.component.framework.util.ServiceEndpointKey;
 import org.w3c.dom.Document;
 
 import io.netty.bootstrap.Bootstrap;
@@ -93,7 +93,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
     private final ConcurrentMap<String, ProviderDomain> providers = new ConcurrentHashMap<>();
 
-    private final ConcurrentMap<ServiceProviderEndpointKey, Pair<ServiceEndpoint, Pair<ServiceKey, ProviderDomain>>> services = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ServiceEndpointKey, Pair<ServiceEndpoint, Pair<ServiceKey, ProviderDomain>>> services = new ConcurrentHashMap<>();
 
     private boolean started = false;
 
@@ -332,7 +332,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     @Override
-    public @Nullable Pair<ServiceKey, ProviderDomain> matches(final ServiceProviderEndpointKey key) {
+    public @Nullable Pair<ServiceKey, ProviderDomain> matches(final ServiceEndpointKey key) {
         return services.get(key).getB();
     }
 
@@ -349,18 +349,23 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     /**
-     * TODO if description is null, we should reask for it later!
-     * 
-     * TODO the service key should have at least service name and endpoint name!
-     */
+    * TODO if description is null, we should reask for it later!
+    * 
+    * TODO make it to safely (i.e. detect errors vs valid) support re-registering (for when we reask for description for
+    * example)
+    * 
+    * TODO the matching is wrong: {@link ServiceKey} represents Consumes while {@link ServiceProviderEndpointKey}
+    * represents Provides!
+    */
     private void register(final ServiceKey sk, final ProviderDomain pd, final @Nullable Document description,
             final @Nullable Provides provides) throws PEtALSCDKException {
 
         final ServiceEndpoint endpoint;
-        final ServiceProviderEndpointKey key;
+        final ServiceEndpointKey key;
         if (provides == null) {
-            key = new ServiceProviderEndpointKey(sk.service, sk.endpointName);
+            key = new ServiceEndpointKey(sk.service, sk.endpointName);
             // TODO we need to store the Document somewhere so that we can override getServiceDescription!
+            // -> store in services, then do the activation, then remove if problem or update endpoint if not
             try {
                 // TODO we need to activate or get that only on SU INIT!
                 endpoint = getContext().activateEndpoint(sk.service, sk.endpointName);
@@ -368,7 +373,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
                 throw new PEtALSCDKException(e);
             }
         } else {
-            key = new ServiceProviderEndpointKey(provides);
+            key = new ServiceEndpointKey(provides);
             // TODO we need to get that only on SU INIT!
             final ServiceUnitDataHandler suDH = getServiceUnitManager().getSUDataHandler(key);
             endpoint = suDH.getEndpoint(key);
@@ -392,7 +397,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     @Override
     public void deregister(final ServiceKey sk) throws PEtALSCDKException {
         final Pair<ServiceEndpoint, Pair<ServiceKey, ProviderDomain>> removed = services
-                .remove(new ServiceProviderEndpointKey(sk.service, sk.endpointName));
+                .remove(new ServiceEndpointKey(sk.service, sk.endpointName));
 
         if (removed != null) {
             try {
