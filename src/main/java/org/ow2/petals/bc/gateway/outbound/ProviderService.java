@@ -17,20 +17,10 @@
  */
 package org.ow2.petals.bc.gateway.outbound;
 
-import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
-import org.ow2.petals.component.framework.util.ServiceEndpointKey;
-import org.w3c.dom.Document;
+import org.ow2.petals.component.framework.api.message.Exchange;
 
-public interface ProviderMatcher {
+public interface ProviderService {
 
-    @Nullable
-    ProviderService matches(ServiceEndpointKey key);
+    void send(Exchange exchange);
 
-    void register(ServiceEndpointKey key, ProviderService ps, @Nullable Document description)
-            throws PEtALSCDKException;
-
-    void register(ServiceEndpointKey key, ProviderService ps) throws PEtALSCDKException;
-
-    void deregister(ServiceEndpointKey sk) throws PEtALSCDKException;
 }

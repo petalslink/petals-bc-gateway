@@ -87,19 +87,25 @@ public class ConsumerDomain {
     public void registerChannel(final ChannelHandlerContext ctx) {
         channels.add(ctx);
         for (final Entry<ServiceKey, Consumes> entry : services.entrySet()) {
-            // TODO cache the description
-            final Document desc = getDescription(entry.getValue());
-            ctx.write(new TransportedToConsumerDomainAddedConsumes(entry.getKey(), desc));
+            notifyService(ctx, entry.getKey(), entry.getValue());
         }
         ctx.flush();
+    }
+
+    /**
+     * TODO reexecute if desc was missing before...?
+     */
+    private void notifyService(final ChannelHandlerContext ctx, final ServiceKey service, final Consumes consumes) {
+        // TODO cache the description
+        final Document desc = getDescription(consumes);
+        ctx.write(new TransportedToConsumerDomainAddedConsumes(service, desc));
     }
 
     /**
      * This will return the first {@link Document} that is non-null on a {@link ServiceEndpoint} that matches the
      * {@link Consumes}.
      * 
-     * @param consumes
-     * @return
+     * TODO maybe factor that into CDK?
      */
     private @Nullable Document getDescription(final Consumes consumes) {
         final String endpointName = consumes.getEndpointName();

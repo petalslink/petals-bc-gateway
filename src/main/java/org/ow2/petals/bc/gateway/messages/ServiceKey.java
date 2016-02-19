@@ -28,6 +28,9 @@ import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 /**
  * Represents a {@link Consumes} that is propagated.
  * 
+ * It is used by provider partner to inform consumer partner of available services, and by consumer partner to tell a
+ * provider partner to which service a message is addressed
+ * 
  * @author vnoel
  *
  */

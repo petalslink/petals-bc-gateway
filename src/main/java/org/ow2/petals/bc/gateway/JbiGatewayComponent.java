@@ -35,9 +35,9 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
-import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.bc.gateway.outbound.ProviderMatcher;
+import org.ow2.petals.bc.gateway.outbound.ProviderService;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
@@ -93,7 +93,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
     private final ConcurrentMap<String, ProviderDomain> providers = new ConcurrentHashMap<>();
 
-    private final ConcurrentMap<ServiceEndpointKey, Pair<ServiceEndpoint, Pair<ServiceKey, ProviderDomain>>> services = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ServiceEndpointKey, Pair<ServiceEndpoint, ProviderService>> services = new ConcurrentHashMap<>();
 
     private boolean started = false;
 
@@ -332,58 +332,54 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     @Override
-    public @Nullable Pair<ServiceKey, ProviderDomain> matches(final ServiceEndpointKey key) {
+    public @Nullable ProviderService matches(final ServiceEndpointKey key) {
         return services.get(key).getB();
     }
 
     @Override
-    public void register(final ServiceKey sk, final ProviderDomain pd, final @Nullable Document description)
+    public void register(final ServiceEndpointKey key, final ProviderService ps, final @Nullable Document description)
             throws PEtALSCDKException {
-        this.register(sk, pd, description, null);
+        this.register(key, ps, description, true);
     }
 
     @Override
-    public void register(final ServiceKey sk, final ProviderDomain pd, final Provides provides)
+    public void register(final ServiceEndpointKey key, final ProviderService ps)
             throws PEtALSCDKException {
-        this.register(sk, pd, null, provides);
+        this.register(key, ps, null, false);
     }
 
     /**
-    * TODO if description is null, we should reask for it later!
-    * 
-    * TODO make it to safely (i.e. detect errors vs valid) support re-registering (for when we reask for description for
-    * example)
-    * 
-    * TODO the matching is wrong: {@link ServiceKey} represents Consumes while {@link ServiceProviderEndpointKey}
-    * represents Provides!
-    */
-    private void register(final ServiceKey sk, final ProviderDomain pd, final @Nullable Document description,
-            final @Nullable Provides provides) throws PEtALSCDKException {
+     * TODO if description is null, we should reask for it later!
+     * 
+     * TODO make it to safely (i.e. detect errors vs valid) support re-registering (for when we reask for description
+     * for example)
+     * 
+     * @return
+     */
+    private void register(final ServiceEndpointKey key, final ProviderService ps, final @Nullable Document description,
+            final boolean activate) throws PEtALSCDKException {
 
         final ServiceEndpoint endpoint;
-        final ServiceEndpointKey key;
-        if (provides == null) {
-            key = new ServiceEndpointKey(sk.service, sk.endpointName);
+        if (activate) {
             // TODO we need to store the Document somewhere so that we can override getServiceDescription!
             // -> store in services, then do the activation, then remove if problem or update endpoint if not
             try {
                 // TODO we need to activate or get that only on SU INIT!
-                endpoint = getContext().activateEndpoint(sk.service, sk.endpointName);
+                endpoint = getContext().activateEndpoint(key.getServiceName(), key.getEndpointName());
             } catch (final JBIException e) {
                 throw new PEtALSCDKException(e);
             }
         } else {
-            key = new ServiceEndpointKey(provides);
-            // TODO we need to get that only on SU INIT!
             final ServiceUnitDataHandler suDH = getServiceUnitManager().getSUDataHandler(key);
+            // TODO we need to get that only on SU INIT!
             endpoint = suDH.getEndpoint(key);
         }
         assert endpoint != null;
 
-        if (services.putIfAbsent(key, new Pair<>(endpoint, new Pair<>(sk, pd))) != null) {
+        if (services.putIfAbsent(key, new Pair<>(endpoint, ps)) != null) {
             // shouldn't happen because activation wouldn't have worked then, but well...
-            final PEtALSCDKException t = new PEtALSCDKException("Duplicate service " + sk);
-            if (provides == null) {
+            final PEtALSCDKException t = new PEtALSCDKException("Duplicate service " + key);
+            if (activate) {
                 try {
                     getContext().deactivateEndpoint(endpoint);
                 } catch (final JBIException ex) {
@@ -395,9 +391,9 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     @Override
-    public void deregister(final ServiceKey sk) throws PEtALSCDKException {
-        final Pair<ServiceEndpoint, Pair<ServiceKey, ProviderDomain>> removed = services
-                .remove(new ServiceEndpointKey(sk.service, sk.endpointName));
+    public void deregister(final ServiceEndpointKey key) throws PEtALSCDKException {
+        // TODO this is not correct
+        final Pair<ServiceEndpoint, ProviderService> removed = services.remove(key);
 
         if (removed != null) {
             try {
@@ -406,7 +402,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
                 throw new PEtALSCDKException(e);
             }
         } else {
-            throw new PEtALSCDKException("Unknown service key " + sk);
+            throw new PEtALSCDKException("Unknown service key " + key);
         }
     }
 

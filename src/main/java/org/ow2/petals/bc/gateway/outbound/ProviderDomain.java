@@ -18,8 +18,11 @@
 package org.ow2.petals.bc.gateway.outbound;
 
 import java.util.Collection;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import javax.jbi.messaging.MessageExchange;
+import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
@@ -33,6 +36,8 @@ import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
+import org.ow2.petals.component.framework.util.EndpointUtil;
+import org.ow2.petals.component.framework.util.ServiceEndpointKey;
 import org.w3c.dom.Document;
 
 import io.netty.bootstrap.Bootstrap;
@@ -55,6 +60,8 @@ public class ProviderDomain {
 
     private final Bootstrap bootstrap;
 
+    private final ConcurrentMap<ServiceKey, ServiceEndpointKey> keys = new ConcurrentHashMap<>();
+
     @Nullable
     private Channel channel;
 
@@ -69,7 +76,7 @@ public class ProviderDomain {
         for (final Pair<Provides, JbiProvidesConfig> p : provides) {
             assert p != null;
             // TODO we need also to pass the Provides so that the key is used for here, and the provides for matching!
-            matcher.register(new ServiceKey(p.getB()), this, p.getA());
+            matcher.register(new ServiceEndpointKey(p.getA()), getProviderService(new ServiceKey(p.getB())));
         }
 
         final Bootstrap bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
@@ -90,19 +97,45 @@ public class ProviderDomain {
     /**
      * This corresponds to consumes being declared in the provider domain that we mirror on this side
      */
-    public void addedProviderService(final ServiceKey service, final @Nullable Document description) {
+    public void addedProviderService(final ServiceKey sk, final @Nullable Document description) {
         // TODO we should be able to disable the activation of consumes (i.e., only use the provides then!)
         // TODO should we register endpoint for unexisting service on the other side????
         try {
-            matcher.register(service, this, description);
+            // Note: we should not propagate endpoint name, it is local to each domain
+            final String endpointName = EndpointUtil.generateEndpointName();
+            final QName serviceName = sk.service == null ? new QName(sk.interfaceName.getNamespaceURI(),
+                    sk.interfaceName.getLocalPart() + "GeneratedService") : sk.service;
+            final ServiceEndpointKey key = new ServiceEndpointKey(serviceName, endpointName);
+
+            // TODO would be best to test before doing the register!
+            matcher.register(key, getProviderService(sk), description);
+
+            if (keys.putIfAbsent(sk, key) != null) {
+                // TODO handle problem
+                matcher.deregister(key);
+            }
         } catch (final Exception e) {
             // TODO send exception over the channel
         }
     }
 
+    private ProviderService getProviderService(final ServiceKey sk) {
+        return new ProviderService() {
+            @Override
+            public void send(final Exchange exchange) {
+                ProviderDomain.this.send(sk, exchange);
+            }
+        };
+    }
+
     public void removedProviderService(final ServiceKey service) {
         try {
-            matcher.deregister(service);
+            final ServiceEndpointKey key = keys.get(service);
+            if (key == null) {
+                // TODO handle problem
+            } else {
+                matcher.deregister(key);
+            }
         } catch (final Exception e) {
             // TODO log exception
         }
