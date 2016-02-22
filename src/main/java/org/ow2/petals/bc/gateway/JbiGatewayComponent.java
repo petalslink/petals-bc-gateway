@@ -21,10 +21,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.MissingResourceException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.jbi.JBIException;
 import javax.jbi.servicedesc.ServiceEndpoint;
@@ -143,7 +145,14 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     public ProviderDomain registerProviderDomain(final String ownerSU, final JbiProviderDomain jpd,
             final Collection<Pair<Provides, JbiProvidesConfig>> provides) throws PEtALSCDKException {
         // TODO should provider domain share their connections if they point to the same ip/port?
-        final ProviderDomain pd = new ProviderDomain(this, jpd, provides, getSender(), newClientBootstrap());
+        final Logger logger;
+        try {
+            logger = getContext().getLogger("provider." + ownerSU + "." + jpd.getId(), null);
+            assert logger != null;
+        } catch (final MissingResourceException | JBIException e) {
+            throw new RuntimeException("Impossible case", e);
+        }
+        final ProviderDomain pd = new ProviderDomain(this, jpd, provides, getSender(), newClientBootstrap(), logger);
         providers.add(pd);
         return pd;
     }
@@ -157,8 +166,15 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     public void registerConsumerDomain(final String ownerSU, final JbiConsumerDomain jcd,
             final Collection<Consumes> consumes) throws PEtALSCDKException {
         // TODO support many transports?
+        final Logger logger;
+        try {
+            logger = getContext().getLogger("consumer." + ownerSU + "." + jcd.getId(), null);
+            assert logger != null;
+        } catch (final MissingResourceException | JBIException e) {
+            throw new RuntimeException("Impossible case", e);
+        }
         getTransportListener(ownerSU, jcd.getTransport()).register(jcd,
-                new ConsumerDomain(getContext(), jcd, consumes));
+                new ConsumerDomain(getContext(), consumes, logger));
     }
 
     public void deregisterConsumerDomain(String ownerSU, JbiConsumerDomain jcd) throws PEtALSCDKException {
@@ -254,7 +270,14 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
     private TransportListener addTransporterListener(final @Nullable String ownerSU, final JbiTransportListener jtl)
             throws PEtALSCDKException {
-        final TransportListener tl = new TransportListener(getSender(), jtl, newServerBootstrap());
+        final Logger logger;
+        try {
+            logger = getContext().getLogger("transport." + (ownerSU == null ? "" : ownerSU + ".") + jtl.getId(), null);
+            assert logger != null;
+        } catch (final MissingResourceException | JBIException e) {
+            throw new RuntimeException("Impossible case", e);
+        }
+        final TransportListener tl = new TransportListener(getSender(), jtl, newServerBootstrap(), logger);
         if (listeners.putIfAbsent(getTransportListenerName(ownerSU, jtl.getId()), tl) != null) {
             throw new PEtALSCDKException(String.format("Duplicate transporter id '%s'", jtl.getId()));
         }

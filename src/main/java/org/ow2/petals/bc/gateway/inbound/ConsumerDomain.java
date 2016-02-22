@@ -18,6 +18,7 @@
 package org.ow2.petals.bc.gateway.inbound;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -26,6 +27,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.jbi.JBIException;
 import javax.jbi.component.ComponentContext;
@@ -33,7 +36,6 @@ import javax.jbi.servicedesc.ServiceEndpoint;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
@@ -62,21 +64,18 @@ public class ConsumerDomain {
 
     /**
      * The channels from this consumer domain (there can be more than one in case of HA or stuffs like that for example)
-     * 
-     * TODO store a name or something to identify it and log stuffs
      */
     @SuppressWarnings("null")
     private final Set<ChannelHandlerContext> channels = Collections
             .newSetFromMap(new ConcurrentHashMap<ChannelHandlerContext, Boolean>());
 
-    public final JbiConsumerDomain jcd;
-
     private final ComponentContext cc;
 
-    // TODO add a logger
-    public ConsumerDomain(final ComponentContext cc, final JbiConsumerDomain jcd, final Collection<Consumes> consumes) {
+    private final Logger logger;
+
+    public ConsumerDomain(final ComponentContext cc, final Collection<Consumes> consumes, final Logger logger) {
         this.cc = cc;
-        this.jcd = jcd;
+        this.logger = logger;
         for (final Consumes c : consumes) {
             assert c != null;
             services.put(new ServiceKey(c), c);
@@ -108,10 +107,18 @@ public class ConsumerDomain {
         final ServiceEndpoint[] endpoints;
         if (endpointName != null && serviceName != null) {
             final ServiceEndpoint endpoint = cc.getEndpoint(serviceName, endpointName);
-            if (endpoint != null && (interfaceName == null || matches(endpoint, interfaceName))) {
-                endpoints = new ServiceEndpoint[] { endpoint };
+            if (endpoint != null) {
+                if (interfaceName == null || matches(endpoint, interfaceName)) {
+                    endpoints = new ServiceEndpoint[] { endpoint };
+                } else {
+                    logger.warning(String.format(
+                            "Endpoint found for Consumes %s/%s/%s but interface does not match (was %s)", endpointName,
+                            serviceName, interfaceName, Arrays.deepToString(endpoint.getInterfaces())));
+                    endpoints = new ServiceEndpoint[0];
+                }
             } else {
-                // TODO log
+                logger.warning(String.format("No endpoint found for Consumes %s/%s/%s ", endpointName, serviceName,
+                        interfaceName));
                 endpoints = new ServiceEndpoint[0];
             }
         } else if (serviceName != null) {
@@ -122,6 +129,10 @@ public class ConsumerDomain {
                     assert endpoint != null;
                     if (matches(endpoint, interfaceName)) {
                         matched.add(endpoint);
+                    } else {
+                        logger.warning(
+                                String.format("Endpoint found for Consumes %s/%s but interface does not match (was %s)",
+                                        serviceName, interfaceName, Arrays.deepToString(endpoint.getInterfaces())));
                     }
                 }
                 endpoints = matched.toArray(new ServiceEndpoint[matched.size()]);
@@ -131,6 +142,7 @@ public class ConsumerDomain {
         } else {
             endpoints = cc.getEndpoints(interfaceName);
         }
+
         for (final ServiceEndpoint endpoint : endpoints) {
             try {
                 Document desc = cc.getEndpointDescriptor(endpoint);
@@ -138,9 +150,10 @@ public class ConsumerDomain {
                     return desc;
                 }
             } catch (final JBIException e) {
-                // TODO log but should not happen normally!
+                logger.log(Level.WARNING, "Failed to retrieve endpoint descriptor of " + endpoint, e);
             }
         }
+
         return null;
     }
 
@@ -158,8 +171,9 @@ public class ConsumerDomain {
     }
 
     public void exceptionReceived(final ChannelHandlerContext ctx, final Exception msg) {
-        // TODO just print it: receiving an exception here means that there is nothing to do, it is just
-        // information for us.
+        logger.log(Level.WARNING,
+                "Received an exeception from the other side, this is purely informative, we can't do anything about it",
+                msg);
     }
 
     public void close() {

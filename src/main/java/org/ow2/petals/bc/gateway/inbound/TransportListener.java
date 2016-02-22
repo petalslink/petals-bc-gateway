@@ -19,6 +19,7 @@ package org.ow2.petals.bc.gateway.inbound;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.logging.Logger;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
@@ -65,24 +66,19 @@ public class TransportListener implements ConsumerAuthenticator {
      */
     private final ConcurrentMap<String, ConsumerDomain> consumers = new ConcurrentHashMap<>();
 
-
     public TransportListener(final JBISender sender, final JbiTransportListener jtl,
-            final ServerBootstrap partialBootstrap) {
-
+            final ServerBootstrap partialBootstrap, final Logger logger) {
         this.jtl = jtl;
 
         // shared between all the connections of this listener
         final TransportDispatcher dispatcher = new TransportDispatcher(sender, this);
-        // TODO use component/SU/transporter name!
-        final LoggingHandler logging = new LoggingHandler(LogLevel.ERROR);
+        final LoggingHandler logging = new LoggingHandler(logger.getName() + ".channel", LogLevel.ERROR);
         final ObjectEncoder objectEncoder = new ObjectEncoder();
 
         final ServerBootstrap bootstrap = partialBootstrap.childHandler(new ChannelInitializer<Channel>() {
             @Override
             protected void initChannel(final @Nullable Channel ch) throws Exception {
                 assert ch != null;
-                // TODO change to something better than objects...
-                // we could have some kind of nice protocol?
                 final ChannelPipeline p = ch.pipeline();
                 p.addLast(objectEncoder);
                 p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));

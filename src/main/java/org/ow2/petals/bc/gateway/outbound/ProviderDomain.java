@@ -19,7 +19,6 @@ package org.ow2.petals.bc.gateway.outbound;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -28,6 +27,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.jbi.messaging.MessageExchange;
 import javax.xml.namespace.QName;
@@ -77,6 +78,8 @@ public class ProviderDomain {
 
     private final Bootstrap bootstrap;
 
+    private final Logger logger;
+
     /**
      * Updated by {@link #addedProviderService(ServiceKey, Document)} and {@link #removedProviderService(ServiceKey)}.
      * 
@@ -119,23 +122,19 @@ public class ProviderDomain {
         }
     }
 
-    // TODO add a logger
     public ProviderDomain(final ProviderMatcher matcher, final JbiProviderDomain jpd,
             final Collection<Pair<Provides, JbiProvidesConfig>> provides, final JBISender sender,
-            final Bootstrap partialBootstrap) throws PEtALSCDKException {
+            final Bootstrap partialBootstrap, final Logger logger) throws PEtALSCDKException {
         this.matcher = matcher;
         this.jpd = jpd;
+        this.logger = logger;
 
-        final Map<ServiceKey, Provides> pm = new HashMap<>();
-
+        this.provides = new HashMap<>();
         for (final Pair<Provides, JbiProvidesConfig> pair : provides) {
-            pm.put(new ServiceKey(pair.getB()), pair.getA());
+            this.provides.put(new ServiceKey(pair.getB()), pair.getA());
         }
 
-        this.provides = Collections.unmodifiableMap(pm);
-
-        // TODO use component/SU/transporter name!
-        final LoggingHandler logging = new LoggingHandler(LogLevel.ERROR);
+        final LoggingHandler logging = new LoggingHandler(logger.getName() + ".channel", LogLevel.ERROR);
         final ObjectEncoder objectEncoder = new ObjectEncoder();
 
         final Bootstrap bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
@@ -173,15 +172,16 @@ public class ProviderDomain {
             init = true;
 
         } catch (final PEtALSCDKException e) {
+            logger.severe("Error during ProviderDomain init, undoing everything");
 
             for (final ServiceData data : services.values()) {
                 if (data.key != null) {
                     try {
                         if (!deregisterProviderService(data)) {
-                            // TODO log strange situation
+                            logger.warning("Expected to deregister '" + data.key + "' but it wasn't registered...");
                         }
                     } catch (final Exception e1) {
-                        // TODO log!
+                        logger.log(Level.WARNING, "Error while deregistering propagated service", e1);
                     }
                 }
             }
@@ -204,16 +204,13 @@ public class ProviderDomain {
             init = false;
 
             for (final ServiceData data : services.values()) {
-                if (data.key != null) {
-                    try {
-                        if (!deregisterProviderService(data)) {
-                            // TODO log strange situation
-                        }
-                    } catch (final Exception e) {
-                        exceptions.add(e);
+                assert data.key != null;
+                try {
+                    if (!deregisterProviderService(data)) {
+                        logger.warning("Expected to deregister '" + data.key + "' but it wasn't registered...");
                     }
-                } else {
-                    // TODO this is not normal...
+                } catch (final Exception e) {
+                    exceptions.add(e);
                 }
             }
         } finally {
@@ -241,8 +238,7 @@ public class ProviderDomain {
      * TODO should we register endpoint for unexisting service on the other side????
      * 
      */
-    public void initProviderServices(final TransportedPropagatedConsumesList initServices)
-            throws PEtALSCDKException {
+    public void initProviderServices(final TransportedPropagatedConsumesList initServices) {
 
         initLock.readLock().lock();
         try {
@@ -253,24 +249,26 @@ public class ProviderDomain {
                 if (oldKeys.remove(service.service)) {
                     // we already knew this service from a previous connection
                     final ServiceData data = services.get(service.service);
-                    if (data != null) {
-                        if (service.description != null) {
-                            // TODO anyway, description is only get by container on activation... maybe change the way
-                            // the
-                            // container behave?
-                            data.description = service.description;
-                        }
-                    } else {
-                        // TODO this can't happen normally... !
+                    assert data != null;
+                    if (service.description != null) {
+                        // Note: this is not always used because the description is only retrieved by the container
+                        // on activation
+                        data.description = service.description;
                     }
                 } else {
                     // the service is new!
                     final ServiceData data = new ServiceData(null, service.description);
-                    services.put(service.service, data);
 
-                    if (init) {
-                        // TODO handle that exception differently??!!
-                        registerProviderService(service.service, data);
+                    try {
+                        if (init) {
+                            registerProviderService(service.service, data);
+                        }
+
+                        // we add it after we are sure no error happened with the registration
+                        services.put(service.service, data);
+                    } catch (final PEtALSCDKException e) {
+                        logger.log(Level.WARNING,
+                                "Couldn't register propagated service '" + service.service + "' (" + data.key + ")", e);
                     }
                 }
             }
@@ -278,19 +276,19 @@ public class ProviderDomain {
             // these services from a previous connection do not exist anymore!
             for (final ServiceKey sk : oldKeys) {
                 final ServiceData data = services.remove(sk);
-                if (data != null) {
-                    final ServiceEndpointKey key = data.key;
-                    if (key != null) {
-                        // TODO handle that exception differently??!!
+                assert data != null;
+                final ServiceEndpointKey key = data.key;
+                if (key != null) {
+                    try {
                         if (!deregisterProviderService(data)) {
-                            // TODO log strange situation
+                            logger.warning("Expected to deregister '" + key + "' but it wasn't registered...");
                         }
-                    } else {
-                        // it means it wasn't activated (i.e. SU is not init)
-                        // TODO check !init?
+                    } catch (final PEtALSCDKException e) {
+                        logger.log(Level.WARNING, "Couldn't deregister propagated service '" + sk + "' (" + key + ")",
+                                e);
                     }
                 } else {
-                    // TODO this can't happen normally... !
+                    assert !init;
                 }
             }
         } finally {
@@ -369,8 +367,9 @@ public class ProviderDomain {
     }
 
     public void exceptionReceived(final Exception msg) {
-        // TODO just log it: receiving an exception here means that there is nothing to do, it is just
-        // information for us.
+        logger.log(Level.WARNING,
+                "Received an exeception from the other side, this is purely informative, we can't do anything about it",
+                msg);
     }
 
     public String getAuthName() {

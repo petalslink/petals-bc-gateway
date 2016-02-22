@@ -25,7 +25,6 @@ import org.ow2.petals.bc.gateway.messages.TransportedException;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.util.ReferenceCountUtil;
@@ -46,23 +45,9 @@ public class TransportServer extends SimpleChannelInboundHandler<TransportedToPr
 
     private final JBISender sender;
 
-    // TODO we need a logger per server maybe... or per connection...
     public TransportServer(final JBISender sender, final ConsumerDomain cd) {
         this.sender = sender;
         this.cd = cd;
-    }
-
-    /**
-     * TODO which exceptions are caught here? all that are not already caught by a {@link ChannelFuture} handler?
-     */
-    @Override
-    public void exceptionCaught(final @Nullable ChannelHandlerContext ctx, final @Nullable Throwable cause)
-            throws Exception {
-        assert ctx != null;
-        assert cause != null;
-        // TODO log
-        // TODO do something else? removing myself? does it make sense?
-        ctx.close();
     }
 
     /**
