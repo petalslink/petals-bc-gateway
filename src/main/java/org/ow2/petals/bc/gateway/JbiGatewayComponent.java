@@ -263,7 +263,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
                 tl.bind();
             } catch (final Exception e) {
                 // normally this shouldn't really happen, but well...
-                throw new PEtALSCDKException(String.format("Error while starting transporter '%s'", jtl));
+                throw new PEtALSCDKException(String.format("Error while starting transporter '%s'", jtl), e);
             }
         }
     }

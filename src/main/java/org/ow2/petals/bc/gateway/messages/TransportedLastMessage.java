@@ -29,6 +29,7 @@ public class TransportedLastMessage extends TransportedMessage implements Transp
     /**
      * {@link MessageExchange} is not serializable as an interface, but we know all its implementations are in Petals.
      */
+    @SuppressWarnings("squid:S1948")
     public final MessageExchange receiverExchange;
 
     public TransportedLastMessage(final TransportedMiddleMessage m) {

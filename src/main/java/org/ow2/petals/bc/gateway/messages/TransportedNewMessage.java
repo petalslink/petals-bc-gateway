@@ -28,6 +28,7 @@ public class TransportedNewMessage extends TransportedMessage implements Transpo
     /**
      * {@link MessageExchange} is not serializable as an interface, but we know all its implementations are in Petals.
      */
+    @SuppressWarnings("squid:S1948")
     public final MessageExchange senderExchange;
 
     public TransportedNewMessage(final ServiceKey service, final MessageExchange senderExchange) {

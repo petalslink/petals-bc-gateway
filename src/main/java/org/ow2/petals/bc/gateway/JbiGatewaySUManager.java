@@ -148,7 +148,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                 try {
                     pd.shutdown();
                 } catch (final Exception ex) {
-                    this.logger.log(Level.WARNING, "Error while shutdowning provider domain", e);
+                    this.logger.log(Level.WARNING, "Error while shutdowning provider domain", ex);
                 }
             }
 

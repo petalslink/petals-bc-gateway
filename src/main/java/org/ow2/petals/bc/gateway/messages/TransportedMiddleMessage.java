@@ -30,6 +30,7 @@ public class TransportedMiddleMessage extends TransportedMessage
     /**
      * {@link MessageExchange} is not serializable as an interface, but we know all its implementations are in Petals.
      */
+    @SuppressWarnings("squid:S1948")
     public final MessageExchange senderExchange;
 
     /**
@@ -38,6 +39,7 @@ public class TransportedMiddleMessage extends TransportedMessage
      * receiving an answer to something sent, so we send them both and we don't need to remember them on our side, which
      * avoids storing and managing complex state.
      */
+    @SuppressWarnings("squid:S1948")
     public final MessageExchange receiverExchange;
 
     public TransportedMiddleMessage(final ServiceKey service, final MessageExchange receiverExchange,
