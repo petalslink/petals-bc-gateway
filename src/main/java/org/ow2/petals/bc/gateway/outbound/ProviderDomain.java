@@ -17,7 +17,15 @@
  */
 package org.ow2.petals.bc.gateway.outbound;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -32,6 +40,7 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
+import org.ow2.petals.bc.gateway.messages.TransportedToConsumerDomainPropagatedConsumes;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.api.message.Exchange;
@@ -50,6 +59,15 @@ import io.netty.handler.codec.serialization.ObjectEncoder;
 
 /**
  * There is one instance of this class per opened connection to a provider partner.
+ * 
+ * It maintains the list of Provides we should create on our side (based on the Consumes propagated)
+ *
+ * {@link #connect()} and {@link #disconnect()} corresponds to components start and stop.
+ * 
+ * {@link #init()} and {@link #shutdown()} corresponds to SU init and shutdown
+ * 
+ * TODO how do we know when the connection is closed by the other side? In that case we should maybe deregister
+ * everything?
  *
  */
 public class ProviderDomain {
@@ -60,10 +78,37 @@ public class ProviderDomain {
 
     private final Bootstrap bootstrap;
 
-    private final ConcurrentMap<ServiceKey, ServiceEndpointKey> keys = new ConcurrentHashMap<>();
+    /**
+     * Updated by {@link #addedProviderService(ServiceKey, Document)} and {@link #removedProviderService(ServiceKey)}.
+     * 
+     * Contains the services announced by the provider partner as being propagated.
+     * 
+     * The content of {@link ServiceData} itself is updated by {@link #init()} and {@link #shutdown()} (to add the
+     * {@link ServiceEndpointKey} that is activated as an endpoint)
+     */
+    private final ConcurrentMap<ServiceKey, ServiceData> services = new ConcurrentHashMap<>();
+
+    /**
+     * immutable, all the provides for this domain.
+     */
+    private final Map<ServiceKey, Provides> provides;
 
     @Nullable
     private Channel channel;
+
+    private volatile boolean init = false;
+
+    private static class ServiceData {
+
+        private @Nullable Document description;
+
+        private @Nullable ServiceEndpointKey key;
+
+        public ServiceData(final @Nullable ServiceEndpointKey key, final @Nullable Document description) {
+            this.description = description;
+            this.key = key;
+        }
+    }
 
     // TODO add a logger
     public ProviderDomain(final ProviderMatcher matcher, final JbiProviderDomain jpd,
@@ -72,12 +117,13 @@ public class ProviderDomain {
         this.matcher = matcher;
         this.jpd = jpd;
 
-        // TODO what about WSDL rewriting for these??
-        for (final Pair<Provides, JbiProvidesConfig> p : provides) {
-            assert p != null;
-            // TODO we need also to pass the Provides so that the key is used for here, and the provides for matching!
-            matcher.register(new ServiceEndpointKey(p.getA()), getProviderService(new ServiceKey(p.getB())));
+        final Map<ServiceKey, Provides> pm = new HashMap<>();
+
+        for (final Pair<Provides, JbiProvidesConfig> pair : provides) {
+            pm.put(new ServiceKey(pair.getB()), pair.getA());
         }
+
+        this.provides = Collections.unmodifiableMap(pm);
 
         final Bootstrap bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
             @Override
@@ -95,28 +141,161 @@ public class ProviderDomain {
     }
 
     /**
-     * This corresponds to consumes being declared in the provider domain that we mirror on this side
+     * SU INIT
      */
-    public void addedProviderService(final ServiceKey sk, final @Nullable Document description) {
-        // TODO we should be able to disable the activation of consumes (i.e., only use the provides then!)
-        // TODO should we register endpoint for unexisting service on the other side????
+    public void init() throws PEtALSCDKException {
         try {
-            // Note: we should not propagate endpoint name, it is local to each domain
-            final String endpointName = EndpointUtil.generateEndpointName();
-            final QName serviceName = sk.service == null ? new QName(sk.interfaceName.getNamespaceURI(),
-                    sk.interfaceName.getLocalPart() + "GeneratedService") : sk.service;
-            final ServiceEndpointKey key = new ServiceEndpointKey(serviceName, endpointName);
-
-            // TODO would be best to test before doing the register!
-            matcher.register(key, getProviderService(sk), description);
-
-            if (keys.putIfAbsent(sk, key) != null) {
-                // TODO handle problem
-                matcher.deregister(key);
+            // TODO should we fail if a provide does not corresponds to a propagated Consumes?
+            // Because it is actived...
+            for (final Entry<ServiceKey, ServiceData> e : services.entrySet()) {
+                final ServiceKey sk = e.getKey();
+                final ServiceData data = e.getValue();
+                assert sk != null;
+                assert data != null;
+                registerProviderService(sk, data);
             }
-        } catch (final Exception e) {
-            // TODO send exception over the channel
+
+            init = true;
+
+        } catch (final PEtALSCDKException e) {
+
+            for (final ServiceData data : services.values()) {
+                if (data.key != null) {
+                    try {
+                        if (!deregisterProviderService(data)) {
+                            // TODO log strange situation
+                        }
+                    } catch (final Exception e1) {
+                        // TODO log!
+                    }
+                }
+            }
+
+            throw e;
         }
+    }
+
+    /**
+     * SU SHUTDOWN
+     */
+    public void shutdown() throws PEtALSCDKException {
+
+        init = false;
+
+        final List<Throwable> exceptions = new ArrayList<>();
+
+        for (final ServiceData data : services.values()) {
+            if (data.key != null) {
+                try {
+                    if (!deregisterProviderService(data)) {
+                        // TODO log strange situation
+                    }
+                } catch (final Exception e) {
+                    exceptions.add(e);
+                }
+            } else {
+                // TODO this is not normal...
+            }
+        }
+
+        if (!exceptions.isEmpty()) {
+            final PEtALSCDKException ex = new PEtALSCDKException("Errors during ProviderDomain shutdown");
+            for (final Throwable e : exceptions) {
+                ex.addSuppressed(e);
+            }
+            throw ex;
+        }
+    }
+
+    /**
+     * 
+     * This corresponds to consumes being declared in the provider domain that we mirror on this side
+     * 
+     * We receive these notification once we are connected to the other side, i.e., just after component start (and of
+     * course after SU deploy)
+     * 
+     * TODO we should be able to disable the activation of consumes (i.e., only use the provides then!) TODO should we
+     * register endpoint for unexisting service on the other side????
+     */
+    public void initProviderServices(final Collection<TransportedToConsumerDomainPropagatedConsumes> initServices)
+            throws PEtALSCDKException {
+
+        final Set<ServiceKey> oldKeys = new HashSet<>(services.keySet());
+
+        for (final TransportedToConsumerDomainPropagatedConsumes service : initServices) {
+            if (oldKeys.remove(service.service)) {
+                // we already knew this service from a previous connection
+                final ServiceData data = services.get(service.service);
+                if (data != null) {
+                    if (service.description != null) {
+                        // TODO anyway, description is only get by container on activation... maybe change the way the
+                        // container behave?
+                        data.description = service.description;
+                    }
+                } else {
+                    // TODO this can't happen normally... !
+                }
+            } else {
+                // the service is new!
+                final ServiceData data = new ServiceData(null, service.description);
+                services.put(service.service, data);
+
+                if (init) {
+                    // TODO handle that exception differently??!!
+                    registerProviderService(service.service, data);
+                }
+            }
+        }
+
+        // these services from a previous connection do not exist anymore!
+        for (final ServiceKey sk : oldKeys) {
+            final ServiceData data = services.remove(sk);
+            if (data != null) {
+                final ServiceEndpointKey key = data.key;
+                if (key != null) {
+                    // TODO handle that exception differently??!!
+                    if (!deregisterProviderService(data)) {
+                        // TODO log strange situation
+                    }
+                } else {
+                    // it means it wasn't activated (i.e. SU is not init)
+                    // TODO check !init?
+                }
+            } else {
+                // TODO this can't happen normally... !
+            }
+        }
+    }
+
+    private void registerProviderService(final ServiceKey sk, final ServiceData data) throws PEtALSCDKException {
+        final Provides p = provides.get(sk);
+        if (p != null) {
+            // TODO what about WSDL rewriting for these??
+            final ServiceEndpointKey key = new ServiceEndpointKey(p);
+            data.key = key;
+            matcher.register(key, getProviderService(sk));
+        } else {
+            final ServiceEndpointKey key = generateSEK(sk);
+            data.key = key;
+            matcher.register(key, getProviderService(sk), data.description);
+        }
+    }
+
+    private boolean deregisterProviderService(final ServiceData data) throws PEtALSCDKException {
+        final ServiceEndpointKey key = data.key;
+        assert key != null;
+        data.key = null;
+        return matcher.deregister(key);
+    }
+
+    private static ServiceEndpointKey generateSEK(final ServiceKey sk) {
+        // Note: we should not propagate endpoint name, it is local to each domain
+        final String endpointName = EndpointUtil.generateEndpointName();
+        final QName serviceName = sk.service == null
+                ? new QName(sk.interfaceName.getNamespaceURI(), sk.interfaceName.getLocalPart() + "GeneratedService")
+                : sk.service;
+        final ServiceEndpointKey key = new ServiceEndpointKey(serviceName, endpointName);
+        return key;
     }
 
     private ProviderService getProviderService(final ServiceKey sk) {
@@ -126,19 +305,6 @@ public class ProviderDomain {
                 ProviderDomain.this.send(sk, exchange);
             }
         };
-    }
-
-    public void removedProviderService(final ServiceKey service) {
-        try {
-            final ServiceEndpointKey key = keys.get(service);
-            if (key == null) {
-                // TODO handle problem
-            } else {
-                matcher.deregister(key);
-            }
-        } catch (final Exception e) {
-            // TODO log exception
-        }
     }
 
     /**
@@ -156,6 +322,10 @@ public class ProviderDomain {
         channel.writeAndFlush(m);
     }
 
+    /**
+     * TODO on connect, we should be ready to receive new services via
+     * {@link #addedProviderService(ServiceKey, Document)} and remove/add the previous ones!
+     */
     public void connect() throws InterruptedException {
         // TODO should I do that async?
         final Channel channel = bootstrap.connect().sync().channel();

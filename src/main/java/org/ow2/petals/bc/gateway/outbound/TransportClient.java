@@ -21,8 +21,6 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
-import org.ow2.petals.bc.gateway.messages.TransportedToConsumerDomainAddedConsumes;
-import org.ow2.petals.bc.gateway.messages.TransportedToConsumerDomainRemovedConsumes;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -39,30 +37,24 @@ public class TransportClient extends ChannelInboundHandlerAdapter {
     }
 
     @Override
-    public void channelActive(final @Nullable ChannelHandlerContext ctx) throws Exception {
-        assert ctx != null;
-        ctx.writeAndFlush(pd.getAuthName());
-    }
-
-    @Override
     public void channelRead(final @Nullable ChannelHandlerContext ctx, final @Nullable Object msg) throws Exception {
         assert ctx != null;
         assert msg != null;
 
-        if (msg instanceof Exception) {
-            pd.exceptionReceived((Exception) msg);
-        } else if (msg instanceof TransportedMessage) {
-            // this can't happen, we are the one sending new exchanges!
-            assert !(msg instanceof TransportedNewMessage);
-            sender.send(ctx, (TransportedMessage) msg);
-        } else if (msg instanceof TransportedToConsumerDomainAddedConsumes) {
-            final TransportedToConsumerDomainAddedConsumes m = (TransportedToConsumerDomainAddedConsumes) msg;
-            pd.addedProviderService(m.service, m.description);
-        } else if (msg instanceof TransportedToConsumerDomainRemovedConsumes) {
-            pd.removedProviderService(((TransportedToConsumerDomainRemovedConsumes) msg).service);
-        } else {
-            // TODO handle unexpected content
+        try {
+            if (msg instanceof Exception) {
+                pd.exceptionReceived((Exception) msg);
+            } else if (msg instanceof TransportedMessage) {
+                // this can't happen, we are the one sending new exchanges!
+                assert !(msg instanceof TransportedNewMessage);
+                sender.send(ctx, (TransportedMessage) msg);
+            } else {
+                // TODO handle unexpected content
+            }
+        } catch (final Exception e) {
+            // TODO send back exception!
         }
+
     }
 
 }

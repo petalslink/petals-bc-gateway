@@ -18,8 +18,10 @@
 package org.ow2.petals.bc.gateway;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
@@ -91,7 +93,9 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
      */
     private final ConcurrentMap<String, TransportListener> listeners = new ConcurrentHashMap<>();
 
-    private final ConcurrentMap<String, ProviderDomain> providers = new ConcurrentHashMap<>();
+    @SuppressWarnings("null")
+    private final Set<ProviderDomain> providers = Collections
+            .newSetFromMap(new ConcurrentHashMap<ProviderDomain, Boolean>());
 
     private final ConcurrentMap<ServiceEndpointKey, Pair<ServiceEndpoint, ProviderService>> services = new ConcurrentHashMap<>();
 
@@ -136,17 +140,17 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
     }
 
-    public void registerProviderDomain(final String ownerSU, final JbiProviderDomain jpd,
+    public ProviderDomain registerProviderDomain(final String ownerSU, final JbiProviderDomain jpd,
             final Collection<Pair<Provides, JbiProvidesConfig>> provides) throws PEtALSCDKException {
         // TODO should provider domain share their connections if they point to the same ip/port?
         final ProviderDomain pd = new ProviderDomain(this, jpd, provides, getSender(), newClientBootstrap());
-        providers.put(getConnectionName(ownerSU, jpd.getId()), pd);
+        providers.add(pd);
+        return pd;
     }
 
-    public void deregisterProviderDomain(final String ownerSU, final JbiProviderDomain jpd) {
-        final ProviderDomain conn = providers.remove(getConnectionName(ownerSU, jpd.getId()));
-        if (conn != null) {
-            conn.disconnect();
+    public void deregisterProviderDomain(final ProviderDomain domain) {
+        if (providers.remove(domain)) {
+            domain.disconnect();
         }
     }
 
@@ -204,14 +208,14 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
                 tl.bind();
             }
 
-            for (final ProviderDomain tc : providers.values()) {
+            for (final ProviderDomain tc : providers) {
                 tc.connect();
             }
         } catch (final Exception e) {
             // normally this shouldn't really happen, but well...
             getLogger().log(Level.SEVERE, "Error during component start, stopping listeners and clients");
 
-            for (final ProviderDomain tc : providers.values()) {
+            for (final ProviderDomain tc : providers) {
                 try {
                     tc.disconnect();
                 } catch (final Exception e1) {
@@ -279,7 +283,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
         final List<Throwable> exceptions = new LinkedList<>();
 
-        for (final ProviderDomain tc : providers.values()) {
+        for (final ProviderDomain tc : providers) {
             try {
                 tc.disconnect();
             } catch (final Exception e1) {
@@ -353,8 +357,6 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
      * 
      * TODO make it to safely (i.e. detect errors vs valid) support re-registering (for when we reask for description
      * for example)
-     * 
-     * @return
      */
     private void register(final ServiceEndpointKey key, final ProviderService ps, final @Nullable Document description,
             final boolean activate) throws PEtALSCDKException {
@@ -391,7 +393,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     @Override
-    public void deregister(final ServiceEndpointKey key) throws PEtALSCDKException {
+    public boolean deregister(final ServiceEndpointKey key) throws PEtALSCDKException {
         // TODO this is not correct
         final Pair<ServiceEndpoint, ProviderService> removed = services.remove(key);
 
@@ -401,8 +403,9 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             } catch (final JBIException e) {
                 throw new PEtALSCDKException(e);
             }
+            return true;
         } else {
-            throw new PEtALSCDKException("Unknown service key " + key);
+            return false;
         }
     }
 

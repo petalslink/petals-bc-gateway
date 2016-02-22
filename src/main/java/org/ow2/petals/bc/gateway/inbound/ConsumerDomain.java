@@ -35,7 +35,7 @@ import javax.xml.namespace.QName;
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
-import org.ow2.petals.bc.gateway.messages.TransportedToConsumerDomainAddedConsumes;
+import org.ow2.petals.bc.gateway.messages.TransportedToConsumerDomainPropagatedConsumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.w3c.dom.Document;
 
@@ -86,10 +86,12 @@ public class ConsumerDomain {
 
     public void registerChannel(final ChannelHandlerContext ctx) {
         channels.add(ctx);
+        final ArrayList<TransportedToConsumerDomainPropagatedConsumes> consumes = new ArrayList<>();
         for (final Entry<ServiceKey, Consumes> entry : services.entrySet()) {
-            notifyService(ctx, entry.getKey(), entry.getValue());
+            consumes.add(
+                    new TransportedToConsumerDomainPropagatedConsumes(entry.getKey(), getDescription(entry.getValue())));
         }
-        ctx.flush();
+        ctx.writeAndFlush(consumes);
     }
 
     /**
@@ -98,7 +100,7 @@ public class ConsumerDomain {
     private void notifyService(final ChannelHandlerContext ctx, final ServiceKey service, final Consumes consumes) {
         // TODO cache the description
         final Document desc = getDescription(consumes);
-        ctx.write(new TransportedToConsumerDomainAddedConsumes(service, desc));
+        ctx.write(new TransportedToConsumerDomainPropagatedConsumes(service, desc));
     }
 
     /**

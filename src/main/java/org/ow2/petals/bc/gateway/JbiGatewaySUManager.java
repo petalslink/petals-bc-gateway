@@ -19,6 +19,7 @@ package org.ow2.petals.bc.gateway;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -29,6 +30,7 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
+import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.component.framework.AbstractComponent;
@@ -46,6 +48,11 @@ import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
  *
  */
 public class JbiGatewaySUManager extends AbstractServiceUnitManager {
+
+    /**
+     * No need for synchronization, only accessed during lifecycles
+     */
+    private final List<ProviderDomain> providerDomains = new ArrayList<>();
 
     public JbiGatewaySUManager(final JbiGatewayComponent component) {
         super(component);
@@ -87,18 +94,23 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
             for (final Entry<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> entry : pd2provides
                     .entrySet()) {
-                getComponent().registerProviderDomain(ownerSU, entry.getKey(), entry.getValue());
+                final ProviderDomain pd = getComponent().registerProviderDomain(ownerSU, entry.getKey(),
+                        entry.getValue());
+                providerDomains.add(pd);
             }
         } catch (final Exception e) {
             this.logger.log(Level.SEVERE, "Error during SU deploy, undoing everything");
 
-            for (final JbiProviderDomain jpd : pd2provides.keySet()) {
-                assert jpd != null;
+            final Iterator<ProviderDomain> itP = providerDomains.iterator();
+            while (itP.hasNext()) {
+                final ProviderDomain pd = itP.next();
+                assert pd != null;
                 try {
-                    getComponent().deregisterProviderDomain(ownerSU, jpd);
+                    getComponent().deregisterProviderDomain(pd);
                 } catch (final Exception e1) {
                     this.logger.log(Level.WARNING, "Error while removing provider domain", e1);
                 }
+                itP.remove();
             }
 
             for (final JbiConsumerDomain jcd : cd2consumes.keySet()) {
@@ -116,6 +128,27 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                     getComponent().deregisterTransportListener(ownerSU, jtl);
                 } catch (final Exception e1) {
                     this.logger.log(Level.WARNING, "Error while removing SU transporter listener", e1);
+                }
+            }
+
+            throw e;
+        }
+    }
+
+    @Override
+    protected void doInit(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
+        try {
+            for (final ProviderDomain pd : providerDomains) {
+                pd.init();
+            }
+        } catch (final Exception e) {
+            this.logger.log(Level.SEVERE, "Error during SU init, undoing everything");
+
+            for (final ProviderDomain pd : providerDomains) {
+                try {
+                    pd.shutdown();
+                } catch (final Exception ex) {
+                    this.logger.log(Level.WARNING, "Error while shutdowning provider domain", e);
                 }
             }
 
@@ -141,6 +174,28 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
     }
 
     @Override
+    protected void doShutdown(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
+
+        final List<Throwable> exceptions = new ArrayList<>();
+
+        for (final ProviderDomain pd : providerDomains) {
+            try {
+                pd.shutdown();
+            } catch (final Exception e) {
+                exceptions.add(e);
+            }
+        }
+
+        if (!exceptions.isEmpty()) {
+            final PEtALSCDKException ex = new PEtALSCDKException("Errors during SU undeploy");
+            for (final Throwable e : exceptions) {
+                ex.addSuppressed(e);
+            }
+            throw ex;
+        }
+    }
+
+    @Override
     protected void doUndeploy(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
         assert suDH != null;
 
@@ -151,16 +206,18 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         final Services services = suDH.getDescriptor().getServices();
         final Collection<JbiConsumerDomain> jcds = JbiGatewayJBIHelper.getConsumerDomains(services);
-        final Collection<JbiProviderDomain> jpds = JbiGatewayJBIHelper.getProviderDomains(services);
         final Collection<JbiTransportListener> jtls = JbiGatewayJBIHelper.getTransportListeners(services);
 
-        for (final JbiProviderDomain jpd : jpds) {
-            assert jpd != null;
+        final Iterator<ProviderDomain> itP = providerDomains.iterator();
+        while (itP.hasNext()) {
+            final ProviderDomain pd = itP.next();
+            assert pd != null;
             try {
-                getComponent().deregisterProviderDomain(ownerSU, jpd);
+                getComponent().deregisterProviderDomain(pd);
             } catch (final Exception e) {
                 exceptions.add(e);
             }
+            itP.remove();
         }
 
         for (final JbiConsumerDomain jcd : jcds) {

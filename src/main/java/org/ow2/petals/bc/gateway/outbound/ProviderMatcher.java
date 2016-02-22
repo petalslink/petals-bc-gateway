@@ -32,5 +32,10 @@ public interface ProviderMatcher {
 
     void register(ServiceEndpointKey key, ProviderService ps) throws PEtALSCDKException;
 
-    void deregister(ServiceEndpointKey sk) throws PEtALSCDKException;
+    /**
+     * @return <code>true</code> if it was actually deregistered
+     * @throws PEtALSCDKException
+     *             if there was an error during deregistration
+     */
+    boolean deregister(ServiceEndpointKey sk) throws PEtALSCDKException;
 }
