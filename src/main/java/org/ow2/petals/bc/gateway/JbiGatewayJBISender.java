@@ -150,11 +150,8 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
         } else if (context.m instanceof TransportedMiddleMessage) {
             hisMex = ((TransportedMiddleMessage) context.m).senderExchange;
         } else {
-            // this can't happen since we use send() for TransportedLastMessage
-            hisMex = null;
+            throw new RuntimeException("Impossible case");
         }
-        
-        assert hisMex != null;
 
         // TODO what about properties?
         // Note: we do not verify the validity of the state/mep transitions!

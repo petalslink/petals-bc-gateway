@@ -67,8 +67,10 @@ public class ServiceKey implements Serializable {
     public int hashCode() {
         final int prime = 31;
         int result = 1;
+        final String endpointName = this.endpointName;
         result = prime * result + ((endpointName == null) ? 0 : endpointName.hashCode());
         result = prime * result + ((interfaceName == null) ? 0 : interfaceName.hashCode());
+        final QName service = this.service;
         result = prime * result + ((service == null) ? 0 : service.hashCode());
         return result;
     }
@@ -82,6 +84,7 @@ public class ServiceKey implements Serializable {
         if (getClass() != obj.getClass())
             return false;
         ServiceKey other = (ServiceKey) obj;
+        final String endpointName = this.endpointName;
         if (endpointName == null) {
             if (other.endpointName != null)
                 return false;
@@ -89,6 +92,7 @@ public class ServiceKey implements Serializable {
             return false;
         if (!interfaceName.equals(other.interfaceName))
             return false;
+        final QName service = this.service;
         if (service == null) {
             if (other.service != null)
                 return false;
