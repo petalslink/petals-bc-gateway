@@ -17,10 +17,18 @@
  */
 package org.ow2.petals.bc.gateway.messages;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
+
+import javax.xml.transform.TransformerException;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.w3c.dom.Document;
+import org.xml.sax.SAXException;
+
+import com.ebmwebsourcing.easycommons.xml.XMLHelper;
 
 public class TransportedPropagatedConsumes implements Serializable {
 
@@ -28,11 +36,38 @@ public class TransportedPropagatedConsumes implements Serializable {
 
     public final ServiceKey service;
 
-    // TODO or should we serialize it ourselves?
-    public final @Nullable Document description;
+    public transient @Nullable Document description;
 
     public TransportedPropagatedConsumes(final ServiceKey service, final @Nullable Document description) {
         this.service = service;
         this.description = description;
+    }
+
+    private void readObject(final ObjectInputStream s) throws IOException {
+        try {
+            s.defaultReadObject();
+
+            if (s.readBoolean()) {
+                this.description = XMLHelper.createDocumentFromString((String) s.readObject());
+            }
+        } catch (final ClassNotFoundException | SAXException e) {
+            throw new IOException(e);
+        }
+    }
+
+    private void writeObject(final ObjectOutputStream s) throws IOException {
+        s.defaultWriteObject();
+
+        final Document description = this.description;
+        if (description != null) {
+            s.writeBoolean(true);
+            try {
+                s.writeObject(XMLHelper.createStringFromDOMNode(description));
+            } catch (final TransformerException e) {
+                throw new IOException(e);
+            }
+        } else {
+            s.writeBoolean(false);
+        }
     }
 }
