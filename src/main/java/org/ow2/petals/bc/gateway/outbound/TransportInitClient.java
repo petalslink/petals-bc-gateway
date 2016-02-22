@@ -17,7 +17,6 @@
  */
 package org.ow2.petals.bc.gateway.outbound;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.jdt.annotation.Nullable;
@@ -50,7 +49,7 @@ public class TransportInitClient extends ChannelInboundHandlerAdapter {
         assert ctx != null;
         assert msg != null;
 
-        if (!(msg instanceof ArrayList)) {
+        if (!(msg instanceof List)) {
             // TODO replace that with an exception!
             ctx.writeAndFlush("Unexpected content");
             // TODO is that all I have to do??
