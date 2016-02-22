@@ -17,17 +17,16 @@
  */
 package org.ow2.petals.bc.gateway.outbound;
 
-import java.util.List;
-
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
-import org.ow2.petals.bc.gateway.messages.TransportedToConsumerDomainPropagatedConsumes;
+import org.ow2.petals.bc.gateway.messages.TransportedAuthentication;
+import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
 
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.channel.ChannelPipeline;
+import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.util.ReferenceCountUtil;
 
-public class TransportInitClient extends ChannelInboundHandlerAdapter {
+public class TransportInitClient extends SimpleChannelInboundHandler<TransportedPropagatedConsumesList> {
 
     private final JBISender sender;
 
@@ -41,40 +40,22 @@ public class TransportInitClient extends ChannelInboundHandlerAdapter {
     @Override
     public void channelActive(final @Nullable ChannelHandlerContext ctx) throws Exception {
         assert ctx != null;
-        ctx.writeAndFlush(pd.getAuthName());
+        ctx.writeAndFlush(new TransportedAuthentication(pd.getAuthName()));
     }
 
     @Override
-    public void channelRead(final @Nullable ChannelHandlerContext ctx, final @Nullable Object msg) throws Exception {
-        assert ctx != null;
+    protected void channelRead0(final @Nullable ChannelHandlerContext ctx,
+            final @Nullable TransportedPropagatedConsumesList msg) throws Exception {
         assert msg != null;
+        assert ctx != null;
+        try {
+            pd.initProviderServices(msg);
 
-        if (!(msg instanceof List)) {
-            // TODO replace that with an exception!
-            ctx.writeAndFlush("Unexpected content");
-            // TODO is that all I have to do??
-            ctx.close();
-            return;
-        } else {
-            final List<?> list = (List<?>)msg;
-            for (final Object e : list) {
-                if (!(e instanceof TransportedToConsumerDomainPropagatedConsumes)) {
-                    // TODO replace that with an exception!
-                    ctx.writeAndFlush("Unexpected content");
-                    // TODO is that all I have to do??
-                    ctx.close();
-                    return;
-                }
-            }
+            // use replace because we want the logger to be last
+            // TODO ensure unique name...
+            ctx.pipeline().replace(this, "provider-" + pd.getAuthName(), new TransportClient(sender, pd));
+        } finally {
+            ReferenceCountUtil.release(msg);
         }
-        
-        @SuppressWarnings("unchecked")
-        final List<TransportedToConsumerDomainPropagatedConsumes> consumes = (List<TransportedToConsumerDomainPropagatedConsumes>) msg;
-
-        pd.initProviderServices(consumes);
-
-        final ChannelPipeline p = ctx.pipeline();
-        p.remove(this);
-        p.addLast(new TransportClient(sender, pd));
     }
 }

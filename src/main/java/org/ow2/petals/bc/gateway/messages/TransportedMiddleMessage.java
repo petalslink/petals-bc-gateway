@@ -19,7 +19,11 @@ package org.ow2.petals.bc.gateway.messages;
 
 import javax.jbi.messaging.MessageExchange;
 
-public class TransportedMiddleMessage extends TransportedMessage {
+import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
+import org.ow2.petals.bc.gateway.messages.Transported.TransportedToProvider;
+
+public class TransportedMiddleMessage extends TransportedMessage
+        implements TransportedToConsumer, TransportedToProvider {
 
     private static final long serialVersionUID = 8953552087309338043L;
 

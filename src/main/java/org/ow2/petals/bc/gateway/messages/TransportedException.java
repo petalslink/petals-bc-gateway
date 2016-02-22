@@ -15,27 +15,24 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway.inbound;
+package org.ow2.petals.bc.gateway.messages;
 
-import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
+import org.ow2.petals.bc.gateway.messages.Transported.TransportedToProvider;
 
-/**
- * 
- * TODO The key is for now the auth-name declared in the jbi.xml, but later we need to introduce something better to
- * identify consumer and not simply a string because this corresponds to a validity check of the consumer. e.g., a
- * public key fingerprint or something like that
- * 
- * @author vnoel
- *
- */
-public interface ConsumerAuthenticator {
+public class TransportedException extends Exception implements TransportedToProvider, TransportedToConsumer {
 
-    /**
-     * Authenticate a consumer based on an auth name
-     * 
-     * The implementation must be thread safe!
-     */
-    @Nullable
-    ConsumerDomain authenticate(String authName);
+    private static final long serialVersionUID = -6316196934605106284L;
 
+    public TransportedException(final String message, final Throwable cause) {
+        super(message, cause);
+    }
+
+    public TransportedException(final String message) {
+        super(message);
+    }
+
+    public TransportedException(final Throwable cause) {
+        super(cause);
+    }
 }

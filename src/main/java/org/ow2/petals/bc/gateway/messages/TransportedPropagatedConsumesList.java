@@ -17,19 +17,16 @@
  */
 package org.ow2.petals.bc.gateway.messages;
 
-import org.eclipse.jdt.annotation.Nullable;
-import org.w3c.dom.Document;
+import java.io.Serializable;
+import java.util.ArrayList;
 
-public class TransportedToConsumerDomainPropagatedConsumes extends TransportedForService {
+public class TransportedPropagatedConsumesList implements Serializable {
 
     private static final long serialVersionUID = -2818905233890110391L;
 
-    // TODO or should we serialize it ourselves?
-    public final @Nullable Document description;
+    public final ArrayList<TransportedPropagatedConsumes> consumes;
 
-    public TransportedToConsumerDomainPropagatedConsumes(final ServiceKey key, final @Nullable Document description) {
-        super(key);
-        this.description = description;
+    public TransportedPropagatedConsumesList(final ArrayList<TransportedPropagatedConsumes> consumes) {
+        this.consumes = consumes;
     }
-
 }

@@ -20,11 +20,15 @@ package org.ow2.petals.bc.gateway.inbound;
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.JbiGatewayJBISender;
+import org.ow2.petals.bc.gateway.messages.Transported.TransportedToProvider;
+import org.ow2.petals.bc.gateway.messages.TransportedException;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.util.ReferenceCountUtil;
 
 /**
  * 
@@ -36,7 +40,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
  * @author vnoel
  *
  */
-public class TransportServer extends ChannelInboundHandlerAdapter {
+public class TransportServer extends SimpleChannelInboundHandler<TransportedToProvider> {
 
     private final ConsumerDomain cd;
 
@@ -52,7 +56,8 @@ public class TransportServer extends ChannelInboundHandlerAdapter {
      * TODO which exceptions are caught here? all that are not already caught by a {@link ChannelFuture} handler?
      */
     @Override
-    public void exceptionCaught(@Nullable ChannelHandlerContext ctx, @Nullable Throwable cause) throws Exception {
+    public void exceptionCaught(final @Nullable ChannelHandlerContext ctx, final @Nullable Throwable cause)
+            throws Exception {
         assert ctx != null;
         assert cause != null;
         // TODO log
@@ -61,16 +66,17 @@ public class TransportServer extends ChannelInboundHandlerAdapter {
     }
 
     /**
-     * TODO is that called even if the channel is already opened and that handler is registered?!
+     * At that point we know the {@link Channel} is already active
      */
     @Override
-    public void channelActive(final @Nullable ChannelHandlerContext ctx) throws Exception {
+    public void handlerAdded(final @Nullable ChannelHandlerContext ctx) throws Exception {
         assert ctx != null;
-        // TODO verify it's ok to keep this context for the whole session of this connection...
-        // apparently yes but...
         cd.registerChannel(ctx);
     }
 
+    /**
+     * TODO is that correct?
+     */
     @Override
     public void channelInactive(final @Nullable ChannelHandlerContext ctx) throws Exception {
         assert ctx != null;
@@ -78,18 +84,21 @@ public class TransportServer extends ChannelInboundHandlerAdapter {
     }
 
     @Override
-    public void channelRead(final @Nullable ChannelHandlerContext ctx, final @Nullable Object msg) throws Exception {
+    protected void channelRead0(final @Nullable ChannelHandlerContext ctx, final @Nullable TransportedToProvider msg)
+            throws Exception {
         assert ctx != null;
         assert msg != null;
 
-        // TODO notification or other things?
-        if (msg instanceof Exception) {
-            cd.exceptionReceived(ctx, (Exception) msg);
-        } else if (msg instanceof TransportedMessage) {
-            sender.send(ctx, (TransportedMessage) msg);
-        } else {
-            // TODO handle unexpected content
+        try {
+            if (msg instanceof TransportedException) {
+                cd.exceptionReceived(ctx, ((TransportedException) msg));
+            } else if (msg instanceof TransportedMessage) {
+                sender.send(ctx, (TransportedMessage) msg);
+            } else {
+                throw new RuntimeException("Impossible case");
+            }
+        } finally {
+            ReferenceCountUtil.release(msg);
         }
     }
-
 }

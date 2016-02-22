@@ -33,6 +33,8 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
+import io.netty.handler.logging.LogLevel;
+import io.netty.handler.logging.LoggingHandler;
 
 /**
  * There is one instance of this class per listener in a component configuration (jbi.xml).
@@ -71,6 +73,9 @@ public class TransportListener implements ConsumerAuthenticator {
 
         // shared between all the connections of this listener
         final TransportDispatcher dispatcher = new TransportDispatcher(sender, this);
+        // TODO use component/SU/transporter name!
+        final LoggingHandler logging = new LoggingHandler(LogLevel.ERROR);
+        final ObjectEncoder objectEncoder = new ObjectEncoder();
 
         final ServerBootstrap bootstrap = partialBootstrap.childHandler(new ChannelInitializer<Channel>() {
             @Override
@@ -79,9 +84,10 @@ public class TransportListener implements ConsumerAuthenticator {
                 // TODO change to something better than objects...
                 // we could have some kind of nice protocol?
                 final ChannelPipeline p = ch.pipeline();
-                p.addLast(new ObjectEncoder());
+                p.addLast(objectEncoder);
                 p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
                 p.addLast(dispatcher);
+                p.addLast(logging);
             }
         }).localAddress(jtl.getPort());
         assert bootstrap != null;
@@ -116,7 +122,10 @@ public class TransportListener implements ConsumerAuthenticator {
         }
     }
 
-    public void deregistrer(JbiConsumerDomain jcd) {
-        consumers.remove(jcd.getAuthName());
+    public void deregistrer(final JbiConsumerDomain jcd) {
+        final ConsumerDomain cd = consumers.remove(jcd.getAuthName());
+        if (cd != null) {
+            cd.close();
+        }
     }
 }

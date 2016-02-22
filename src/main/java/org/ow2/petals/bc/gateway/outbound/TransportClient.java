@@ -19,13 +19,23 @@ package org.ow2.petals.bc.gateway.outbound;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
+import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
+import org.ow2.petals.bc.gateway.messages.TransportedException;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
 
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.util.ReferenceCountUtil;
 
-public class TransportClient extends ChannelInboundHandlerAdapter {
+/**
+ * TODO detect when the connection was closed properly ({@link #channelInactive(ChannelHandlerContext)}?) and when there
+ * was a problem and we maybe need reconnect ({@link #exceptionCaught(ChannelHandlerContext, Throwable)}?)
+ * 
+ * @author vnoel
+ *
+ */
+public class TransportClient extends SimpleChannelInboundHandler<TransportedToConsumer> {
 
     private final JBISender sender;
 
@@ -37,24 +47,28 @@ public class TransportClient extends ChannelInboundHandlerAdapter {
     }
 
     @Override
-    public void channelRead(final @Nullable ChannelHandlerContext ctx, final @Nullable Object msg) throws Exception {
+    protected void channelRead0(final @Nullable ChannelHandlerContext ctx, final @Nullable TransportedToConsumer msg)
+            throws Exception {
         assert ctx != null;
         assert msg != null;
 
         try {
-            if (msg instanceof Exception) {
-                pd.exceptionReceived((Exception) msg);
+            if (msg instanceof TransportedException) {
+                pd.exceptionReceived(((TransportedException) msg));
             } else if (msg instanceof TransportedMessage) {
                 // this can't happen, we are the one sending new exchanges!
                 assert !(msg instanceof TransportedNewMessage);
                 sender.send(ctx, (TransportedMessage) msg);
             } else {
-                // TODO handle unexpected content
+                throw new RuntimeException("Impossible case");
             }
-        } catch (final Exception e) {
-            // TODO send back exception!
+        } finally {
+            ReferenceCountUtil.release(msg);
         }
-
     }
 
+    @Override
+    public void channelInactive(final @Nullable ChannelHandlerContext ctx) throws Exception {
+        pd.close();
+    }
 }

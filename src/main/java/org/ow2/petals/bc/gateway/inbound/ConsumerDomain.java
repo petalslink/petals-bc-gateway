@@ -35,7 +35,8 @@ import javax.xml.namespace.QName;
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
-import org.ow2.petals.bc.gateway.messages.TransportedToConsumerDomainPropagatedConsumes;
+import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
+import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.w3c.dom.Document;
 
@@ -48,8 +49,6 @@ import io.netty.channel.ChannelHandlerContext;
  * 
  * The main idea is that a given consumer partner can contact us (a provider partner) with multiple connections (for
  * example in case of HA) and each of these needs to know what are the consumes propagated to them.
- * 
- * TODO how do we close this consumer domain?
  * 
  * @author vnoel
  *
@@ -86,21 +85,14 @@ public class ConsumerDomain {
 
     public void registerChannel(final ChannelHandlerContext ctx) {
         channels.add(ctx);
-        final ArrayList<TransportedToConsumerDomainPropagatedConsumes> consumes = new ArrayList<>();
+        final ArrayList<TransportedPropagatedConsumes> consumes = new ArrayList<>();
         for (final Entry<ServiceKey, Consumes> entry : services.entrySet()) {
-            consumes.add(
-                    new TransportedToConsumerDomainPropagatedConsumes(entry.getKey(), getDescription(entry.getValue())));
+            // TODO cache the description
+            // TODO reexecute if desc was missing before...?
+            final Document description = getDescription(entry.getValue());
+            consumes.add(new TransportedPropagatedConsumes(entry.getKey(), description));
         }
-        ctx.writeAndFlush(consumes);
-    }
-
-    /**
-     * TODO reexecute if desc was missing before...?
-     */
-    private void notifyService(final ChannelHandlerContext ctx, final ServiceKey service, final Consumes consumes) {
-        // TODO cache the description
-        final Document desc = getDescription(consumes);
-        ctx.write(new TransportedToConsumerDomainPropagatedConsumes(service, desc));
+        ctx.writeAndFlush(new TransportedPropagatedConsumesList(consumes));
     }
 
     /**
@@ -152,7 +144,7 @@ public class ConsumerDomain {
         return null;
     }
 
-    private boolean matches(final ServiceEndpoint endpoint, final QName interfaceName) {
+    private static boolean matches(final ServiceEndpoint endpoint, final QName interfaceName) {
         for (final QName itf : endpoint.getInterfaces()) {
             if (interfaceName.equals(itf)) {
                 return true;
@@ -168,5 +160,12 @@ public class ConsumerDomain {
     public void exceptionReceived(final ChannelHandlerContext ctx, final Exception msg) {
         // TODO just print it: receiving an exception here means that there is nothing to do, it is just
         // information for us.
+    }
+
+    public void close() {
+        for (final ChannelHandlerContext ctx : channels) {
+            // TODO should I do this sync?
+            ctx.close();
+        }
     }
 }

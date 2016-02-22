@@ -17,11 +17,6 @@
  */
 package org.ow2.petals.bc.gateway.messages;
 
-import javax.jbi.messaging.MessageExchange;
-
-/**
- * {@link MessageExchange} is not serializable as an interface, but we know all its implementations are in Petals.
- */
 public abstract class TransportedMessage extends TransportedForService {
 
     private static final long serialVersionUID = 7102614527427146536L;
@@ -29,5 +24,4 @@ public abstract class TransportedMessage extends TransportedForService {
     public TransportedMessage(final ServiceKey service) {
         super(service);
     }
-
 }

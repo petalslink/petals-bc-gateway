@@ -19,11 +19,13 @@ package org.ow2.petals.bc.gateway.inbound;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
+import org.ow2.petals.bc.gateway.messages.TransportedAuthentication;
+import org.ow2.petals.bc.gateway.messages.TransportedException;
 
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.channel.ChannelPipeline;
+import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.util.ReferenceCountUtil;
 
 /**
  * Dispatch a connection (from {@link TransportListener}) to the correct {@link ConsumerDomain}.
@@ -32,7 +34,7 @@ import io.netty.channel.ChannelPipeline;
  *
  */
 @Sharable
-public class TransportDispatcher extends ChannelInboundHandlerAdapter {
+public class TransportDispatcher extends SimpleChannelInboundHandler<TransportedAuthentication> {
 
     private final ConsumerAuthenticator authenticator;
 
@@ -44,36 +46,26 @@ public class TransportDispatcher extends ChannelInboundHandlerAdapter {
     }
 
     @Override
-    public void channelRead(final @Nullable ChannelHandlerContext ctx, final @Nullable Object msg) throws Exception {
+    protected void channelRead0(final @Nullable ChannelHandlerContext ctx,
+            final @Nullable TransportedAuthentication msg) throws Exception {
         assert msg != null;
         assert ctx != null;
 
-        if (!(msg instanceof String)) {
-            // TODO replace that with an exception!
-            ctx.writeAndFlush("Unexpected content");
-            // TODO is that all I have to do??
-            ctx.close();
-            return;
+        try {
+            final ConsumerDomain cd = authenticator.authenticate(msg.authName);
+
+            // accept corresponds to validate that the current transport can be used for this consumer partner
+            if (cd == null) {
+                ctx.writeAndFlush(new TransportedException(String.format("Unauthorised auth-name '%s", msg.authName)));
+                ctx.close();
+                return;
+            }
+
+            // use replace because we want the logger to be last
+            // TODO ensure unique name...
+            ctx.pipeline().replace(this, "consumer-" + msg.authName, new TransportServer(sender, cd));
+        } finally {
+            ReferenceCountUtil.release(msg);
         }
-
-        final String consumerAuthName = (String) msg;
-
-        // this corresponds to authenticating the consumer partner
-        // TODO make that better
-        final ConsumerDomain cd = authenticator.authenticate(consumerAuthName);
-
-        // accept corresponds to validate that the current transport can be used for this consumer partner
-        if (cd == null) {
-            // TODO replace that with an exception!
-            ctx.writeAndFlush(String.format("Unauthorised auth-name '%s", consumerAuthName));
-            // TODO is that all I have to do??
-            ctx.close();
-            return;
-        }
-
-        final ChannelPipeline p = ctx.pipeline();
-        p.remove(this);
-        p.addLast(new TransportServer(sender, cd));
-
     }
 }

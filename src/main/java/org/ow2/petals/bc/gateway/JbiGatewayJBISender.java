@@ -26,6 +26,7 @@ import javax.jbi.messaging.MessagingException;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.inbound.TransportServer;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
+import org.ow2.petals.bc.gateway.messages.TransportedException;
 import org.ow2.petals.bc.gateway.messages.TransportedLastMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedMiddleMessage;
@@ -128,7 +129,7 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
             // it has been updated on the other side (see handleAnswer)
             send(new ExchangeImpl(m.receiverExchange));
         } catch (final Exception e) {
-            ctx.writeAndFlush(e);
+            ctx.writeAndFlush(new TransportedException(e));
         }
     }
 

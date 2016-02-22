@@ -26,8 +26,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import javax.jbi.messaging.MessageExchange;
 import javax.xml.namespace.QName;
@@ -35,12 +35,12 @@ import javax.xml.namespace.QName;
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.JbiGatewayJBISender;
-import org.ow2.petals.bc.gateway.inbound.ConsumerAuthenticator;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
-import org.ow2.petals.bc.gateway.messages.TransportedToConsumerDomainPropagatedConsumes;
+import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
+import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.api.message.Exchange;
@@ -56,6 +56,8 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
+import io.netty.handler.logging.LogLevel;
+import io.netty.handler.logging.LoggingHandler;
 
 /**
  * There is one instance of this class per opened connection to a provider partner.
@@ -65,9 +67,6 @@ import io.netty.handler.codec.serialization.ObjectEncoder;
  * {@link #connect()} and {@link #disconnect()} corresponds to components start and stop.
  * 
  * {@link #init()} and {@link #shutdown()} corresponds to SU init and shutdown
- * 
- * TODO how do we know when the connection is closed by the other side? In that case we should maybe deregister
- * everything?
  *
  */
 public class ProviderDomain {
@@ -85,8 +84,18 @@ public class ProviderDomain {
      * 
      * The content of {@link ServiceData} itself is updated by {@link #init()} and {@link #shutdown()} (to add the
      * {@link ServiceEndpointKey} that is activated as an endpoint)
+     * 
+     * No need for concurrent map because modifications are done by one instance of {@link TransportClient}, so no worry
+     * for thread safety.
      */
-    private final ConcurrentMap<ServiceKey, ServiceData> services = new ConcurrentHashMap<>();
+    private final Map<ServiceKey, ServiceData> services = new HashMap<>();
+
+    /**
+     * writeLock for {@link #init()} and {@link #shutdown()}.
+     * 
+     * readlock for event from the {@link TransportClient}.
+     */
+    private final ReadWriteLock initLock = new ReentrantReadWriteLock();
 
     /**
      * immutable, all the provides for this domain.
@@ -96,7 +105,7 @@ public class ProviderDomain {
     @Nullable
     private Channel channel;
 
-    private volatile boolean init = false;
+    private boolean init = false;
 
     private static class ServiceData {
 
@@ -125,15 +134,20 @@ public class ProviderDomain {
 
         this.provides = Collections.unmodifiableMap(pm);
 
+        // TODO use component/SU/transporter name!
+        final LoggingHandler logging = new LoggingHandler(LogLevel.ERROR);
+        final ObjectEncoder objectEncoder = new ObjectEncoder();
+
         final Bootstrap bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
             @Override
             protected void initChannel(final @Nullable Channel ch) throws Exception {
                 assert ch != null;
                 // This mirror the protocol used in TransporterListener
                 final ChannelPipeline p = ch.pipeline();
-                p.addLast(new ObjectEncoder());
+                p.addLast(objectEncoder);
                 p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
                 p.addLast(new TransportInitClient(sender, ProviderDomain.this));
+                p.addLast(logging);
             }
         }).remoteAddress(jpd.getIp(), jpd.getPort());
         assert bootstrap != null;
@@ -144,6 +158,7 @@ public class ProviderDomain {
      * SU INIT
      */
     public void init() throws PEtALSCDKException {
+        initLock.writeLock().lock();
         try {
             // TODO should we fail if a provide does not corresponds to a propagated Consumes?
             // Because it is actived...
@@ -172,6 +187,8 @@ public class ProviderDomain {
             }
 
             throw e;
+        } finally {
+            initLock.writeLock().unlock();
         }
     }
 
@@ -180,22 +197,27 @@ public class ProviderDomain {
      */
     public void shutdown() throws PEtALSCDKException {
 
-        init = false;
-
         final List<Throwable> exceptions = new ArrayList<>();
 
-        for (final ServiceData data : services.values()) {
-            if (data.key != null) {
-                try {
-                    if (!deregisterProviderService(data)) {
-                        // TODO log strange situation
+        initLock.writeLock().lock();
+        try {
+            init = false;
+
+            for (final ServiceData data : services.values()) {
+                if (data.key != null) {
+                    try {
+                        if (!deregisterProviderService(data)) {
+                            // TODO log strange situation
+                        }
+                    } catch (final Exception e) {
+                        exceptions.add(e);
                     }
-                } catch (final Exception e) {
-                    exceptions.add(e);
+                } else {
+                    // TODO this is not normal...
                 }
-            } else {
-                // TODO this is not normal...
             }
+        } finally {
+            initLock.writeLock().unlock();
         }
 
         if (!exceptions.isEmpty()) {
@@ -214,70 +236,87 @@ public class ProviderDomain {
      * We receive these notification once we are connected to the other side, i.e., just after component start (and of
      * course after SU deploy)
      * 
-     * TODO we should be able to disable the activation of consumes (i.e., only use the provides then!) TODO should we
-     * register endpoint for unexisting service on the other side????
+     * TODO we should be able to disable the activation of consumes (i.e., only use the provides then!)
+     * 
+     * TODO should we register endpoint for unexisting service on the other side????
+     * 
      */
-    public void initProviderServices(final Collection<TransportedToConsumerDomainPropagatedConsumes> initServices)
+    public void initProviderServices(final TransportedPropagatedConsumesList initServices)
             throws PEtALSCDKException {
 
-        final Set<ServiceKey> oldKeys = new HashSet<>(services.keySet());
+        initLock.readLock().lock();
+        try {
 
-        for (final TransportedToConsumerDomainPropagatedConsumes service : initServices) {
-            if (oldKeys.remove(service.service)) {
-                // we already knew this service from a previous connection
-                final ServiceData data = services.get(service.service);
+            final Set<ServiceKey> oldKeys = new HashSet<>(services.keySet());
+
+            for (final TransportedPropagatedConsumes service : initServices.consumes) {
+                if (oldKeys.remove(service.service)) {
+                    // we already knew this service from a previous connection
+                    final ServiceData data = services.get(service.service);
+                    if (data != null) {
+                        if (service.description != null) {
+                            // TODO anyway, description is only get by container on activation... maybe change the way
+                            // the
+                            // container behave?
+                            data.description = service.description;
+                        }
+                    } else {
+                        // TODO this can't happen normally... !
+                    }
+                } else {
+                    // the service is new!
+                    final ServiceData data = new ServiceData(null, service.description);
+                    services.put(service.service, data);
+
+                    if (init) {
+                        // TODO handle that exception differently??!!
+                        registerProviderService(service.service, data);
+                    }
+                }
+            }
+
+            // these services from a previous connection do not exist anymore!
+            for (final ServiceKey sk : oldKeys) {
+                final ServiceData data = services.remove(sk);
                 if (data != null) {
-                    if (service.description != null) {
-                        // TODO anyway, description is only get by container on activation... maybe change the way the
-                        // container behave?
-                        data.description = service.description;
+                    final ServiceEndpointKey key = data.key;
+                    if (key != null) {
+                        // TODO handle that exception differently??!!
+                        if (!deregisterProviderService(data)) {
+                            // TODO log strange situation
+                        }
+                    } else {
+                        // it means it wasn't activated (i.e. SU is not init)
+                        // TODO check !init?
                     }
                 } else {
                     // TODO this can't happen normally... !
                 }
-            } else {
-                // the service is new!
-                final ServiceData data = new ServiceData(null, service.description);
-                services.put(service.service, data);
-
-                if (init) {
-                    // TODO handle that exception differently??!!
-                    registerProviderService(service.service, data);
-                }
             }
-        }
-
-        // these services from a previous connection do not exist anymore!
-        for (final ServiceKey sk : oldKeys) {
-            final ServiceData data = services.remove(sk);
-            if (data != null) {
-                final ServiceEndpointKey key = data.key;
-                if (key != null) {
-                    // TODO handle that exception differently??!!
-                    if (!deregisterProviderService(data)) {
-                        // TODO log strange situation
-                    }
-                } else {
-                    // it means it wasn't activated (i.e. SU is not init)
-                    // TODO check !init?
-                }
-            } else {
-                // TODO this can't happen normally... !
-            }
+        } finally {
+            initLock.readLock().unlock();
         }
     }
 
     private void registerProviderService(final ServiceKey sk, final ServiceData data) throws PEtALSCDKException {
         final Provides p = provides.get(sk);
+
+        final ProviderService ps = new ProviderService() {
+            @Override
+            public void send(final Exchange exchange) {
+                ProviderDomain.this.send(sk, exchange);
+            }
+        };
+
         if (p != null) {
             // TODO what about WSDL rewriting for these??
             final ServiceEndpointKey key = new ServiceEndpointKey(p);
             data.key = key;
-            matcher.register(key, getProviderService(sk));
+            matcher.register(key, ps);
         } else {
             final ServiceEndpointKey key = generateSEK(sk);
             data.key = key;
-            matcher.register(key, getProviderService(sk), data.description);
+            matcher.register(key, ps, data.description);
         }
     }
 
@@ -298,15 +337,6 @@ public class ProviderDomain {
         return key;
     }
 
-    private ProviderService getProviderService(final ServiceKey sk) {
-        return new ProviderService() {
-            @Override
-            public void send(final Exchange exchange) {
-                ProviderDomain.this.send(sk, exchange);
-            }
-        };
-    }
-
     /**
      * This is used to send to the channel for (1st step) exchanges arriving on JBI
      * 
@@ -322,10 +352,6 @@ public class ProviderDomain {
         channel.writeAndFlush(m);
     }
 
-    /**
-     * TODO on connect, we should be ready to receive new services via
-     * {@link #addedProviderService(ServiceKey, Document)} and remove/add the previous ones!
-     */
     public void connect() throws InterruptedException {
         // TODO should I do that async?
         final Channel channel = bootstrap.connect().sync().channel();
@@ -347,12 +373,14 @@ public class ProviderDomain {
         // information for us.
     }
 
-    /**
-     * TODO replace that by something complexer, see {@link ConsumerAuthenticator}.
-     */
     public String getAuthName() {
         final String authName = jpd.getAuthName();
         assert authName != null;
         return authName;
+    }
+
+    public void close() {
+        // this is like a disconnect... but emanating from the other side
+        // TODO what should I do? the same as with shutdown()?
     }
 }
