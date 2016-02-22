@@ -133,7 +133,7 @@ public class ProviderDomain {
                 final ChannelPipeline p = ch.pipeline();
                 p.addLast(new ObjectEncoder());
                 p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
-                p.addLast(new TransportClient(sender, ProviderDomain.this));
+                p.addLast(new TransportInitClient(sender, ProviderDomain.this));
             }
         }).remoteAddress(jpd.getIp(), jpd.getPort());
         assert bootstrap != null;
