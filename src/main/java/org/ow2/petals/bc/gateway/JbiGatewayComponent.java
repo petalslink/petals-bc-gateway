@@ -154,6 +154,13 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
         final ProviderDomain pd = new ProviderDomain(this, jpd, provides, getSender(), newClientBootstrap(), logger);
         providers.add(pd);
+        if (started) {
+            try {
+                pd.connect();
+            } catch (final InterruptedException e) {
+                throw new PEtALSCDKException(e);
+            }
+        }
         return pd;
     }
 
@@ -227,6 +234,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             for (final ProviderDomain tc : providers) {
                 tc.connect();
             }
+
         } catch (final Exception e) {
             // normally this shouldn't really happen, but well...
             getLogger().log(Level.SEVERE, "Error during component start, stopping listeners and clients");
@@ -286,10 +294,6 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
                     "Transporter '%s' added " + (ownerSU != null ? "for SU '%s'" : "for component"), jtl, ownerSU));
         }
         return tl;
-    }
-
-    private String getConnectionName(final String ownerSU, final String providerDomainId) {
-        return ownerSU + ":" + providerDomainId;
     }
 
     private String getTransportListenerName(final @Nullable String ownerSU, final String transportId) {
