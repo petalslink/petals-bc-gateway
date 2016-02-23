@@ -107,6 +107,12 @@
          <groupId>org.ow2.petals</groupId>
          <artifactId>petals-junit-external-resources</artifactId>
       </dependency>
+      <dependency>
+         <groupId>com.jayway.awaitility</groupId>
+         <artifactId>awaitility</artifactId>
+         <version>1.7.0</version>
+         <scope>test</scope>
+      </dependency>
       <!-- Needed to forward netty slf4j to jdk logging subsystem -->
       <dependency>
          <groupId>org.slf4j</groupId>

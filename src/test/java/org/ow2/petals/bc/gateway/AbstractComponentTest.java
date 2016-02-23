@@ -36,8 +36,8 @@ import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.junit.Component;
 import org.ow2.petals.component.framework.junit.helpers.SimpleComponent;
 import org.ow2.petals.component.framework.junit.impl.ComponentConfiguration;
+import org.ow2.petals.component.framework.junit.impl.ConsumesServiceConfiguration;
 import org.ow2.petals.component.framework.junit.impl.ServiceConfiguration;
-import org.ow2.petals.component.framework.junit.impl.ServiceConfiguration.ServiceType;
 import org.ow2.petals.component.framework.junit.rule.ComponentUnderTest;
 import org.ow2.petals.junit.rules.log.handler.InMemoryLogHandler;
 import org.w3c.dom.Document;
@@ -45,7 +45,9 @@ import org.w3c.dom.Element;
 
 public class AbstractComponentTest extends AbstractTest implements JbiGatewayTestConstants {
 
-    protected static final String SU_NAME = "su-name";
+    protected static final String SU_CONSUMER_NAME = "suc";
+
+    protected static final String SU_PROVIDER_NAME = "sup";
 
     protected static final String HELLO_NS = "http://petals.ow2.org";
 
@@ -55,7 +57,9 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
 
     protected static final QName HELLO_OPERATION = new QName(HELLO_NS, "sayHello");
 
-    protected static final String EXTERNAL_ENDPOINT_NAME = "externalHelloEndpoint";
+    protected static final String OTHER_ENDPOINT_NAME = "otherHelloEndpoint";
+
+    protected static final String HELLO_ENDPOINT_NAME = "helloEndpoint";
 
     protected static final int TEST_TRANSPORT_PORT = 7501;
 
@@ -65,11 +69,13 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
 
     protected static final String TEST_AUTH_NAME = "test-auth-name";
 
+    protected static final String TEST_PROVIDER_DOMAIN = "test-provider-domain";
+
     protected static final long DEFAULT_TIMEOUT_FOR_COMPONENT_SEND = 2000;
 
     protected static final InMemoryLogHandler IN_MEMORY_LOG_HANDLER = new InMemoryLogHandler();
 
-    private static final ComponentConfiguration CONFIGURATION = new ComponentConfiguration("JBI-Gateway") {
+    private static final ComponentConfiguration CONFIGURATION = new ComponentConfiguration("JG") {
         @Override
         protected void extraJBIConfiguration(final @Nullable Document jbiDocument) {
             assert jbiDocument != null;
@@ -78,8 +84,7 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
 
             final Element transport = addElement(jbiDocument, compo, EL_TRANSPORT_LISTENER);
             transport.setAttribute(ATTR_TRANSPORT_LISTENER_ID, TEST_TRANSPORT_NAME);
-
-            addOrReplaceElement(jbiDocument, transport, EL_TRANSPORT_LISTENER_PORT, "" + TEST_TRANSPORT_PORT);
+            addElement(jbiDocument, transport, EL_TRANSPORT_LISTENER_PORT, "" + TEST_TRANSPORT_PORT);
         }
     };
 
@@ -144,9 +149,34 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         }
     }
 
-    protected static ServiceConfiguration createHelloConsumes() {
-        final ServiceConfiguration consumes = new ServiceConfiguration(HELLO_INTERFACE, HELLO_SERVICE,
-                EXTERNAL_ENDPOINT_NAME, ServiceType.CONSUME) {
+    protected static ServiceConfiguration createHelloProvider() {
+        final ServiceConfiguration provides = new ServiceConfiguration() {
+            @Override
+            protected void extraJBIConfiguration(final @Nullable Document jbiDocument) {
+                assert jbiDocument != null;
+
+                final Element services = getOrCreateServicesElement(jbiDocument);
+
+                final Element pDomain = addElement(jbiDocument, services, EL_PROVIDER_DOMAIN);
+                pDomain.setAttribute(ATTR_SERVICES_PROVIDER_DOMAIN_ID, TEST_PROVIDER_DOMAIN);
+                addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_IP).setTextContent("localhost");
+                addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_PORT)
+                        .setTextContent("" + TEST_TRANSPORT_PORT);
+                addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_AUTH_NAME).setTextContent(TEST_AUTH_NAME);
+            }
+        };
+
+        return provides;
+    }
+
+    protected static ConsumesServiceConfiguration createHelloConsumes(final boolean specifyService,
+            final boolean specifyEndpoint) {
+
+        // can't have endpoint specified without service
+        assert !specifyEndpoint || specifyService;
+
+        final ConsumesServiceConfiguration consumes = new ConsumesServiceConfiguration(HELLO_INTERFACE,
+                specifyService ? HELLO_SERVICE : null, specifyEndpoint ? OTHER_ENDPOINT_NAME : null) {
 
             @Override
             protected void extraServiceConfiguration(final @Nullable Document jbiDocument,
@@ -164,11 +194,10 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
 
                 final Element services = getOrCreateServicesElement(jbiDocument);
 
-                final Element cDomain = addOrReplaceElement(jbiDocument, services, EL_CONSUMER_DOMAIN);
+                final Element cDomain = addElement(jbiDocument, services, EL_CONSUMER_DOMAIN);
                 cDomain.setAttribute(ATTR_SERVICES_CONSUMER_DOMAIN_ID, TEST_CONSUMER_DOMAIN);
                 cDomain.setAttribute(ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT, TEST_TRANSPORT_NAME);
-                
-                addOrReplaceElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME, TEST_AUTH_NAME);
+                addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME, TEST_AUTH_NAME);
             }
         };
 
