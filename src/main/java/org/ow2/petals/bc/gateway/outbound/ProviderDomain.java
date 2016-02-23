@@ -54,6 +54,7 @@ import org.w3c.dom.Document;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.serialization.ClassResolvers;
@@ -135,7 +136,8 @@ public class ProviderDomain {
             this.provides.put(new ServiceKey(pair.getB()), pair.getA());
         }
 
-        final LoggingHandler logging = new LoggingHandler(logger.getName() + ".channel", LogLevel.ERROR);
+        final LoggingHandler debugs = new LoggingHandler(logger.getName() + ".client", LogLevel.TRACE);
+        final LoggingHandler errors = new LoggingHandler(logger.getName() + ".errors", LogLevel.ERROR);
         final ObjectEncoder objectEncoder = new ObjectEncoder();
 
         final Bootstrap bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
@@ -144,10 +146,11 @@ public class ProviderDomain {
                 assert ch != null;
                 // This mirror the protocol used in TransporterListener
                 final ChannelPipeline p = ch.pipeline();
+                p.addFirst("log-debug", debugs);
                 p.addLast(objectEncoder);
                 p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
-                p.addLast(new TransportInitClient(sender, ProviderDomain.this));
-                p.addLast(logging);
+                p.addLast("init", new TransportInitClient(sender, logger, ProviderDomain.this));
+                p.addLast("log-errors", errors);
             }
         }).remoteAddress(jpd.getIp(), jpd.getPort());
         assert bootstrap != null;
@@ -359,7 +362,11 @@ public class ProviderDomain {
         final Channel channel = this.channel;
         // we can't be disconnected in that case because the component is stopped and we don't process messages!
         assert channel != null;
-        channel.writeAndFlush(m);
+        // let's use the context of the client so that the error logger do not log the message
+        final ChannelHandlerContext ctx = channel.pipeline().context(TransportClient.class);
+        assert ctx != null;
+        // TODO couldn't make exception be shown without using this voidPromise...
+        ctx.writeAndFlush(m, ctx.voidPromise());
     }
 
     public void connect() throws InterruptedException {
@@ -382,6 +389,12 @@ public class ProviderDomain {
         logger.log(Level.WARNING,
                 "Received an exeception from the other side, this is purely informative, we can't do anything about it",
                 msg);
+    }
+
+    public String getName() {
+        final String id = jpd.getId();
+        assert id != null;
+        return id;
     }
 
     public String getAuthName() {

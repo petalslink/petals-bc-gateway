@@ -51,6 +51,10 @@ import io.netty.handler.logging.LoggingHandler;
  */
 public class TransportListener implements ConsumerAuthenticator {
 
+    public static final String LOG_ERRORS_HANDLER = "log-errors";
+
+    public static final String LOG_DEBUG_HANDLER = "log-debug";
+
     private final ServerBootstrap bootstrap;
 
     private final JbiTransportListener jtl;
@@ -71,21 +75,24 @@ public class TransportListener implements ConsumerAuthenticator {
         this.jtl = jtl;
 
         // shared between all the connections of this listener
-        final TransportDispatcher dispatcher = new TransportDispatcher(sender, this);
-        final LoggingHandler logging = new LoggingHandler(logger.getName() + ".channel", LogLevel.ERROR);
+        final TransportDispatcher dispatcher = new TransportDispatcher(sender, logger, this);
+        final LoggingHandler debugs = new LoggingHandler(logger.getName() + ".dispatcher", LogLevel.TRACE);
+        final LoggingHandler errors = new LoggingHandler(logger.getName() + ".errors", LogLevel.ERROR);
         final ObjectEncoder objectEncoder = new ObjectEncoder();
 
-        final ServerBootstrap bootstrap = partialBootstrap.childHandler(new ChannelInitializer<Channel>() {
-            @Override
-            protected void initChannel(final @Nullable Channel ch) throws Exception {
-                assert ch != null;
-                final ChannelPipeline p = ch.pipeline();
-                p.addLast(objectEncoder);
-                p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
-                p.addLast(dispatcher);
-                p.addLast(logging);
-            }
-        }).localAddress(jtl.getPort());
+        final ServerBootstrap bootstrap = partialBootstrap.handler(new LoggingHandler(logger.getName() + ".listener"))
+                .childHandler(new ChannelInitializer<Channel>() {
+                    @Override
+                    protected void initChannel(final @Nullable Channel ch) throws Exception {
+                        assert ch != null;
+                        final ChannelPipeline p = ch.pipeline();
+                        p.addLast(LOG_DEBUG_HANDLER, debugs);
+                        p.addLast(objectEncoder);
+                        p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
+                        p.addLast("dispatcher", dispatcher);
+                        p.addLast(LOG_ERRORS_HANDLER, errors);
+                    }
+                }).localAddress(jtl.getPort());
         assert bootstrap != null;
         this.bootstrap = bootstrap;
     }

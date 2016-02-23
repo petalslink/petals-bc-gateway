@@ -17,10 +17,13 @@
  */
 package org.ow2.petals.bc.gateway.outbound;
 
+import java.util.logging.Logger;
+
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.messages.TransportedAuthentication;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
+import org.ow2.petals.commons.log.Level;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -32,9 +35,18 @@ public class TransportInitClient extends SimpleChannelInboundHandler<Transported
 
     private final ProviderDomain pd;
 
-    public TransportInitClient(final JBISender sender, final ProviderDomain pd) {
+    private final Logger logger;
+
+    public TransportInitClient(final JBISender sender, final Logger logger, final ProviderDomain pd) {
         this.sender = sender;
+        this.logger = logger;
         this.pd = pd;
+    }
+
+    @Override
+    public void exceptionCaught(final @Nullable ChannelHandlerContext ctx, final @Nullable Throwable cause)
+            throws Exception {
+        logger.log(Level.WARNING, "Exception caught", cause);
     }
 
     @Override
@@ -52,8 +64,7 @@ public class TransportInitClient extends SimpleChannelInboundHandler<Transported
             pd.initProviderServices(msg);
 
             // use replace because we want the logger to be last
-            // TODO ensure unique name...
-            ctx.pipeline().replace(this, "provider-" + pd.getAuthName(), new TransportClient(sender, pd));
+            ctx.pipeline().replace(this, "client", new TransportClient(sender, logger, pd));
         } finally {
             ReferenceCountUtil.release(msg);
         }

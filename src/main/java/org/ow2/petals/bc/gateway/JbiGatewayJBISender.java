@@ -18,6 +18,7 @@
 package org.ow2.petals.bc.gateway;
 
 import java.util.Set;
+import java.util.logging.Level;
 
 import javax.jbi.messaging.ExchangeStatus;
 import javax.jbi.messaging.MessageExchange;
@@ -106,8 +107,9 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
 
             sendAsync(exchange, new JbiGatewaySenderAsyncContext(ctx, m, this));
         } catch (final Exception e) {
+            getLogger().log(Level.FINE, "Exception caught", e);
             hisMex.setError(e);
-            ctx.writeAndFlush(new TransportedLastMessage(m));
+            ctx.writeAndFlush(new TransportedLastMessage(m), ctx.voidPromise());
         }
     }
 
@@ -118,9 +120,10 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
 
             sendAsync(exchange, new JbiGatewaySenderAsyncContext(ctx, m, this));
         } catch (final Exception e) {
+            getLogger().log(Level.FINE, "Exception caught", e);
             final MessageExchange hisMex = m.senderExchange;
             hisMex.setError(e);
-            ctx.writeAndFlush(new TransportedLastMessage(m));
+            ctx.writeAndFlush(new TransportedLastMessage(m), ctx.voidPromise());
         }
     }
 
@@ -129,7 +132,8 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
             // it has been updated on the other side (see handleAnswer)
             send(new ExchangeImpl(m.receiverExchange));
         } catch (final Exception e) {
-            ctx.writeAndFlush(new TransportedException(e));
+            getLogger().log(Level.FINE, "Exception caught", e);
+            ctx.writeAndFlush(new TransportedException(e), ctx.voidPromise());
         }
     }
 
@@ -173,10 +177,11 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
             final MessageExchange myMex = exchange.getMessageExchange();
             assert myMex != null;
             // TODO where are the error sent?
-            context.ctx.writeAndFlush(new TransportedMiddleMessage(context.m.service, hisMex, myMex));
+            context.ctx.writeAndFlush(new TransportedMiddleMessage(context.m.service, hisMex, myMex),
+                    context.ctx.voidPromise());
         } else {
             // TODO where are the error sent?
-            context.ctx.writeAndFlush(new TransportedLastMessage(context.m.service, hisMex));
+            context.ctx.writeAndFlush(new TransportedLastMessage(context.m.service, hisMex), context.ctx.voidPromise());
         }
     }
 

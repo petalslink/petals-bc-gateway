@@ -17,12 +17,15 @@
  */
 package org.ow2.petals.bc.gateway.inbound;
 
+import java.util.logging.Logger;
+
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.JbiGatewayJBISender;
 import org.ow2.petals.bc.gateway.messages.Transported.TransportedToProvider;
 import org.ow2.petals.bc.gateway.messages.TransportedException;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
+import org.ow2.petals.commons.log.Level;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
@@ -45,9 +48,18 @@ public class TransportServer extends SimpleChannelInboundHandler<TransportedToPr
 
     private final JBISender sender;
 
-    public TransportServer(final JBISender sender, final ConsumerDomain cd) {
+    private final Logger logger;
+
+    public TransportServer(final JBISender sender, final Logger logger, final ConsumerDomain cd) {
         this.sender = sender;
+        this.logger = logger;
         this.cd = cd;
+    }
+
+    @Override
+    public void exceptionCaught(final @Nullable ChannelHandlerContext ctx, final @Nullable Throwable cause)
+            throws Exception {
+        logger.log(Level.WARNING, "Exception caught (ConsumerDomain: " + cd.getName() + ")", cause);
     }
 
     /**

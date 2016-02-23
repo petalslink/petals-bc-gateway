@@ -59,7 +59,6 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.logging.LoggingHandler;
 
 /**
  * There is one instance for the whole component. The class is declared in the jbi.xml.
@@ -194,7 +193,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             throw new RuntimeException("Impossible case", e);
         }
         getTransportListener(ownerSU, jcd.getTransport()).register(jcd,
-                new ConsumerDomain(getContext(), consumes, logger));
+                new ConsumerDomain(getContext(), jcd, consumes, logger));
     }
 
     public void deregisterConsumerDomain(String ownerSU, JbiConsumerDomain jcd) throws PEtALSCDKException {
@@ -211,7 +210,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     private ServerBootstrap newServerBootstrap() {
         // TODO use epoll on linux?
         final ServerBootstrap bootstrap = new ServerBootstrap().group(bossGroup, workerGroup)
-                .channel(NioServerSocketChannel.class).handler(new LoggingHandler());
+                .channel(NioServerSocketChannel.class);
         assert bootstrap != null;
         return bootstrap;
     }
@@ -293,7 +292,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             throws PEtALSCDKException {
         final Logger logger;
         try {
-            logger = getContext().getLogger("transport." + (ownerSU == null ? "" : ownerSU + ".") + jtl.getId(), null);
+            logger = getContext().getLogger((ownerSU == null ? "" : ownerSU + ".") + jtl.getId(), null);
             assert logger != null;
         } catch (final MissingResourceException | JBIException e) {
             throw new RuntimeException("Impossible case", e);

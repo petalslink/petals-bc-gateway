@@ -17,14 +17,20 @@
  */
 package org.ow2.petals.bc.gateway.inbound;
 
+import java.util.logging.Logger;
+
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.messages.TransportedAuthentication;
 import org.ow2.petals.bc.gateway.messages.TransportedException;
+import org.ow2.petals.commons.log.Level;
 
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.logging.LogLevel;
+import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.ReferenceCountUtil;
 
 /**
@@ -40,9 +46,18 @@ public class TransportDispatcher extends SimpleChannelInboundHandler<Transported
 
     private final JBISender sender;
 
-    public TransportDispatcher(final JBISender sender, final ConsumerAuthenticator authenticator) {
+    private final Logger logger;
+
+    public TransportDispatcher(final JBISender sender, final Logger logger, final ConsumerAuthenticator authenticator) {
         this.sender = sender;
+        this.logger = logger;
         this.authenticator = authenticator;
+    }
+
+    @Override
+    public void exceptionCaught(final @Nullable ChannelHandlerContext ctx, final @Nullable Throwable cause)
+            throws Exception {
+        logger.log(Level.WARNING, "Exception caught", cause);
     }
 
     @Override
@@ -60,10 +75,22 @@ public class TransportDispatcher extends SimpleChannelInboundHandler<Transported
                 ctx.close();
                 return;
             }
+            
+            final ChannelPipeline pipeline = ctx.pipeline();
 
-            // use replace because we want the logger to be last
-            // TODO ensure unique name...
-            ctx.pipeline().replace(this, "consumer-" + msg.authName, new TransportServer(sender, cd));
+            // getName should contain the transporter name
+            final String logName = logger.getName() + "." + cd.getName();
+
+            // let's replace the debug logger with something specific to this consumer
+            pipeline.replace(TransportListener.LOG_DEBUG_HANDLER, TransportListener.LOG_DEBUG_HANDLER,
+                    new LoggingHandler(logName + ".server", LogLevel.TRACE));
+
+            // remove dispatcher
+            pipeline.replace(this, "server", new TransportServer(sender, logger, cd));
+
+            pipeline.replace(TransportListener.LOG_ERRORS_HANDLER, TransportListener.LOG_ERRORS_HANDLER,
+                    new LoggingHandler(logName + ".errors", LogLevel.ERROR));
+
         } finally {
             ReferenceCountUtil.release(msg);
         }
