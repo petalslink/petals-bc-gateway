@@ -34,6 +34,7 @@ import javax.jbi.messaging.MessageExchange;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.easywsdl.wsdl.api.WSDLException;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.JbiGatewayJBISender;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
@@ -48,6 +49,7 @@ import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.util.EndpointUtil;
 import org.ow2.petals.component.framework.util.ServiceEndpointKey;
+import org.ow2.petals.component.framework.util.WSDLUtilImpl;
 import org.w3c.dom.Document;
 
 import io.netty.bootstrap.Bootstrap;
@@ -116,9 +118,8 @@ public class ProviderDomain {
 
         private @Nullable ServiceEndpointKey key;
 
-        public ServiceData(final @Nullable ServiceEndpointKey key, final @Nullable Document description) {
+        public ServiceData(final @Nullable Document description) {
             this.description = description;
-            this.key = key;
         }
     }
 
@@ -257,7 +258,7 @@ public class ProviderDomain {
                     }
                 } else {
                     // the service is new!
-                    final ServiceData data = new ServiceData(null, service.description);
+                    final ServiceData data = new ServiceData(service.description);
 
                     try {
                         if (init) {
@@ -314,6 +315,17 @@ public class ProviderDomain {
         } else {
             final ServiceEndpointKey key = generateSEK(sk);
             data.key = key;
+            if (data.description == null) {
+                // let's generate a minimal one for now
+                try {
+                    data.description = WSDLUtilImpl
+                            .convertDescriptionToDocument(WSDLUtilImpl.createLightWSDL20Description(sk.interfaceName,
+                                    key.getServiceName(), key.getEndpointName()));
+                } catch (final WSDLException e) {
+                    throw new PEtALSCDKException(e);
+                }
+            }
+            assert data.description != null;
             matcher.register(key, ps, data.description);
         }
     }

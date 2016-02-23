@@ -27,8 +27,7 @@ public interface ProviderMatcher {
     @Nullable
     ProviderService matches(ServiceEndpointKey key);
 
-    void register(ServiceEndpointKey key, ProviderService ps, @Nullable Document description)
-            throws PEtALSCDKException;
+    void register(ServiceEndpointKey key, ProviderService ps, Document description) throws PEtALSCDKException;
 
     void register(ServiceEndpointKey key, ProviderService ps) throws PEtALSCDKException;
 

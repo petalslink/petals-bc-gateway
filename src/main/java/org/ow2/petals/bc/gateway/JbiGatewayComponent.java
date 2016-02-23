@@ -99,7 +99,20 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     private final Set<ProviderDomain> providers = Collections
             .newSetFromMap(new ConcurrentHashMap<ProviderDomain, Boolean>());
 
-    private final ConcurrentMap<ServiceEndpointKey, Pair<ServiceEndpoint, ProviderService>> services = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ServiceEndpointKey, ServiceData> services = new ConcurrentHashMap<>();
+
+    private static class ServiceData {
+        private @Nullable ServiceEndpoint endpoint;
+
+        private final ProviderService service;
+
+        private final @Nullable Document description;
+
+        public ServiceData(final ProviderService service, final @Nullable Document description) {
+            this.service = service;
+            this.description = description;
+        }
+    }
 
     private boolean started = false;
 
@@ -364,11 +377,11 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
     @Override
     public @Nullable ProviderService matches(final ServiceEndpointKey key) {
-        return services.get(key).getB();
+        return services.get(key).service;
     }
 
     @Override
-    public void register(final ServiceEndpointKey key, final ProviderService ps, final @Nullable Document description)
+    public void register(final ServiceEndpointKey key, final ProviderService ps, final Document description)
             throws PEtALSCDKException {
         this.register(key, ps, description, true);
     }
@@ -377,6 +390,16 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     public void register(final ServiceEndpointKey key, final ProviderService ps)
             throws PEtALSCDKException {
         this.register(key, ps, null, false);
+    }
+
+    @Override
+    public @Nullable Document getServiceDescription(final @Nullable ServiceEndpoint endpoint) {
+        final Document desc = super.getServiceDescription(endpoint);
+        if (desc == null) {
+            final ServiceData data = services.get(new ServiceEndpointKey(endpoint));
+            return data != null ? data.description : null;
+        }
+        return desc;
     }
 
     /**
@@ -388,45 +411,42 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     private void register(final ServiceEndpointKey key, final ProviderService ps, final @Nullable Document description,
             final boolean activate) throws PEtALSCDKException {
 
+        final ServiceData data = new ServiceData(ps, description);
+        if (services.putIfAbsent(key, data) != null) {
+            throw new PEtALSCDKException("Duplicate service " + key);
+        }
+        
         final ServiceEndpoint endpoint;
         if (activate) {
+            assert description != null;
             // TODO we need to store the Document somewhere so that we can override getServiceDescription!
             // -> store in services, then do the activation, then remove if problem or update endpoint if not
             try {
                 // TODO we need to activate or get that only on SU INIT!
                 endpoint = getContext().activateEndpoint(key.getServiceName(), key.getEndpointName());
             } catch (final JBIException e) {
+                services.remove(key);
                 throw new PEtALSCDKException(e);
             }
         } else {
+            assert description == null;
             final ServiceUnitDataHandler suDH = getServiceUnitManager().getSUDataHandler(key);
             // TODO we need to get that only on SU INIT!
             endpoint = suDH.getEndpoint(key);
         }
         assert endpoint != null;
 
-        if (services.putIfAbsent(key, new Pair<>(endpoint, ps)) != null) {
-            // shouldn't happen because activation wouldn't have worked then, but well...
-            final PEtALSCDKException t = new PEtALSCDKException("Duplicate service " + key);
-            if (activate) {
-                try {
-                    getContext().deactivateEndpoint(endpoint);
-                } catch (final JBIException ex) {
-                    t.addSuppressed(ex);
-                }
-            }
-            throw t;
-        }
+        data.endpoint = endpoint;
     }
 
     @Override
     public boolean deregister(final ServiceEndpointKey key) throws PEtALSCDKException {
         // TODO this is not correct
-        final Pair<ServiceEndpoint, ProviderService> removed = services.remove(key);
+        final ServiceData removed = services.remove(key);
 
         if (removed != null) {
             try {
-                getContext().deactivateEndpoint(removed.getA());
+                getContext().deactivateEndpoint(removed.endpoint);
             } catch (final JBIException e) {
                 throw new PEtALSCDKException(e);
             }
