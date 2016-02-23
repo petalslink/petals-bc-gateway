@@ -67,6 +67,10 @@
          <artifactId>easycommons-util</artifactId>
       </dependency>
       <dependency>
+         <groupId>org.ow2.easywsdl</groupId>
+         <artifactId>easywsdl-wsdl</artifactId>
+      </dependency>
+      <dependency>
          <groupId>org.ow2.petals</groupId>
          <artifactId>petals-jbi</artifactId>
       </dependency>
