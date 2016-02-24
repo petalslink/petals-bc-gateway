@@ -57,7 +57,7 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
 
     protected static final QName HELLO_OPERATION = new QName(HELLO_NS, "sayHello");
 
-    protected static final String OTHER_ENDPOINT_NAME = "otherHelloEndpoint";
+    protected static final String EXTERNAL_HELLO_ENDPOINT = "externalHelloEndpoint";
 
     protected static final String HELLO_ENDPOINT_NAME = "helloEndpoint";
 
@@ -91,7 +91,8 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
     protected static final Component COMPONENT_UNDER_TEST = new ComponentUnderTest(CONFIGURATION)
             // we need faster checks for our tests, 2000 is too long!
             .setParameter(new QName(CDK_NAMESPACE_URI, "time-beetween-async-cleaner-runs"), "100")
-            .addLogHandler(IN_MEMORY_LOG_HANDLER.getHandler());
+            .addLogHandler(IN_MEMORY_LOG_HANDLER.getHandler())
+            .registerExternalServiceProvider(HELLO_SERVICE, EXTERNAL_HELLO_ENDPOINT);
 
     private static class EnsurePortsAreOK extends ExternalResource {
         @Override
@@ -176,7 +177,7 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         assert !specifyEndpoint || specifyService;
 
         final ConsumesServiceConfiguration consumes = new ConsumesServiceConfiguration(HELLO_INTERFACE,
-                specifyService ? HELLO_SERVICE : null, specifyEndpoint ? OTHER_ENDPOINT_NAME : null) {
+                specifyService ? HELLO_SERVICE : null, specifyEndpoint ? EXTERNAL_HELLO_ENDPOINT : null) {
 
             @Override
             protected void extraServiceConfiguration(final @Nullable Document jbiDocument,
