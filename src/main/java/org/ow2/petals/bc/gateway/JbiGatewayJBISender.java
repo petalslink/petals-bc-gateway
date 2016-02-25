@@ -98,6 +98,9 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
             final ServiceKey service = m.service;
             final Exchange exchange = createExchange(service.interfaceName, service.service, service.endpointName,
                     hisMex.getPattern());
+
+            exchange.setOperation(hisMex.getOperation());
+
             exchange.setInMessage(hisMex.getMessage(Exchange.IN_MESSAGE_NAME));
             @SuppressWarnings("unchecked")
             final Set<String> propertyNames = (Set<String>) hisMex.getPropertyNames();
