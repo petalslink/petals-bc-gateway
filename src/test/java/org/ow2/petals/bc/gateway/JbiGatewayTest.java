@@ -23,7 +23,6 @@ import javax.jbi.servicedesc.ServiceEndpoint;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
 import org.ow2.petals.component.framework.junit.helpers.ServiceProviderImplementation;
@@ -61,7 +60,6 @@ public class JbiGatewayTest extends AbstractComponentTest {
     }
 
     @Test
-    @Ignore("This can't work, the MockComponentContext is too limited to handle this case")
     public void twoDomains3() throws Exception {
         twoDomains(false, false);
     }

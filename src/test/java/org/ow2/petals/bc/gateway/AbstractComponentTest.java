@@ -92,7 +92,7 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
             // we need faster checks for our tests, 2000 is too long!
             .setParameter(new QName(CDK_NAMESPACE_URI, "time-beetween-async-cleaner-runs"), "100")
             .addLogHandler(IN_MEMORY_LOG_HANDLER.getHandler())
-            .registerExternalServiceProvider(HELLO_SERVICE, EXTERNAL_HELLO_ENDPOINT);
+            .registerExternalServiceProvider(EXTERNAL_HELLO_ENDPOINT, HELLO_SERVICE, HELLO_INTERFACE);
 
     private static class EnsurePortsAreOK extends ExternalResource {
         @Override
