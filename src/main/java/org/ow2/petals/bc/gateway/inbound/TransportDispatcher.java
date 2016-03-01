@@ -20,7 +20,6 @@ package org.ow2.petals.bc.gateway.inbound;
 import java.util.logging.Logger;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.messages.TransportedAuthentication;
 import org.ow2.petals.bc.gateway.messages.TransportedException;
 import org.ow2.petals.commons.log.Level;
@@ -44,12 +43,9 @@ public class TransportDispatcher extends SimpleChannelInboundHandler<Transported
 
     private final ConsumerAuthenticator authenticator;
 
-    private final JBISender sender;
-
     private final Logger logger;
 
-    public TransportDispatcher(final JBISender sender, final Logger logger, final ConsumerAuthenticator authenticator) {
-        this.sender = sender;
+    public TransportDispatcher(final Logger logger, final ConsumerAuthenticator authenticator) {
         this.logger = logger;
         this.authenticator = authenticator;
     }
@@ -86,7 +82,7 @@ public class TransportDispatcher extends SimpleChannelInboundHandler<Transported
                     new LoggingHandler(logName + ".server", LogLevel.TRACE));
 
             // remove dispatcher
-            pipeline.replace(this, "server", new TransportServer(sender, logger, cd));
+            pipeline.replace(this, "server", new TransportServer(logger, cd));
 
             pipeline.replace(TransportListener.LOG_ERRORS_HANDLER, TransportListener.LOG_ERRORS_HANDLER,
                     new LoggingHandler(logName + ".errors", LogLevel.ERROR));

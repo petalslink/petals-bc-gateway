@@ -33,7 +33,7 @@ import org.ow2.petals.component.framework.util.ServiceEndpointKey;
  * There will be one instance of this class per thread of the component. The class is declared in the jbi.xml.
  * 
  * It takes care of the exchanges for the endpoints dynamically propagated by each provider partner, but also of the
- * answers for the {@link Consumes} (which are sent using the {@link JbiGatewayJBISender}.
+ * answers for the {@link Consumes} (which are sent using the {@link JBISender}.
  * 
  * @author vnoel
  *
@@ -46,7 +46,7 @@ public class JbiGatewayJBIListener extends AbstractJBIListener {
 
         // the messages arriving are:
         // - either for a provides or for one of our dynamically created endpoints
-        // - new exchanges, answer go to onAsyncJBIMessage
+        // - new exchanges (answers go to onAsyncJBIMessage)
         if (exchange.isActiveStatus() && exchange.isProviderRole()) {
             final ServiceEndpointKey key = new ServiceEndpointKey(exchange.getEndpoint());
             final ProviderService ps = getComponent().matches(key);
@@ -68,9 +68,9 @@ public class JbiGatewayJBIListener extends AbstractJBIListener {
         assert asyncContext != null;
         assert asyncExchange != null;
         if (asyncContext instanceof JbiGatewaySenderAsyncContext) {
-            JbiGatewaySenderAsyncContext context = (JbiGatewaySenderAsyncContext) asyncContext;
+            final JbiGatewaySenderAsyncContext context = (JbiGatewaySenderAsyncContext) asyncContext;
             try {
-                context.sender.handleAnswer(asyncExchange, context);
+                context.handleAnswer(asyncExchange);
             } catch (final MessagingException e) {
                 asyncExchange.setError(e);
                 return true;
@@ -80,6 +80,20 @@ public class JbiGatewayJBIListener extends AbstractJBIListener {
         }
 
         return false;
+    }
+
+    @Override
+    public void onExpiredAsyncJBIMessage(final @Nullable Exchange originalExchange,
+            final @Nullable AsyncContext asyncContext) {
+        assert asyncContext != null;
+        assert originalExchange != null;
+
+        if (asyncContext instanceof JbiGatewaySenderAsyncContext) {
+            final JbiGatewaySenderAsyncContext context = (JbiGatewaySenderAsyncContext) asyncContext;
+            context.handleTimeout(originalExchange);
+        } else {
+            // TODO
+        }
     }
 
     @Override

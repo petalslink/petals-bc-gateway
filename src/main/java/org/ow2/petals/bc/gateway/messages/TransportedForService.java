@@ -17,9 +17,7 @@
  */
 package org.ow2.petals.bc.gateway.messages;
 
-import java.io.Serializable;
-
-public abstract class TransportedForService implements Serializable {
+public abstract class TransportedForService implements Transported {
 
     private static final long serialVersionUID = 1884695104410740307L;
 

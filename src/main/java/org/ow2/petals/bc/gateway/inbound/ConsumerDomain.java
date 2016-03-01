@@ -36,6 +36,8 @@ import javax.jbi.servicedesc.ServiceEndpoint;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.AbstractDomain;
+import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
@@ -56,7 +58,7 @@ import io.netty.channel.ChannelHandlerContext;
  * @author vnoel
  *
  */
-public class ConsumerDomain {
+public class ConsumerDomain extends AbstractDomain {
 
     /**
      * The keys of the {@link Consumes} propagated to this consumer domain.
@@ -72,15 +74,13 @@ public class ConsumerDomain {
 
     private final ComponentContext cc;
 
-    private final Logger logger;
-
     private final JbiConsumerDomain jcd;
 
     public ConsumerDomain(final ComponentContext cc, final JbiConsumerDomain jcd, final Collection<Consumes> consumes,
-            final Logger logger) {
+            final JBISender sender, final Logger logger) {
+        super(sender, logger);
         this.cc = cc;
         this.jcd = jcd;
-        this.logger = logger;
         for (final Consumes c : consumes) {
             assert c != null;
             services.put(new ServiceKey(c), c);

@@ -17,9 +17,8 @@
  */
 package org.ow2.petals.bc.gateway;
 
-import org.ow2.petals.bc.gateway.messages.TransportedMessage;
-
-import io.netty.channel.ChannelHandlerContext;
+import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.component.framework.api.message.Exchange;
 
 /**
  * 
@@ -28,5 +27,5 @@ import io.netty.channel.ChannelHandlerContext;
  */
 public interface JBISender {
 
-    void send(ChannelHandlerContext ctx, TransportedMessage m);
+    void sendToNMR(DomainContext ctx, @Nullable Exchange exchange);
 }

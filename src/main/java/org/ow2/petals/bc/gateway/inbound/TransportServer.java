@@ -20,11 +20,10 @@ package org.ow2.petals.bc.gateway.inbound;
 import java.util.logging.Logger;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.JBISender;
-import org.ow2.petals.bc.gateway.JbiGatewayJBISender;
 import org.ow2.petals.bc.gateway.messages.Transported.TransportedToProvider;
 import org.ow2.petals.bc.gateway.messages.TransportedException;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
+import org.ow2.petals.bc.gateway.messages.TransportedTimeout;
 import org.ow2.petals.commons.log.Level;
 
 import io.netty.channel.Channel;
@@ -35,7 +34,7 @@ import io.netty.util.ReferenceCountUtil;
 /**
  * 
  * Responsible of dispatching, for a given consumer partner {@link ConsumerDomain} once it has been authenticated by
- * {@link TransportDispatcher}, the received messages to the {@link JbiGatewayJBISender}.
+ * {@link TransportDispatcher}, the received messages to the {@link ConsumerDomain}.
  * 
  * There is one instance of this class per active connection.
  * 
@@ -46,12 +45,9 @@ public class TransportServer extends SimpleChannelInboundHandler<TransportedToPr
 
     private final ConsumerDomain cd;
 
-    private final JBISender sender;
-
     private final Logger logger;
 
-    public TransportServer(final JBISender sender, final Logger logger, final ConsumerDomain cd) {
-        this.sender = sender;
+    public TransportServer(final Logger logger, final ConsumerDomain cd) {
         this.logger = logger;
         this.cd = cd;
     }
@@ -88,9 +84,11 @@ public class TransportServer extends SimpleChannelInboundHandler<TransportedToPr
 
         try {
             if (msg instanceof TransportedException) {
-                cd.exceptionReceived(ctx, ((TransportedException) msg));
+                cd.exceptionReceived(ctx, (TransportedException) msg);
             } else if (msg instanceof TransportedMessage) {
-                sender.send(ctx, (TransportedMessage) msg);
+                cd.sendFromChannelToNMR(ctx, (TransportedMessage) msg);
+            } else if (msg instanceof TransportedTimeout) {
+                cd.timeoutReceived(ctx, (TransportedTimeout) msg);
             } else {
                 throw new RuntimeException("Impossible case");
             }

@@ -35,8 +35,8 @@ import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.easywsdl.wsdl.api.WSDLException;
+import org.ow2.petals.bc.gateway.AbstractDomain;
 import org.ow2.petals.bc.gateway.JBISender;
-import org.ow2.petals.bc.gateway.JbiGatewayJBISender;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
@@ -73,15 +73,13 @@ import io.netty.handler.logging.LoggingHandler;
  * {@link #init()} and {@link #shutdown()} corresponds to SU init and shutdown
  *
  */
-public class ProviderDomain {
+public class ProviderDomain extends AbstractDomain {
 
     private final JbiProviderDomain jpd;
 
     private final ProviderMatcher matcher;
 
     private final Bootstrap bootstrap;
-
-    private final Logger logger;
 
     /**
      * Updated by {@link #addedProviderService(ServiceKey, Document)} and {@link #removedProviderService(ServiceKey)}.
@@ -127,9 +125,9 @@ public class ProviderDomain {
     public ProviderDomain(final ProviderMatcher matcher, final JbiProviderDomain jpd,
             final Collection<Pair<Provides, JbiProvidesConfig>> provides, final JBISender sender,
             final Bootstrap partialBootstrap, final Logger logger) throws PEtALSCDKException {
+        super(sender, logger);
         this.matcher = matcher;
         this.jpd = jpd;
-        this.logger = logger;
 
         this.provides = new HashMap<>();
         for (final Pair<Provides, JbiProvidesConfig> pair : provides) {
@@ -149,7 +147,7 @@ public class ProviderDomain {
                 p.addFirst("log-debug", debugs);
                 p.addLast(objectEncoder);
                 p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
-                p.addLast("init", new TransportInitClient(sender, logger, ProviderDomain.this));
+                p.addLast("init", new TransportInitClient(logger, ProviderDomain.this));
                 p.addLast("log-errors", errors);
             }
         }).remoteAddress(jpd.getIp(), jpd.getPort());
@@ -353,20 +351,20 @@ public class ProviderDomain {
     /**
      * This is used to send to the channel for (1st step) exchanges arriving on JBI
      * 
-     * 3rd is taken care of by {@link JbiGatewayJBISender} direcly!
+     * 3rd is taken care of by {@link AbstractDomain}.
      */
     public void send(final ServiceKey service, final Exchange exchange) {
         final MessageExchange mex = exchange.getMessageExchange();
         assert mex != null;
         final TransportedNewMessage m = new TransportedNewMessage(service, mex);
         final Channel channel = this.channel;
-        // we can't be disconnected in that case because the component is stopped and we don't process messages!
+        // we can't be disconnected because it would mean that the component is stopped and in that case we don't
+        // receive messages!
         assert channel != null;
-        // let's use the context of the client so that the error logger do not log the message
+        // let's use the context of the client so that the error logger does not log the message
         final ChannelHandlerContext ctx = channel.pipeline().context(TransportClient.class);
         assert ctx != null;
-        // TODO couldn't make exception be shown without using this voidPromise...
-        ctx.writeAndFlush(m, ctx.voidPromise());
+        sendToChannel(ctx, m, exchange);
     }
 
     public void connect() throws InterruptedException {

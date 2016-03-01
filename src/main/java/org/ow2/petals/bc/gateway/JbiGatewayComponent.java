@@ -193,7 +193,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             throw new RuntimeException("Impossible case", e);
         }
         getTransportListener(ownerSU, jcd.getTransport()).register(jcd,
-                new ConsumerDomain(getContext(), jcd, consumes, logger));
+                new ConsumerDomain(getContext(), jcd, consumes, getSender(), logger));
     }
 
     public void deregisterConsumerDomain(String ownerSU, JbiConsumerDomain jcd) throws PEtALSCDKException {
@@ -297,7 +297,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         } catch (final MissingResourceException | JBIException e) {
             throw new RuntimeException("Impossible case", e);
         }
-        final TransportListener tl = new TransportListener(getSender(), jtl, newServerBootstrap(), logger);
+        final TransportListener tl = new TransportListener(jtl, newServerBootstrap(), logger);
         if (listeners.putIfAbsent(getTransportListenerName(ownerSU, jtl.getId()), tl) != null) {
             throw new PEtALSCDKException(String.format("Duplicate transporter id '%s'", jtl.getId()));
         }

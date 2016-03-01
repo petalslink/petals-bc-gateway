@@ -17,8 +17,6 @@
  */
 package org.ow2.petals.bc.gateway.messages;
 
-import javax.jbi.messaging.MessageExchange;
-
 import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
 import org.ow2.petals.bc.gateway.messages.Transported.TransportedToProvider;
 
@@ -27,25 +25,7 @@ public class TransportedMiddleMessage extends TransportedMessage
 
     private static final long serialVersionUID = 8953552087309338043L;
 
-    /**
-     * {@link MessageExchange} is not serializable as an interface, but we know all its implementations are in Petals.
-     */
-    @SuppressWarnings("squid:S1948")
-    public final MessageExchange senderExchange;
-
-    /**
-     * Note: these two exchanges are almost similar except in some aspects: Java serialization won't send twice the same
-     * object, so it's actually not expensive to send them both. The idea is that we need to remember our exchange when
-     * receiving an answer to something sent, so we send them both and we don't need to remember them on our side, which
-     * avoids storing and managing complex state.
-     */
-    @SuppressWarnings("squid:S1948")
-    public final MessageExchange receiverExchange;
-
-    public TransportedMiddleMessage(final ServiceKey service, final MessageExchange receiverExchange,
-            final MessageExchange senderExchange) {
-        super(service);
-        this.senderExchange = senderExchange;
-        this.receiverExchange = receiverExchange;
+    public TransportedMiddleMessage(final TransportedMessage m) {
+        super(m);
     }
 }

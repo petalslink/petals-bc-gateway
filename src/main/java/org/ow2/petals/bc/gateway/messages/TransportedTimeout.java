@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2016 Linagora
+ * Copyright (c) 2016 Linagora
  * 
  * This program/library is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -17,14 +17,15 @@
  */
 package org.ow2.petals.bc.gateway.messages;
 
-import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
-import org.ow2.petals.bc.gateway.messages.Transported.TransportedToProvider;
+public class TransportedTimeout extends TransportedForService {
 
-public class TransportedLastMessage extends TransportedMessage implements TransportedToConsumer, TransportedToProvider {
+    private static final long serialVersionUID = -9060178770181538907L;
 
-    private static final long serialVersionUID = 8953552087309338043L;
+    public final String exchangeId;
 
-    public TransportedLastMessage(final TransportedMessage m) {
-        super(m);
+    public TransportedTimeout(final ServiceKey service, final String exchangeId) {
+        super(service);
+        this.exchangeId = exchangeId;
     }
+
 }

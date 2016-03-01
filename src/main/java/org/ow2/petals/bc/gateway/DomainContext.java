@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2016 Linagora
+ * Copyright (c) 2016 Linagora
  * 
  * This program/library is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -15,16 +15,28 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway.messages;
+package org.ow2.petals.bc.gateway;
 
-import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
-import org.ow2.petals.bc.gateway.messages.Transported.TransportedToProvider;
+import org.ow2.petals.bc.gateway.messages.TransportedMessage;
+import org.ow2.petals.component.framework.api.message.Exchange;
 
-public class TransportedLastMessage extends TransportedMessage implements TransportedToConsumer, TransportedToProvider {
+public interface DomainContext {
 
-    private static final long serialVersionUID = 8953552087309338043L;
+    /**
+     * For answers
+     */
+    void sendToChannel(Exchange exchange);
 
-    public TransportedLastMessage(final TransportedMessage m) {
-        super(m);
-    }
+    /**
+     * For error during send
+     */
+    void sendToChannel(Exception e);
+
+    /**
+     * For timeout after send
+     */
+    void sendToChannel(String exchangeId);
+
+    TransportedMessage getMessage();
+
 }

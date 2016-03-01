@@ -25,14 +25,7 @@ public class TransportedNewMessage extends TransportedMessage implements Transpo
 
     private static final long serialVersionUID = 8953552087309338043L;
 
-    /**
-     * {@link MessageExchange} is not serializable as an interface, but we know all its implementations are in Petals.
-     */
-    @SuppressWarnings("squid:S1948")
-    public final MessageExchange senderExchange;
-
-    public TransportedNewMessage(final ServiceKey service, final MessageExchange senderExchange) {
-        super(service);
-        this.senderExchange = senderExchange;
+    public TransportedNewMessage(final ServiceKey service, final MessageExchange exchange) {
+        super(service, exchange);
     }
 }

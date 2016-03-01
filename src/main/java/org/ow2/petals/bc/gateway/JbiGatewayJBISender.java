@@ -18,16 +18,16 @@
 package org.ow2.petals.bc.gateway;
 
 import java.util.Set;
-import java.util.logging.Level;
 
 import javax.jbi.messaging.ExchangeStatus;
 import javax.jbi.messaging.MessageExchange;
 import javax.jbi.messaging.MessagingException;
+import javax.jbi.messaging.NormalizedMessage;
 
+import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.inbound.TransportServer;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
-import org.ow2.petals.bc.gateway.messages.TransportedException;
 import org.ow2.petals.bc.gateway.messages.TransportedLastMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedMiddleMessage;
@@ -37,7 +37,6 @@ import org.ow2.petals.bc.gateway.outbound.TransportClient;
 import org.ow2.petals.component.framework.AbstractComponent;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.listener.AbstractListener;
-import org.ow2.petals.component.framework.message.ExchangeImpl;
 import org.ow2.petals.component.framework.process.async.AsyncContext;
 
 import io.netty.channel.ChannelHandlerContext;
@@ -71,30 +70,35 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
      * InOutOnly) parts of an exchange, i.e., when we receive answers from a provider partner.
      */
     @Override
-    public void send(final ChannelHandlerContext ctx, final TransportedMessage m) {
+    public void sendToNMR(final DomainContext ctx, final @Nullable Exchange exchange) {
+        final TransportedMessage m = ctx.getMessage();
         if (m instanceof TransportedNewMessage) {
             // provider: it is the first part of an exchange
-            send(ctx, (TransportedNewMessage) m);
+            assert exchange == null;
+            sendNewToNMR(ctx);
         } else if (m instanceof TransportedMiddleMessage) {
+            assert exchange != null;
             // provider: it is the third part of an exchange (if still active)
             // consumer: it is the second part of an exchange (if still active)
-            send(ctx, (TransportedMiddleMessage) m);
-        } else if (m instanceof TransportedLastMessage) {
-            // provider: it is the third part of an exchange that (if not active)
-            // consumer: it is the second/fourth part of an exchange (if not active)
-            send(ctx, (TransportedLastMessage) m);
+            sendMiddleToNMR(ctx, exchange);
         } else {
-            // provider: second and fourth parts of exchange happens in handleAnswer
-            // consumer: third part of exchange happens in handleAnswer
-            assert false;
+            assert m instanceof TransportedLastMessage;
+            assert exchange != null;
+            // provider: it is the third part of an exchange (if not active)
+            // consumer: it is the second/fourth part of an exchange (if not active)
+            sendLastToNMR(ctx, exchange);
         }
+        // provider: second and fourth parts of exchange happens in sendToChannel
+        // consumer: third part of exchange happens in sendToChannel
     }
 
-    private void send(final ChannelHandlerContext ctx, final TransportedNewMessage m) {
+    private void sendNewToNMR(final DomainContext ctx) {
 
-        final MessageExchange hisMex = m.senderExchange;
+        final TransportedMessage m = ctx.getMessage();
+        final MessageExchange hisMex = m.exchange;
 
         try {
+            // this is a Consumes I propagated on the other side
             final ServiceKey service = m.service;
             final Exchange exchange = createExchange(service.interfaceName, service.service, service.endpointName,
                     hisMex.getPattern());
@@ -108,35 +112,49 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
                 exchange.setProperty(propName, hisMex.getProperty(propName));
             }
 
-            sendAsync(exchange, new JbiGatewaySenderAsyncContext(ctx, m, this));
+            sendAsync(exchange, new JbiGatewaySenderAsyncContext(ctx, this));
         } catch (final Exception e) {
-            getLogger().log(Level.FINE, "Exception caught", e);
-            hisMex.setError(e);
-            ctx.writeAndFlush(new TransportedLastMessage(m), ctx.voidPromise());
+            ctx.sendToChannel(e);
         }
     }
 
-    private void send(final ChannelHandlerContext ctx, final TransportedMiddleMessage m) {
-        try {
-            // it has been updated on the other side (see handleAnswer)
-            final Exchange exchange = new ExchangeImpl(m.receiverExchange);
+    private void sendMiddleToNMR(final DomainContext ctx, final Exchange exchange) {
 
-            sendAsync(exchange, new JbiGatewaySenderAsyncContext(ctx, m, this));
+        final TransportedMessage m = ctx.getMessage();
+        final MessageExchange hisMex = m.exchange;
+
+        try {
+            final NormalizedMessage out = hisMex.getMessage(Exchange.OUT_MESSAGE_NAME);
+            if (out != null && !exchange.isOutMessage()) {
+                exchange.setOutMessage(out);
+            } else if (hisMex.getFault() != null && exchange.getFault() == null) {
+                exchange.setFault(hisMex.getFault());
+            }
+
+            sendAsync(exchange, new JbiGatewaySenderAsyncContext(ctx, this));
         } catch (final Exception e) {
-            getLogger().log(Level.FINE, "Exception caught", e);
-            final MessageExchange hisMex = m.senderExchange;
-            hisMex.setError(e);
-            ctx.writeAndFlush(new TransportedLastMessage(m), ctx.voidPromise());
+            ctx.sendToChannel(e);
         }
     }
 
-    private void send(final ChannelHandlerContext ctx, final TransportedLastMessage m) {
+    private void sendLastToNMR(final DomainContext ctx, final Exchange exchange) {
+
+        final TransportedMessage m = ctx.getMessage();
+        final MessageExchange hisMex = m.exchange;
+
         try {
-            // it has been updated on the other side (see handleAnswer)
-            send(new ExchangeImpl(m.receiverExchange));
+            if (hisMex.getStatus() == ExchangeStatus.ERROR) {
+                exchange.setErrorStatus();
+                exchange.setError(hisMex.getError());
+            } else if (hisMex.getStatus() == ExchangeStatus.DONE) {
+                exchange.setDoneStatus();
+            } else {
+                assert hisMex.getStatus() == ExchangeStatus.ACTIVE;
+            }
+
+            send(exchange);
         } catch (final Exception e) {
-            getLogger().log(Level.FINE, "Exception caught", e);
-            ctx.writeAndFlush(new TransportedException(e), ctx.voidPromise());
+            ctx.sendToChannel(e);
         }
     }
 
@@ -147,22 +165,17 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
      * As a consumer partner: this handles the third part of an exchange, i.e., when we get aback an answer from the
      * provider partner.
      */
-    public void handleAnswer(final Exchange exchange, final JbiGatewaySenderAsyncContext context)
+    private void sendExchangeToChannel(final Exchange exchange, final DomainContext ctx)
             throws MessagingException {
 
-        final MessageExchange hisMex;
-        // let's check what was the received message
-        if (context.m instanceof TransportedNewMessage) {
-            hisMex = ((TransportedNewMessage) context.m).senderExchange;
-        } else if (context.m instanceof TransportedMiddleMessage) {
-            hisMex = ((TransportedMiddleMessage) context.m).senderExchange;
-        } else {
-            throw new RuntimeException("Impossible case");
-        }
+        final TransportedMessage m = ctx.getMessage();
+
+        final MessageExchange hisMex = m.exchange;
 
         // TODO what about properties?
         // Note: we do not verify the validity of the state/mep transitions!
         if (exchange.isErrorStatus()) {
+            hisMex.setStatus(ExchangeStatus.ERROR);
             hisMex.setError(exchange.getError());
         } else if (exchange.isDoneStatus()) {
             // for InOnly, RobustInOnly and InOptOnly (2nd or 4th part)
@@ -175,17 +188,14 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
             hisMex.setMessage(exchange.getOutMessage(), Exchange.OUT_MESSAGE_NAME);
         }
 
-        if (exchange.isActiveStatus()) {
-            // we will be expecting an answer
-            final MessageExchange myMex = exchange.getMessageExchange();
-            assert myMex != null;
-            // TODO where are the error sent?
-            context.ctx.writeAndFlush(new TransportedMiddleMessage(context.m.service, hisMex, myMex),
-                    context.ctx.voidPromise());
-        } else {
-            // TODO where are the error sent?
-            context.ctx.writeAndFlush(new TransportedLastMessage(context.m.service, hisMex), context.ctx.voidPromise());
-        }
+        ctx.sendToChannel(exchange);
+    }
+
+    private void sendTimeoutToChannel(final Exchange exchange, final DomainContext ctx) {
+        // careful, we don't have ownership!
+        final String exchangeId = exchange.getExchangeId();
+        assert exchangeId != null;
+        ctx.sendToChannel(exchangeId);
     }
 
     public static class JbiGatewaySenderAsyncContext extends AsyncContext {
@@ -195,17 +205,21 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
          * listeners of the processors... until then, we need to be called back by {@link JbiGatewayJBIListener} using
          * {@link #sender}.
          */
-        public final JbiGatewayJBISender sender;
+        private final JbiGatewayJBISender sender;
 
-        private final TransportedMessage m;
+        private final DomainContext ctx;
 
-        private final ChannelHandlerContext ctx;
-
-        public JbiGatewaySenderAsyncContext(final ChannelHandlerContext ctx, final TransportedMessage m,
-                final JbiGatewayJBISender sender) {
-            this.m = m;
+        public JbiGatewaySenderAsyncContext(final DomainContext ctx, final JbiGatewayJBISender sender) {
             this.ctx = ctx;
             this.sender = sender;
+        }
+
+        public void handleAnswer(final Exchange exchange) throws MessagingException {
+            this.sender.sendExchangeToChannel(exchange, ctx);
+        }
+
+        public void handleTimeout(final Exchange exchange) {
+            this.sender.sendTimeoutToChannel(exchange, ctx);
         }
     }
 }

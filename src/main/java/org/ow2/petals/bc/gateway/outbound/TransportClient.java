@@ -20,7 +20,6 @@ package org.ow2.petals.bc.gateway.outbound;
 import java.util.logging.Logger;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
 import org.ow2.petals.bc.gateway.messages.TransportedException;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
@@ -40,14 +39,11 @@ import io.netty.util.ReferenceCountUtil;
  */
 public class TransportClient extends SimpleChannelInboundHandler<TransportedToConsumer> {
 
-    private final JBISender sender;
-
     private final ProviderDomain pd;
 
     private final Logger logger;
 
-    public TransportClient(final JBISender sender, final Logger logger, final ProviderDomain pd) {
-        this.sender = sender;
+    public TransportClient(final Logger logger, final ProviderDomain pd) {
         this.logger = logger;
         this.pd = pd;
     }
@@ -70,7 +66,7 @@ public class TransportClient extends SimpleChannelInboundHandler<TransportedToCo
             } else if (msg instanceof TransportedMessage) {
                 // this can't happen, we are the one sending new exchanges!
                 assert !(msg instanceof TransportedNewMessage);
-                sender.send(ctx, (TransportedMessage) msg);
+                pd.sendFromChannelToNMR(ctx, (TransportedMessage) msg);
             } else {
                 throw new RuntimeException("Impossible case");
             }

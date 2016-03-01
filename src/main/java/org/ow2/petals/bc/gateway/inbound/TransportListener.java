@@ -22,7 +22,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
@@ -70,12 +69,12 @@ public class TransportListener implements ConsumerAuthenticator {
      */
     private final ConcurrentMap<String, ConsumerDomain> consumers = new ConcurrentHashMap<>();
 
-    public TransportListener(final JBISender sender, final JbiTransportListener jtl,
+    public TransportListener(final JbiTransportListener jtl,
             final ServerBootstrap partialBootstrap, final Logger logger) {
         this.jtl = jtl;
 
         // shared between all the connections of this listener
-        final TransportDispatcher dispatcher = new TransportDispatcher(sender, logger, this);
+        final TransportDispatcher dispatcher = new TransportDispatcher(logger, this);
         final LoggingHandler debugs = new LoggingHandler(logger.getName() + ".dispatcher", LogLevel.TRACE);
         final LoggingHandler errors = new LoggingHandler(logger.getName() + ".errors", LogLevel.ERROR);
         final ObjectEncoder objectEncoder = new ObjectEncoder();
