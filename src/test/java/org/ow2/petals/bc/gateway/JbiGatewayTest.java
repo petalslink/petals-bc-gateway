@@ -69,7 +69,7 @@ public class JbiGatewayTest extends AbstractComponentTest {
 
         COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createHelloProvider());
         
-        Awaitility.await().atMost(Duration.ONE_SECOND).until(new Callable<Boolean>() {
+        Awaitility.await().atMost(Duration.TWO_SECONDS).until(new Callable<Boolean>() {
             @Override
             public Boolean call() throws Exception {
                 return getNotExternalEndpoint(specifyService) != null;
