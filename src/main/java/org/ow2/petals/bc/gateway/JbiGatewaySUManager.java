@@ -202,6 +202,8 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                     this.logger.log(Level.WARNING, "Error while stopping consumer domain", e1);
                 }
             }
+
+            throw e;
         }
     }
 
