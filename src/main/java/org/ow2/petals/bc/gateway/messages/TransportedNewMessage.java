@@ -26,6 +26,6 @@ public class TransportedNewMessage extends TransportedMessage implements Transpo
     private static final long serialVersionUID = 8953552087309338043L;
 
     public TransportedNewMessage(final ServiceKey service, final MessageExchange exchange) {
-        super(service, exchange);
+        super(service, exchange, exchange.getExchangeId());
     }
 }

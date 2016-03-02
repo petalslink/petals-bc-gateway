@@ -17,6 +17,8 @@
  */
 package org.ow2.petals.bc.gateway.messages;
 
+import javax.jbi.messaging.MessageExchange;
+
 import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
 import org.ow2.petals.bc.gateway.messages.Transported.TransportedToProvider;
 
@@ -25,7 +27,7 @@ public class TransportedMiddleMessage extends TransportedMessage
 
     private static final long serialVersionUID = 8953552087309338043L;
 
-    public TransportedMiddleMessage(final TransportedMessage m) {
-        super(m);
+    public TransportedMiddleMessage(final TransportedMessage m, final MessageExchange exchange) {
+        super(m, exchange);
     }
 }

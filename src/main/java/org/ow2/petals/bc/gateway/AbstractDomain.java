@@ -51,7 +51,7 @@ public abstract class AbstractDomain {
     }
 
     public void sendFromChannelToNMR(final ChannelHandlerContext ctx, final TransportedMessage m) {
-        final String exchangeId = m.exchange.getExchangeId();
+        final String exchangeId = m.exchangeId;
 
         final Exchange exchange;
         if (m instanceof TransportedNewMessage) {
@@ -100,7 +100,7 @@ public abstract class AbstractDomain {
             ctx.writeAndFlush(new TransportedException(e), ctx.voidPromise());
         } else {
             m.exchange.setError(e);
-            ctx.writeAndFlush(new TransportedLastMessage(m), ctx.voidPromise());
+            ctx.writeAndFlush(new TransportedLastMessage(m, m.exchange), ctx.voidPromise());
         }
     }
 
@@ -109,9 +109,9 @@ public abstract class AbstractDomain {
         assert !(m instanceof TransportedLastMessage);
         if (exchange.isActiveStatus()) {
             // we will be expecting an answer
-            sendToChannel(ctx, new TransportedMiddleMessage(m), exchange);
+            sendToChannel(ctx, new TransportedMiddleMessage(m, exchange.getMessageExchange()), exchange);
         } else {
-            sendToChannel(ctx, new TransportedLastMessage(m), exchange);
+            sendToChannel(ctx, new TransportedLastMessage(m, exchange.getMessageExchange()), exchange);
         }
     }
 
@@ -122,8 +122,9 @@ public abstract class AbstractDomain {
 
     protected void sendToChannel(final ChannelHandlerContext ctx, final TransportedMessage m, final Exchange exchange) {
         if (!(m instanceof TransportedLastMessage)) {
-            if (exchangesInProgress.putIfAbsent(exchange.getExchangeId(), exchange) != null) {
-                throw new IllegalArgumentException("Impossible case");
+            if (exchangesInProgress.putIfAbsent(m.exchangeId, exchange) != null) {
+                // this can happen with InOptOut from the consumer partner point of view, but the Exchange is always the
+                // same normally!
             }
         }
         sendToChannel(ctx, m);

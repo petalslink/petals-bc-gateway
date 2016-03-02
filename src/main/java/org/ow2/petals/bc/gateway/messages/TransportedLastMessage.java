@@ -17,6 +17,8 @@
  */
 package org.ow2.petals.bc.gateway.messages;
 
+import javax.jbi.messaging.MessageExchange;
+
 import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
 import org.ow2.petals.bc.gateway.messages.Transported.TransportedToProvider;
 
@@ -24,7 +26,7 @@ public class TransportedLastMessage extends TransportedMessage implements Transp
 
     private static final long serialVersionUID = 8953552087309338043L;
 
-    public TransportedLastMessage(final TransportedMessage m) {
-        super(m);
+    public TransportedLastMessage(final TransportedMessage m, final MessageExchange exchange) {
+        super(m, exchange);
     }
 }

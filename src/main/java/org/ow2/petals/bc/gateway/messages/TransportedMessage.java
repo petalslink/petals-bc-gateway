@@ -39,18 +39,29 @@ public abstract class TransportedMessage extends TransportedForService {
     private static final long serialVersionUID = 7102614527427146536L;
 
     /**
-     * {@link MessageExchange} is not serializable as an interface, but we know all its implementations are in Petals.
+     * This contains the exchange that one side received via the NMR and that the other side must use to fill its own
+     * version of the exchange that he stored (or must create in case of {@link TransportedNewMessage}).
+     * 
+     * Note: {@link MessageExchange} is not serializable as an interface, but we know its implementation is in Petals.
      */
     @SuppressWarnings("squid:S1948")
     public final MessageExchange exchange;
 
-    public TransportedMessage(final ServiceKey service, final MessageExchange exchange) {
+    /**
+     * This identifies the exchanges between provider and consumer partners, but not the exchange id of the transported
+     * exchange.
+     */
+    public final String exchangeId;
+
+    public TransportedMessage(final ServiceKey service, final MessageExchange exchange, final String exchangeId) {
         super(service);
         this.exchange = exchange;
+        this.exchangeId = exchangeId;
     }
 
-    public TransportedMessage(final TransportedMessage m) {
-        this(m.service, m.exchange);
+    public TransportedMessage(final TransportedMessage m, final MessageExchange exchange) {
+        // we keep the service and the exchangeId, they should not change!
+        this(m.service, exchange, m.exchangeId);
         assert m instanceof TransportedNewMessage || m instanceof TransportedMiddleMessage;
     }
 }
