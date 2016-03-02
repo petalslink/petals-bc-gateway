@@ -139,7 +139,7 @@ public class ProviderDomain extends AbstractDomain {
         final LoggingHandler errors = new LoggingHandler(logger.getName() + ".errors", LogLevel.ERROR);
         final ObjectEncoder objectEncoder = new ObjectEncoder();
 
-        final Bootstrap bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
+        final Bootstrap _bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
             @Override
             protected void initChannel(final @Nullable Channel ch) throws Exception {
                 assert ch != null;
@@ -152,8 +152,8 @@ public class ProviderDomain extends AbstractDomain {
                 p.addLast("log-errors", errors);
             }
         }).remoteAddress(jpd.getIp(), jpd.getPort());
-        assert bootstrap != null;
-        this.bootstrap = bootstrap;
+        assert _bootstrap != null;
+        bootstrap = _bootstrap;
     }
 
     /**
@@ -179,15 +179,8 @@ public class ProviderDomain extends AbstractDomain {
             logger.severe("Error during ProviderDomain init, undoing everything");
 
             for (final ServiceData data : services.values()) {
-                if (data.key != null) {
-                    try {
-                        if (!deregisterProviderService(data)) {
-                            logger.warning("Expected to deregister '" + data.key + "' but it wasn't registered...");
-                        }
-                    } catch (final Exception e1) {
-                        logger.log(Level.WARNING, "Error while deregistering propagated service", e1);
-                    }
-                }
+                assert data != null;
+                deregisterOrStoreOrLog(data, null);
             }
 
             throw e;
@@ -201,21 +194,15 @@ public class ProviderDomain extends AbstractDomain {
      */
     public void shutdown() throws PEtALSCDKException {
 
-        final List<Throwable> exceptions = new ArrayList<>();
+        final List<Exception> exceptions = new ArrayList<>();
 
         initLock.writeLock().lock();
         try {
             init = false;
 
             for (final ServiceData data : services.values()) {
-                assert data.key != null;
-                try {
-                    if (!deregisterProviderService(data)) {
-                        logger.warning("Expected to deregister '" + data.key + "' but it wasn't registered...");
-                    }
-                } catch (final Exception e) {
-                    exceptions.add(e);
-                }
+                assert data != null;
+                deregisterOrStoreOrLog(data, exceptions);
             }
         } finally {
             initLock.writeLock().unlock();
@@ -223,7 +210,7 @@ public class ProviderDomain extends AbstractDomain {
 
         if (!exceptions.isEmpty()) {
             final PEtALSCDKException ex = new PEtALSCDKException("Errors during ProviderDomain shutdown");
-            for (final Throwable e : exceptions) {
+            for (final Exception e : exceptions) {
                 ex.addSuppressed(e);
             }
             throw ex;
@@ -283,19 +270,7 @@ public class ProviderDomain extends AbstractDomain {
             for (final ServiceKey sk : oldKeys) {
                 final ServiceData data = services.remove(sk);
                 assert data != null;
-                final ServiceEndpointKey key = data.key;
-                if (key != null) {
-                    try {
-                        if (!deregisterProviderService(data)) {
-                            logger.warning("Expected to deregister '" + key + "' but it wasn't registered...");
-                        }
-                    } catch (final PEtALSCDKException e) {
-                        logger.log(Level.WARNING, "Couldn't deregister propagated service '" + sk + "' (" + key + ")",
-                                e);
-                    }
-                } else {
-                    assert !init;
-                }
+                deregisterOrStoreOrLog(data, null);
             }
         } finally {
             initLock.readLock().unlock();
@@ -332,6 +307,25 @@ public class ProviderDomain extends AbstractDomain {
             }
             assert data.description != null;
             matcher.register(key, ps, data.description);
+        }
+    }
+
+    private void deregisterOrStoreOrLog(final ServiceData data, final @Nullable Collection<Exception> exceptions) {
+        final ServiceEndpointKey key = data.key;
+        if (key != null) {
+            try {
+                if (!deregisterProviderService(data)) {
+                    logger.warning("Expected to deregister '" + key + "' but it wasn't registered...");
+                }
+            } catch (final PEtALSCDKException e) {
+                if (exceptions != null) {
+                    exceptions.add(e);
+                } else {
+                    logger.log(Level.WARNING, "Couldn't deregister propagated service '" + key + "'", e);
+                }
+            }
+        } else {
+            assert !init;
         }
     }
 
@@ -377,19 +371,19 @@ public class ProviderDomain extends AbstractDomain {
      * TODO how to ensure that connecting and authenticating worked or raised an exception if not?
      */
     public void connect() {
-        final Channel channel = bootstrap.connect().channel();
-        assert channel != null;
-        this.channel = channel;
+        final Channel _channel = bootstrap.connect().channel();
+        assert _channel != null;
+        channel = _channel;
     }
 
     /**
      * Disconnect from the provider partner
      */
     public void disconnect() {
-        final Channel channel = this.channel;
-        if (channel != null && channel.isOpen()) {
-            channel.close();
-            this.channel = null;
+        final Channel _channel = this.channel;
+        if (_channel != null && _channel.isOpen()) {
+            _channel.close();
+            channel = null;
         }
     }
 

@@ -58,11 +58,11 @@ public class TransportedPropagatedConsumes implements Serializable {
     private void writeObject(final ObjectOutputStream s) throws IOException {
         s.defaultWriteObject();
 
-        final Document description = this.description;
-        if (description != null) {
+        final Document _description = this.description;
+        if (_description != null) {
             s.writeBoolean(true);
             try {
-                s.writeObject(XMLHelper.createStringFromDOMNode(description));
+                s.writeObject(XMLHelper.createStringFromDOMNode(_description));
             } catch (final TransformerException e) {
                 throw new IOException(e);
             }

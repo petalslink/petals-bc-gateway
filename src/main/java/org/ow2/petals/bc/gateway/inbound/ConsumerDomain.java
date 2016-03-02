@@ -203,7 +203,7 @@ public class ConsumerDomain extends AbstractDomain {
         channels.remove(ctx);
     }
 
-    public void exceptionReceived(final ChannelHandlerContext ctx, final Exception msg) {
+    public void exceptionReceived(final Exception msg) {
         logger.log(Level.WARNING,
                 "Received an exeception from the other side, this is purely informative, we can't do anything about it",
                 msg);

@@ -166,7 +166,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             logger = getContext().getLogger("provider." + ownerSU + "." + jpd.getId(), null);
             assert logger != null;
         } catch (final MissingResourceException | JBIException e) {
-            throw new RuntimeException("Impossible case", e);
+            throw new PEtALSCDKException("Can't create logger", e);
         }
         final ProviderDomain pd = new ProviderDomain(this, jpd, provides, getSender(), newClientBootstrap(), logger);
         // we need to store it to be able to start and stop with the component
@@ -191,7 +191,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             logger = getContext().getLogger("consumer." + ownerSU + "." + jcd.getId(), null);
             assert logger != null;
         } catch (final MissingResourceException | JBIException e) {
-            throw new RuntimeException("Impossible case", e);
+            throw new PEtALSCDKException("Can't create logger", e);
         }
         final TransportListener tl = getTransportListener(ownerSU, jcd.getTransport());
         return new ConsumerDomain(tl, getContext(), jcd, consumes, getSender(), logger);
@@ -291,7 +291,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             logger = getContext().getLogger((ownerSU == null ? "" : ownerSU + ".") + jtl.getId(), null);
             assert logger != null;
         } catch (final MissingResourceException | JBIException e) {
-            throw new RuntimeException("Impossible case", e);
+            throw new PEtALSCDKException("Can't create logger", e);
         }
         final TransportListener tl = new TransportListener(jtl, newServerBootstrap(), logger);
         if (listeners.putIfAbsent(getTransportListenerName(ownerSU, jtl.getId()), tl) != null) {

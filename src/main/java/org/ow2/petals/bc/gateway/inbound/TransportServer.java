@@ -84,13 +84,11 @@ public class TransportServer extends SimpleChannelInboundHandler<TransportedToPr
 
         try {
             if (msg instanceof TransportedException) {
-                cd.exceptionReceived(ctx, (TransportedException) msg);
+                cd.exceptionReceived((TransportedException) msg);
             } else if (msg instanceof TransportedMessage) {
                 cd.sendFromChannelToNMR(ctx, (TransportedMessage) msg);
             } else if (msg instanceof TransportedTimeout) {
-                cd.timeoutReceived(ctx, (TransportedTimeout) msg);
-            } else {
-                throw new RuntimeException("Impossible case");
+                cd.timeoutReceived((TransportedTimeout) msg);
             }
         } finally {
             ReferenceCountUtil.release(msg);

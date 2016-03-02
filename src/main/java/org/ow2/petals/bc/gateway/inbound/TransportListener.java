@@ -79,7 +79,7 @@ public class TransportListener implements ConsumerAuthenticator {
         final LoggingHandler errors = new LoggingHandler(logger.getName() + ".errors", LogLevel.ERROR);
         final ObjectEncoder objectEncoder = new ObjectEncoder();
 
-        final ServerBootstrap bootstrap = partialBootstrap.handler(new LoggingHandler(logger.getName() + ".listener"))
+        final ServerBootstrap _bootstrap = partialBootstrap.handler(new LoggingHandler(logger.getName() + ".listener"))
                 .childHandler(new ChannelInitializer<Channel>() {
                     @Override
                     protected void initChannel(final @Nullable Channel ch) throws Exception {
@@ -92,24 +92,24 @@ public class TransportListener implements ConsumerAuthenticator {
                         p.addLast(LOG_ERRORS_HANDLER, errors);
                     }
                 }).localAddress(jtl.getPort());
-        assert bootstrap != null;
-        this.bootstrap = bootstrap;
+        assert _bootstrap != null;
+        bootstrap = _bootstrap;
     }
 
     /**
      * TODO how to ensure that binding worked?
      */
     public void bind() {
-        final Channel channel = bootstrap.bind().channel();
-        assert channel != null;
-        this.channel = channel;
+        final Channel _channel = bootstrap.bind().channel();
+        assert _channel != null;
+        channel = _channel;
     }
 
     public void unbind() {
-        final Channel channel = this.channel;
-        if (channel != null && channel.isOpen()) {
-            channel.close();
-            this.channel = null;
+        final Channel _channel = channel;
+        if (_channel != null && _channel.isOpen()) {
+            _channel.close();
+            channel = null;
         }
     }
 

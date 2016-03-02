@@ -73,7 +73,6 @@ public abstract class AbstractDomain {
         return new DomainContext() {
             @Override
             public void sendToChannel(final Exchange exchange) {
-                assert !(m instanceof TransportedLastMessage);
                 domain.sendFromNMRToChannel(ctx, m, exchange);
             }
 
@@ -83,7 +82,7 @@ public abstract class AbstractDomain {
             }
 
             @Override
-            public void sendToChannel(String exchangeId) {
+            public void sendToChannel(final String exchangeId) {
                 domain.sendFromNMRToChannel(ctx, m.service, exchangeId);
             }
 
@@ -107,6 +106,7 @@ public abstract class AbstractDomain {
 
     private void sendFromNMRToChannel(final ChannelHandlerContext ctx, final TransportedMessage m,
             final Exchange exchange) {
+        assert !(m instanceof TransportedLastMessage);
         if (exchange.isActiveStatus()) {
             // we will be expecting an answer
             sendToChannel(ctx, new TransportedMiddleMessage(m), exchange);
@@ -134,7 +134,7 @@ public abstract class AbstractDomain {
         ctx.writeAndFlush(m, ctx.voidPromise());
     }
 
-    public void timeoutReceived(final ChannelHandlerContext ctx, final TransportedTimeout msg) {
+    public void timeoutReceived(final TransportedTimeout msg) {
         if (exchangesInProgress.remove(msg) == null) {
             // TODO log
         }

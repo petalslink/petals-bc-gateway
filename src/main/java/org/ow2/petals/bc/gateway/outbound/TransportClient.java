@@ -67,8 +67,6 @@ public class TransportClient extends SimpleChannelInboundHandler<TransportedToCo
                 // this can't happen, we are the one sending new exchanges!
                 assert !(msg instanceof TransportedNewMessage);
                 pd.sendFromChannelToNMR(ctx, (TransportedMessage) msg);
-            } else {
-                throw new RuntimeException("Impossible case");
             }
         } finally {
             ReferenceCountUtil.release(msg);

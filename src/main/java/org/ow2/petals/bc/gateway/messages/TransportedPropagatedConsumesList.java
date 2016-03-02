@@ -18,15 +18,16 @@
 package org.ow2.petals.bc.gateway.messages;
 
 import java.io.Serializable;
-import java.util.ArrayList;
+import java.util.List;
 
 public class TransportedPropagatedConsumesList implements Serializable {
 
     private static final long serialVersionUID = -2818905233890110391L;
 
-    public final ArrayList<TransportedPropagatedConsumes> consumes;
+    public final List<TransportedPropagatedConsumes> consumes;
 
-    public TransportedPropagatedConsumesList(final ArrayList<TransportedPropagatedConsumes> consumes) {
+    public TransportedPropagatedConsumesList(final List<TransportedPropagatedConsumes> consumes) {
+        assert consumes instanceof Serializable;
         this.consumes = consumes;
     }
 }
