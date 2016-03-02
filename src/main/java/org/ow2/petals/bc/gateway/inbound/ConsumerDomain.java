@@ -98,11 +98,17 @@ public class ConsumerDomain extends AbstractDomain {
         return id;
     }
 
-    public void start() throws PEtALSCDKException {
+    /**
+     * Consumer partner will be able to connect to us
+     */
+    public void open() throws PEtALSCDKException {
         tl.register(jcd, this);
     }
 
-    public void stop() {
+    /**
+     * Consumer partner will be disconnected
+     */
+    public void close() {
         tl.deregistrer(jcd);
         for (final ChannelHandlerContext ctx : channels) {
             ctx.close();

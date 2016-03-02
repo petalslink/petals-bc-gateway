@@ -184,20 +184,20 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         final SUData data = suDatas.get(ownerSU);
 
-        final List<ConsumerDomain> started = new ArrayList<>();
+        final List<ConsumerDomain> opened = new ArrayList<>();
         try {
             for (final ConsumerDomain cd : data.consumerDomains) {
                 assert cd != null;
-                cd.start();
-                started.add(cd);
+                cd.open();
+                opened.add(cd);
             }
         } catch (final Exception e) {
             this.logger.log(Level.SEVERE, "Error during SU init, undoing everything");
 
-            for (final ConsumerDomain cd : started) {
+            for (final ConsumerDomain cd : opened) {
                 assert cd != null;
                 try {
-                    cd.stop();
+                    cd.close();
                 } catch (final Exception e1) {
                     this.logger.log(Level.WARNING, "Error while stopping consumer domain", e1);
                 }
@@ -219,7 +219,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         for (final ConsumerDomain cd : data.consumerDomains) {
             assert cd != null;
             try {
-                cd.stop();
+                cd.close();
             } catch (final Exception e) {
                 exceptions.add(e);
             }

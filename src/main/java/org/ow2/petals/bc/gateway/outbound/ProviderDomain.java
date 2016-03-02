@@ -68,10 +68,11 @@ import io.netty.handler.logging.LoggingHandler;
  * 
  * It maintains the list of Provides we should create on our side (based on the Consumes propagated)
  *
- * {@link #connect()} and {@link #disconnect()} corresponds to components start and stop.
+ * {@link #connect()} and {@link #disconnect()} corresponds to components start and stop. {@link #connect()} should
+ * trigger {@link #initProviderServices(TransportedPropagatedConsumesList)} by the {@link Channel} normally.
  * 
- * {@link #init()} and {@link #shutdown()} corresponds to SU init and shutdown
- *
+ * {@link #init()} and {@link #shutdown()} corresponds to SU init and shutdown.
+ * 
  */
 public class ProviderDomain extends AbstractDomain {
 
@@ -156,7 +157,8 @@ public class ProviderDomain extends AbstractDomain {
     }
 
     /**
-     * SU INIT
+     * Register propagated consumes for the JBI listener, can be called after or before the component has started (i.e.,
+     * {@link #connect()} has been called).
      */
     public void init() throws PEtALSCDKException {
         initLock.writeLock().lock();
@@ -195,7 +197,7 @@ public class ProviderDomain extends AbstractDomain {
     }
 
     /**
-     * SU SHUTDOWN
+     * Deregister the propagated consumes for the JBI Listener
      */
     public void shutdown() throws PEtALSCDKException {
 
@@ -230,18 +232,20 @@ public class ProviderDomain extends AbstractDomain {
 
     /**
      * 
-     * This corresponds to consumes being declared in the provider domain that we mirror on this side
+     * This registers and initialises the consumes being declared in the provider domain that we mirror on this side.
      * 
-     * We receive these notification once we are connected to the other side, i.e., just after component start (and of
+     * We receive this notification once we are connected to the other side, i.e., just after component start (and of
      * course after SU deploy)
+     * 
+     * It can be executed after or before {@link #init()} has been called.
      * 
      * TODO we should be able to disable the activation of consumes (i.e., only use the provides then!)
      * 
      * TODO should we register endpoint for unexisting service on the other side????
      * 
+     * 
      */
     public void initProviderServices(final TransportedPropagatedConsumesList initServices) {
-
         initLock.readLock().lock();
         try {
 
@@ -368,7 +372,9 @@ public class ProviderDomain extends AbstractDomain {
     }
 
     /**
-     * TODO how to ensure that connecting and authenticating worked?!
+     * Connect to the provider partner
+     * 
+     * TODO how to ensure that connecting and authenticating worked or raised an exception if not?
      */
     public void connect() {
         final Channel channel = bootstrap.connect().channel();
@@ -376,6 +382,9 @@ public class ProviderDomain extends AbstractDomain {
         this.channel = channel;
     }
 
+    /**
+     * Disconnect from the provider partner
+     */
     public void disconnect() {
         final Channel channel = this.channel;
         if (channel != null && channel.isOpen()) {

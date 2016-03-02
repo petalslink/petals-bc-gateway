@@ -17,6 +17,7 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -233,30 +234,34 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
     @Override
     protected void doStart() throws JBIException {
+        final List<TransportListener> bound = new ArrayList<>();
+        final List<ProviderDomain> connected = new ArrayList<>();
         try {
             for (final TransportListener tl : listeners.values()) {
                 // Bind and start to accept incoming connections.
                 tl.bind();
+                bound.add(tl);
             }
 
-            for (final ProviderDomain tc : providers) {
-                tc.connect();
+            for (final ProviderDomain pd : providers) {
+                pd.connect();
+                connected.add(pd);
             }
 
         } catch (final Exception e) {
             // normally this shouldn't really happen, but well...
             getLogger().log(Level.SEVERE, "Error during component start, stopping listeners and clients");
 
-            for (final ProviderDomain tc : providers) {
+            for (final ProviderDomain pd : connected) {
                 try {
-                    tc.disconnect();
+                    pd.disconnect();
                 } catch (final Exception e1) {
                     // normally this shouldn't really happen, but well...
                     getLogger().log(Level.WARNING, "Error while stopping client", e1);
                 }
             }
 
-            for (final TransportListener tl : listeners.values()) {
+            for (final TransportListener tl : bound) {
                 try {
                     tl.unbind();
                 } catch (final Exception e1) {
