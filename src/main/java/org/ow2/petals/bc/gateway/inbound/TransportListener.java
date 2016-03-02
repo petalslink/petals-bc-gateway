@@ -96,9 +96,11 @@ public class TransportListener implements ConsumerAuthenticator {
         this.bootstrap = bootstrap;
     }
 
-    public void bind() throws InterruptedException {
-        // TODO should I do that async?
-        final Channel channel = bootstrap.bind().sync().channel();
+    /**
+     * TODO how to ensure that binding worked?
+     */
+    public void bind() {
+        final Channel channel = bootstrap.bind().channel();
         assert channel != null;
         this.channel = channel;
     }
@@ -106,7 +108,6 @@ public class TransportListener implements ConsumerAuthenticator {
     public void unbind() {
         final Channel channel = this.channel;
         if (channel != null && channel.isOpen()) {
-            // TODO should I do that sync?
             channel.close();
             this.channel = null;
         }

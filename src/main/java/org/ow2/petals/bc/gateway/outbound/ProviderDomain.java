@@ -367,9 +367,11 @@ public class ProviderDomain extends AbstractDomain {
         sendToChannel(ctx, m, exchange);
     }
 
-    public void connect() throws InterruptedException {
-        // TODO should I do that async?
-        final Channel channel = bootstrap.connect().sync().channel();
+    /**
+     * TODO how to ensure that connecting and authenticating worked?!
+     */
+    public void connect() {
+        final Channel channel = bootstrap.connect().channel();
         assert channel != null;
         this.channel = channel;
     }
@@ -377,7 +379,6 @@ public class ProviderDomain extends AbstractDomain {
     public void disconnect() {
         final Channel channel = this.channel;
         if (channel != null && channel.isOpen()) {
-            // TODO should I do that sync?
             channel.close();
             this.channel = null;
         }

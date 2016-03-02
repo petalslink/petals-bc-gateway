@@ -167,11 +167,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         final ProviderDomain pd = new ProviderDomain(this, jpd, provides, getSender(), newClientBootstrap(), logger);
         providers.add(pd);
         if (started) {
-            try {
-                pd.connect();
-            } catch (final InterruptedException e) {
-                throw new PEtALSCDKException(e);
-            }
+            pd.connect();
         }
         return pd;
     }
@@ -279,12 +275,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             throws PEtALSCDKException {
         final TransportListener tl = addTransporterListener(ownerSU, jtl);
         if (started) {
-            try {
-                tl.bind();
-            } catch (final Exception e) {
-                // normally this shouldn't really happen, but well...
-                throw new PEtALSCDKException(String.format("Error while starting transporter '%s'", jtl), e);
-            }
+            tl.bind();
         }
     }
 
