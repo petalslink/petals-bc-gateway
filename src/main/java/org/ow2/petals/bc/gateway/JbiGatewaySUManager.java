@@ -23,6 +23,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
 
 import org.eclipse.jdt.annotation.Nullable;
@@ -49,13 +51,18 @@ import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
  */
 public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
-    /**
-     * No need for synchronization, only accessed during lifecycles
-     */
-    private final List<ProviderDomain> providerDomains = new ArrayList<>();
+    private final ConcurrentMap<String, SUData> suDatas = new ConcurrentHashMap<>();
 
     public JbiGatewaySUManager(final JbiGatewayComponent component) {
         super(component);
+    }
+
+    /**
+     * No need for synchronization, only accessed during lifecycles
+     */
+    private static class SUData {
+
+        private final List<ProviderDomain> providerDomains = new ArrayList<>();
     }
 
     /**
@@ -82,6 +89,9 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         final String ownerSU = suDH.getName();
         assert ownerSU != null;
 
+        final SUData data = new SUData();
+        this.suDatas.put(ownerSU, data);
+
         try {
             for (final JbiTransportListener jtl : jtls) {
                 assert jtl != null;
@@ -96,12 +106,12 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                     .entrySet()) {
                 final ProviderDomain pd = getComponent().registerProviderDomain(ownerSU, entry.getKey(),
                         entry.getValue());
-                providerDomains.add(pd);
+                data.providerDomains.add(pd);
             }
         } catch (final Exception e) {
             this.logger.log(Level.SEVERE, "Error during SU deploy, undoing everything");
 
-            final Iterator<ProviderDomain> itP = providerDomains.iterator();
+            final Iterator<ProviderDomain> itP = data.providerDomains.iterator();
             while (itP.hasNext()) {
                 final ProviderDomain pd = itP.next();
                 assert pd != null;
@@ -131,20 +141,26 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                 }
             }
 
+            suDatas.remove(ownerSU);
+
             throw e;
         }
     }
 
     @Override
     protected void doInit(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
+        assert suDH != null;
+
+        final SUData data = suDatas.get(suDH.getName());
+
         try {
-            for (final ProviderDomain pd : providerDomains) {
+            for (final ProviderDomain pd : data.providerDomains) {
                 pd.init();
             }
         } catch (final Exception e) {
             this.logger.log(Level.SEVERE, "Error during SU init, undoing everything");
 
-            for (final ProviderDomain pd : providerDomains) {
+            for (final ProviderDomain pd : data.providerDomains) {
                 try {
                     pd.shutdown();
                 } catch (final Exception ex) {
@@ -157,28 +173,33 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
     }
 
     /**
-     * The {@link Consumes} are only registered on start, not before
+     * currently, once the consumer domains registered in the component, a consumer partner can connect and send
+     * exchanges.
+     * 
+     * TODO maybe we should either not allow exchanges to be sent or not send them in the NMR right away?
      */
     @Override
     protected void doStart(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
         assert suDH != null;
-
-        // TODO we need to start
     }
 
+    /**
+     * TODO see {@link #doStart(ServiceUnitDataHandler)}
+     */
     @Override
     protected void doStop(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
         assert suDH != null;
-
-        // TODO we need to stop exchanges to be sent via consumes
     }
 
     @Override
     protected void doShutdown(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
+        assert suDH != null;
+
+        final SUData data = suDatas.get(suDH.getName());
 
         final List<Throwable> exceptions = new ArrayList<>();
 
-        for (final ProviderDomain pd : providerDomains) {
+        for (final ProviderDomain pd : data.providerDomains) {
             try {
                 pd.shutdown();
             } catch (final Exception e) {
@@ -202,13 +223,15 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         final String ownerSU = suDH.getName();
         assert ownerSU != null;
 
+        final SUData data = suDatas.get(ownerSU);
+
         final List<Throwable> exceptions = new ArrayList<>();
 
         final Services services = suDH.getDescriptor().getServices();
         final Collection<JbiConsumerDomain> jcds = JbiGatewayJBIHelper.getConsumerDomains(services);
         final Collection<JbiTransportListener> jtls = JbiGatewayJBIHelper.getTransportListeners(services);
 
-        final Iterator<ProviderDomain> itP = providerDomains.iterator();
+        final Iterator<ProviderDomain> itP = data.providerDomains.iterator();
         while (itP.hasNext()) {
             final ProviderDomain pd = itP.next();
             assert pd != null;
