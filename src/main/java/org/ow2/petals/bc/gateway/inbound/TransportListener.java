@@ -126,9 +126,6 @@ public class TransportListener implements ConsumerAuthenticator {
     }
 
     public void deregistrer(final JbiConsumerDomain jcd) {
-        final ConsumerDomain cd = consumers.remove(jcd.getAuthName());
-        if (cd != null) {
-            cd.close();
-        }
+        consumers.remove(jcd.getAuthName());
     }
 }

@@ -19,7 +19,6 @@ package org.ow2.petals.bc.gateway;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -28,6 +27,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
@@ -63,6 +63,10 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
     private static class SUData {
 
         private final List<ProviderDomain> providerDomains = new ArrayList<>();
+
+        private final List<ConsumerDomain> consumerDomains = new ArrayList<>();
+
+        private final List<JbiTransportListener> listeners = new ArrayList<>();
     }
 
     /**
@@ -96,43 +100,40 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
             for (final JbiTransportListener jtl : jtls) {
                 assert jtl != null;
                 getComponent().registerTransportListener(ownerSU, jtl);
+                data.listeners.add(jtl);
             }
 
             for (final Entry<JbiConsumerDomain, Collection<Consumes>> entry : cd2consumes.entrySet()) {
-                getComponent().registerConsumerDomain(ownerSU, entry.getKey(), entry.getValue());
+                final JbiConsumerDomain jcd = entry.getKey();
+                assert jcd != null;
+                final Collection<Consumes> consumes = entry.getValue();
+                assert consumes != null;
+                final ConsumerDomain cd = getComponent().createConsumerDomain(ownerSU, jcd, consumes);
+                data.consumerDomains.add(cd);
             }
 
             for (final Entry<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> entry : pd2provides
                     .entrySet()) {
-                final ProviderDomain pd = getComponent().registerProviderDomain(ownerSU, entry.getKey(),
-                        entry.getValue());
+                final JbiProviderDomain jpd = entry.getKey();
+                assert jpd != null;
+                final Collection<Pair<Provides, JbiProvidesConfig>> provides = entry.getValue();
+                assert provides != null;
+                final ProviderDomain pd = getComponent().registerProviderDomain(ownerSU, jpd, provides);
                 data.providerDomains.add(pd);
             }
         } catch (final Exception e) {
             this.logger.log(Level.SEVERE, "Error during SU deploy, undoing everything");
 
-            final Iterator<ProviderDomain> itP = data.providerDomains.iterator();
-            while (itP.hasNext()) {
-                final ProviderDomain pd = itP.next();
+            for (final ProviderDomain pd : data.providerDomains) {
                 assert pd != null;
                 try {
                     getComponent().deregisterProviderDomain(pd);
                 } catch (final Exception e1) {
                     this.logger.log(Level.WARNING, "Error while removing provider domain", e1);
                 }
-                itP.remove();
             }
 
-            for (final JbiConsumerDomain jcd : cd2consumes.keySet()) {
-                assert jcd != null;
-                try {
-                    getComponent().deregisterConsumerDomain(ownerSU, jcd);
-                } catch (final Exception e1) {
-                    this.logger.log(Level.WARNING, "Error while removing consumer domain", e1);
-                }
-            }
-
-            for (final JbiTransportListener jtl : jtls) {
+            for (final JbiTransportListener jtl : data.listeners) {
                 assert jtl != null;
                 try {
                     getComponent().deregisterTransportListener(ownerSU, jtl);
@@ -153,14 +154,16 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         final SUData data = suDatas.get(suDH.getName());
 
+        final List<ProviderDomain> initialised = new ArrayList<>();
         try {
             for (final ProviderDomain pd : data.providerDomains) {
                 pd.init();
+                initialised.add(pd);
             }
         } catch (final Exception e) {
             this.logger.log(Level.SEVERE, "Error during SU init, undoing everything");
 
-            for (final ProviderDomain pd : data.providerDomains) {
+            for (final ProviderDomain pd : initialised) {
                 try {
                     pd.shutdown();
                 } catch (final Exception ex) {
@@ -172,23 +175,63 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         }
     }
 
-    /**
-     * currently, once the consumer domains registered in the component, a consumer partner can connect and send
-     * exchanges.
-     * 
-     * TODO maybe we should either not allow exchanges to be sent or not send them in the NMR right away?
-     */
     @Override
     protected void doStart(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
         assert suDH != null;
+
+        final String ownerSU = suDH.getName();
+        assert ownerSU != null;
+
+        final SUData data = suDatas.get(ownerSU);
+
+        final List<ConsumerDomain> started = new ArrayList<>();
+        try {
+            for (final ConsumerDomain cd : data.consumerDomains) {
+                assert cd != null;
+                cd.start();
+                started.add(cd);
+            }
+        } catch (final Exception e) {
+            this.logger.log(Level.SEVERE, "Error during SU init, undoing everything");
+
+            for (final ConsumerDomain cd : started) {
+                assert cd != null;
+                try {
+                    cd.stop();
+                } catch (final Exception e1) {
+                    this.logger.log(Level.WARNING, "Error while stopping consumer domain", e1);
+                }
+            }
+        }
     }
 
-    /**
-     * TODO see {@link #doStart(ServiceUnitDataHandler)}
-     */
     @Override
     protected void doStop(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
         assert suDH != null;
+
+        final String ownerSU = suDH.getName();
+        assert ownerSU != null;
+
+        final SUData data = suDatas.get(ownerSU);
+
+        final List<Throwable> exceptions = new ArrayList<>();
+
+        for (final ConsumerDomain cd : data.consumerDomains) {
+            assert cd != null;
+            try {
+                cd.stop();
+            } catch (final Exception e) {
+                exceptions.add(e);
+            }
+        }
+
+        if (!exceptions.isEmpty()) {
+            final PEtALSCDKException ex = new PEtALSCDKException("Errors during SU stop");
+            for (final Throwable e : exceptions) {
+                ex.addSuppressed(e);
+            }
+            throw ex;
+        }
     }
 
     @Override
@@ -227,32 +270,16 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         final List<Throwable> exceptions = new ArrayList<>();
 
-        final Services services = suDH.getDescriptor().getServices();
-        final Collection<JbiConsumerDomain> jcds = JbiGatewayJBIHelper.getConsumerDomains(services);
-        final Collection<JbiTransportListener> jtls = JbiGatewayJBIHelper.getTransportListeners(services);
-
-        final Iterator<ProviderDomain> itP = data.providerDomains.iterator();
-        while (itP.hasNext()) {
-            final ProviderDomain pd = itP.next();
+        for (final ProviderDomain pd : data.providerDomains) {
             assert pd != null;
             try {
                 getComponent().deregisterProviderDomain(pd);
             } catch (final Exception e) {
                 exceptions.add(e);
             }
-            itP.remove();
         }
 
-        for (final JbiConsumerDomain jcd : jcds) {
-            assert jcd != null;
-            try {
-                getComponent().deregisterConsumerDomain(ownerSU, jcd);
-            } catch (final Exception e) {
-                exceptions.add(e);
-            }
-        }
-
-        for (final JbiTransportListener jtl : jtls) {
+        for (final JbiTransportListener jtl : data.listeners) {
             assert jtl != null;
             try {
                 getComponent().deregisterTransportListener(ownerSU, jtl);

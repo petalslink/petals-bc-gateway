@@ -42,6 +42,7 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
+import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.w3c.dom.Document;
 
@@ -76,9 +77,13 @@ public class ConsumerDomain extends AbstractDomain {
 
     private final JbiConsumerDomain jcd;
 
-    public ConsumerDomain(final ComponentContext cc, final JbiConsumerDomain jcd, final Collection<Consumes> consumes,
+    private final TransportListener tl;
+
+    public ConsumerDomain(final TransportListener tl, final ComponentContext cc, final JbiConsumerDomain jcd,
+            final Collection<Consumes> consumes,
             final JBISender sender, final Logger logger) {
         super(sender, logger);
+        this.tl = tl;
         this.cc = cc;
         this.jcd = jcd;
         for (final Consumes c : consumes) {
@@ -91,6 +96,17 @@ public class ConsumerDomain extends AbstractDomain {
         final String id = jcd.getId();
         assert id != null;
         return id;
+    }
+
+    public void start() throws PEtALSCDKException {
+        tl.register(jcd, this);
+    }
+
+    public void stop() {
+        tl.deregistrer(jcd);
+        for (final ChannelHandlerContext ctx : channels) {
+            ctx.close();
+        }
     }
 
     public void registerChannel(final ChannelHandlerContext ctx) {
@@ -185,12 +201,5 @@ public class ConsumerDomain extends AbstractDomain {
         logger.log(Level.WARNING,
                 "Received an exeception from the other side, this is purely informative, we can't do anything about it",
                 msg);
-    }
-
-    public void close() {
-        for (final ChannelHandlerContext ctx : channels) {
-            // TODO should I do this sync?
-            ctx.close();
-        }
     }
 }

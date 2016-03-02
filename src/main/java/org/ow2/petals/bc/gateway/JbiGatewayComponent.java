@@ -154,6 +154,9 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
     }
 
+    /**
+     * This will create, register and start if needed a provider domain
+     */
     public ProviderDomain registerProviderDomain(final String ownerSU, final JbiProviderDomain jpd,
             final Collection<Pair<Provides, JbiProvidesConfig>> provides) throws PEtALSCDKException {
         // TODO should provider domain share their connections if they point to the same ip/port?
@@ -165,6 +168,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             throw new RuntimeException("Impossible case", e);
         }
         final ProviderDomain pd = new ProviderDomain(this, jpd, provides, getSender(), newClientBootstrap(), logger);
+        // we need to store it to be able to start and stop with the component
         providers.add(pd);
         if (started) {
             pd.connect();
@@ -178,7 +182,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
     }
 
-    public void registerConsumerDomain(final String ownerSU, final JbiConsumerDomain jcd,
+    public ConsumerDomain createConsumerDomain(final String ownerSU, final JbiConsumerDomain jcd,
             final Collection<Consumes> consumes) throws PEtALSCDKException {
         // TODO support many transports?
         final Logger logger;
@@ -188,12 +192,8 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         } catch (final MissingResourceException | JBIException e) {
             throw new RuntimeException("Impossible case", e);
         }
-        getTransportListener(ownerSU, jcd.getTransport()).register(jcd,
-                new ConsumerDomain(getContext(), jcd, consumes, getSender(), logger));
-    }
-
-    public void deregisterConsumerDomain(String ownerSU, JbiConsumerDomain jcd) throws PEtALSCDKException {
-        getTransportListener(ownerSU, jcd.getTransport()).deregistrer(jcd);
+        final TransportListener tl = getTransportListener(ownerSU, jcd.getTransport());
+        return new ConsumerDomain(tl, getContext(), jcd, consumes, getSender(), logger);
     }
 
     private Bootstrap newClientBootstrap() {
@@ -305,6 +305,8 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
     /**
      * TODO do we want to stop all connections? or should we simply pause the event loop?!?!
+     * 
+     * TODO should we stop the consumerdomain too??!!
      */
     @Override
     protected void doStop() throws JBIException {
