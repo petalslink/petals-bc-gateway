@@ -38,7 +38,7 @@ import org.ow2.petals.component.framework.junit.helpers.ServiceProviderImplement
 import org.ow2.petals.component.framework.junit.impl.message.RequestToProviderMessage;
 
 @RunWith(Parameterized.class)
-public class JbiGatewayTestMEP extends AbstractComponentTest {
+public class JbiGatewayMEPTest extends AbstractComponentTest {
 
     @SuppressWarnings("null")
     @Parameters

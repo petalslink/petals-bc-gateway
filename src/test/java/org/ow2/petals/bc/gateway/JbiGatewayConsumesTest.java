@@ -26,7 +26,7 @@ import org.ow2.petals.component.framework.junit.helpers.MessageChecks;
 import org.ow2.petals.component.framework.junit.helpers.ServiceProviderImplementation;
 import org.ow2.petals.component.framework.junit.impl.message.RequestToProviderMessage;
 
-public class JbiGatewayTestConsumes extends AbstractComponentTest {
+public class JbiGatewayConsumesTest extends AbstractComponentTest {
 
     @Test
     public void testConsumesWithInterfaceServiceEndpoint() throws Exception {
