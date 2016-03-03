@@ -123,6 +123,11 @@
          <version>1.7.0</version>
          <scope>test</scope>
       </dependency>
+      <dependency>
+         <groupId>org.ow2.easycommons</groupId>
+         <artifactId>easycommons-lang</artifactId>
+         <scope>test</scope>
+      </dependency>
       <!-- Needed to forward netty slf4j to jdk logging subsystem -->
       <dependency>
          <groupId>org.slf4j</groupId>
