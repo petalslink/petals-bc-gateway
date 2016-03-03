@@ -143,13 +143,12 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
         final MessageExchange hisMex = m.exchange;
 
         try {
+            assert hisMex.getStatus() != ExchangeStatus.ACTIVE;
             if (hisMex.getStatus() == ExchangeStatus.ERROR) {
                 exchange.setErrorStatus();
                 exchange.setError(hisMex.getError());
             } else if (hisMex.getStatus() == ExchangeStatus.DONE) {
                 exchange.setDoneStatus();
-            } else {
-                assert hisMex.getStatus() == ExchangeStatus.ACTIVE;
             }
 
             send(exchange);
