@@ -28,6 +28,7 @@
    <artifactId>petals-bc-jbi-gateway</artifactId>
    <version>0.0.1-SNAPSHOT</version>
    <packaging>jbi-component</packaging>
+   <name>Petals ESB - Components - JBI Gateway</name>
 
    <properties>
       <netty.version>4.0.34.Final</netty.version>

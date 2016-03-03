@@ -238,6 +238,9 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         return deployTwoDomains(true, true);
     }
 
+    /**
+     * TODO it would be relevant to check for all domain deployed that everything has been cleaned as desired
+     */
     protected ServiceEndpoint deployTwoDomains(final boolean specifyService, final boolean specifyEndpoint)
             throws Exception {
         COMPONENT_UNDER_TEST.deployService(SU_CONSUMER_NAME, createHelloConsumes(specifyService, specifyEndpoint));
