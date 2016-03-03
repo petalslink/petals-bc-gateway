@@ -47,21 +47,14 @@ public abstract class TransportedMessage extends TransportedForService {
     @SuppressWarnings("squid:S1948")
     public final MessageExchange exchange;
 
-    /**
-     * This identifies the exchanges between provider and consumer partners, but not the exchange id of the transported
-     * exchange.
-     */
-    public final String exchangeId;
-
-    public TransportedMessage(final ServiceKey service, final MessageExchange exchange, final String exchangeId) {
-        super(service);
+    public TransportedMessage(final ServiceKey service, final String exchangeId, final MessageExchange exchange) {
+        super(service, exchangeId);
         this.exchange = exchange;
-        this.exchangeId = exchangeId;
     }
 
     public TransportedMessage(final TransportedMessage m, final MessageExchange exchange) {
         // we keep the service and the exchangeId, they should not change!
-        this(m.service, exchange, m.exchangeId);
+        this(m.service, m.exchangeId, exchange);
         assert m instanceof TransportedNewMessage || m instanceof TransportedMiddleMessage;
     }
 }

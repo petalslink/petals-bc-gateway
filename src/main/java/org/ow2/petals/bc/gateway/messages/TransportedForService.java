@@ -26,7 +26,14 @@ public abstract class TransportedForService implements Transported {
      */
     public final ServiceKey service;
 
-    public TransportedForService(final ServiceKey service) {
+    /**
+     * This identifies the exchanges between provider and consumer partners, but not the exchange id of the transported
+     * exchange.
+     */
+    public final String exchangeId;
+
+    public TransportedForService(final ServiceKey service, final String exchangeId) {
         this.service = service;
+        this.exchangeId = exchangeId;
     }
 }

@@ -69,6 +69,22 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         private final List<JbiTransportListener> listeners = new ArrayList<>();
     }
 
+    public Collection<ProviderDomain> getProviderDomains() {
+        final List<ProviderDomain> pds = new ArrayList<>();
+        for (final SUData data : suDatas.values()) {
+            pds.addAll(data.providerDomains);
+        }
+        return pds;
+    }
+
+    public Collection<ConsumerDomain> getConsumerDomains() {
+        final List<ConsumerDomain> cds = new ArrayList<>();
+        for (final SUData data : suDatas.values()) {
+            cds.addAll(data.consumerDomains);
+        }
+        return cds;
+    }
+
     /**
      * The {@link Provides} must be working after deploy!
      */

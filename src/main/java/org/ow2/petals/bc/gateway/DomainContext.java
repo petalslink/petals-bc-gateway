@@ -35,7 +35,7 @@ public interface DomainContext {
     /**
      * For timeout after send
      */
-    void sendToChannel(String exchangeId);
+    void sendTimeoutToChannel();
 
     TransportedMessage getMessage();
 

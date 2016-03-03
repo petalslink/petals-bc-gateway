@@ -22,7 +22,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.Transported;
 import org.ow2.petals.bc.gateway.messages.TransportedException;
 import org.ow2.petals.bc.gateway.messages.TransportedLastMessage;
@@ -56,11 +55,8 @@ public abstract class AbstractDomain {
         final Exchange exchange;
         if (m instanceof TransportedNewMessage) {
             exchange = null;
-        } else if (m instanceof TransportedMiddleMessage) {
-            exchange = exchangesInProgress.get(exchangeId);
-            assert exchange != null;
         } else {
-            assert m instanceof TransportedLastMessage;
+            // we remove it now, if it has to come back (normally for InOptOut fault after out) it will be put back
             exchange = exchangesInProgress.remove(exchangeId);
             assert exchange != null;
         }
@@ -82,8 +78,8 @@ public abstract class AbstractDomain {
             }
 
             @Override
-            public void sendToChannel(final String exchangeId) {
-                domain.sendFromNMRToChannel(ctx, m.service, exchangeId);
+            public void sendTimeoutToChannel() {
+                domain.sendTimeoutFromNMRToChannel(ctx, m);
             }
 
             @Override
@@ -115,9 +111,11 @@ public abstract class AbstractDomain {
         }
     }
 
-    private void sendFromNMRToChannel(final ChannelHandlerContext ctx, final ServiceKey service,
-            final String exchangeId) {
-        sendToChannel(ctx, new TransportedTimeout(service, exchangeId));
+    private void sendTimeoutFromNMRToChannel(final ChannelHandlerContext ctx, final TransportedMessage m) {
+        if (exchangesInProgress.remove(m.exchangeId) == null) {
+            this.logger.severe("Tried to remove " + m.exchangeId + " becuse of timeout, but nothing was removed");
+        }
+        sendToChannel(ctx, new TransportedTimeout(m));
     }
 
     protected void sendToChannel(final ChannelHandlerContext ctx, final TransportedMessage m, final Exchange exchange) {
@@ -135,8 +133,8 @@ public abstract class AbstractDomain {
         ctx.writeAndFlush(m, ctx.voidPromise());
     }
 
-    public void timeoutReceived(final TransportedTimeout msg) {
-        if (exchangesInProgress.remove(msg) == null) {
+    public void timeoutReceived(final TransportedTimeout m) {
+        if (exchangesInProgress.remove(m.exchangeId) == null) {
             // TODO log
         }
     }

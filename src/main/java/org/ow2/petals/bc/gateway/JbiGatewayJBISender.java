@@ -190,11 +190,8 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
         ctx.sendToChannel(exchange);
     }
 
-    private void sendTimeoutToChannel(final Exchange exchange, final DomainContext ctx) {
-        // careful, we don't have ownership!
-        final String exchangeId = exchange.getExchangeId();
-        assert exchangeId != null;
-        ctx.sendToChannel(exchangeId);
+    private void sendTimeoutToChannel(final DomainContext ctx) {
+        ctx.sendTimeoutToChannel();
     }
 
     public static class JbiGatewaySenderAsyncContext extends AsyncContext {
@@ -218,7 +215,7 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
         }
 
         public void handleTimeout(final Exchange exchange) {
-            this.sender.sendTimeoutToChannel(exchange, ctx);
+            this.sender.sendTimeoutToChannel(ctx);
         }
     }
 }

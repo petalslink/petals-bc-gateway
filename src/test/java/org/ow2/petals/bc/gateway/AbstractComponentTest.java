@@ -19,6 +19,7 @@ package org.ow2.petals.bc.gateway;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.logging.Formatter;
 import java.util.logging.LogRecord;
@@ -34,7 +35,10 @@ import org.junit.ClassRule;
 import org.junit.rules.ExternalResource;
 import org.junit.rules.RuleChain;
 import org.junit.rules.TestRule;
+import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
+import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
+import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.junit.Component;
 import org.ow2.petals.component.framework.junit.helpers.SimpleComponent;
 import org.ow2.petals.component.framework.junit.impl.ComponentConfiguration;
@@ -46,6 +50,7 @@ import org.ow2.petals.junit.rules.log.handler.InMemoryLogHandler;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
+import com.ebmwebsourcing.easycommons.lang.reflect.ReflectionHelper;
 import com.jayway.awaitility.Awaitility;
 import com.jayway.awaitility.Duration;
 
@@ -158,6 +163,24 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
     @After
     public void after() {
 
+        final JbiGatewayComponent comp = (JbiGatewayComponent) COMPONENT_UNDER_TEST.getComponentObject();
+
+        for (final ProviderDomain pd : comp.getServiceUnitManager().getProviderDomains()) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Exchange> exchangesInProgress = (Map<String, Exchange>) ReflectionHelper
+                    .getFieldValue(AbstractDomain.class, pd, "exchangesInProgress", false);
+            assertTrue(String.format("Exchange in progress is not empty for %s: %s", pd.getName(), exchangesInProgress),
+                    exchangesInProgress.isEmpty());
+        }
+
+        for (final ConsumerDomain pd : comp.getServiceUnitManager().getConsumerDomains()) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Exchange> exchangesInProgress = (Map<String, Exchange>) ReflectionHelper
+                    .getFieldValue(AbstractDomain.class, pd, "exchangesInProgress", false);
+            assertTrue(String.format("Exchange in progress is not empty for %s: %s", pd.getName(), exchangesInProgress),
+                    exchangesInProgress.isEmpty());
+        }
+
         COMPONENT_UNDER_TEST.undeployAllServices();
 
         // asserts are ALWAYS a bug!
@@ -237,6 +260,7 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
     protected ServiceEndpoint deployTwoDomains() throws Exception {
         return deployTwoDomains(true, true);
     }
+
 
     /**
      * TODO it would be relevant to check for all domain deployed that everything has been cleaned as desired
