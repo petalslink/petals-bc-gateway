@@ -17,22 +17,7 @@
  */
 package org.ow2.petals.bc.gateway;
 
-import java.util.concurrent.Callable;
-
-import javax.jbi.messaging.ExchangeStatus;
-import javax.jbi.servicedesc.ServiceEndpoint;
-import javax.xml.namespace.QName;
-
-import org.eclipse.jdt.annotation.Nullable;
 import org.junit.Test;
-import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
-import org.ow2.petals.component.framework.junit.helpers.MessageChecks;
-import org.ow2.petals.component.framework.junit.helpers.ServiceProviderImplementation;
-import org.ow2.petals.component.framework.junit.impl.message.RequestToProviderMessage;
-import org.ow2.petals.component.framework.junit.impl.mock.MockComponentContext;
-
-import com.jayway.awaitility.Awaitility;
-import com.jayway.awaitility.Duration;
 
 public class JbiGatewayTest extends AbstractComponentTest {
 
@@ -49,60 +34,5 @@ public class JbiGatewayTest extends AbstractComponentTest {
 
         assertTrue(COMPONENT_UNDER_TEST.isServiceDeployed(SU_CONSUMER_NAME));
 
-    }
-
-    @Test
-    public void twoDomains1() throws Exception {
-        twoDomains(true, true);
-    }
-
-    @Test
-    public void twoDomains2() throws Exception {
-        twoDomains(true, false);
-    }
-
-    @Test
-    public void twoDomains3() throws Exception {
-        twoDomains(false, false);
-    }
-
-    public void twoDomains(final boolean specifyService, final boolean specifyEndpoint) throws Exception {
-        COMPONENT_UNDER_TEST.deployService(SU_CONSUMER_NAME, createHelloConsumes(specifyService, specifyEndpoint));
-
-        COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createHelloProvider());
-
-        Awaitility.await().atMost(Duration.TWO_SECONDS).until(new Callable<Boolean>() {
-            @Override
-            public Boolean call() throws Exception {
-                return getNotExternalEndpoint(specifyService) != null;
-            }
-        });
-
-        final ServiceEndpoint endpoint = getNotExternalEndpoint(specifyService);
-        assert endpoint != null;
-
-        COMPONENT.sendAndCheckResponseAndSendStatus(
-                new RequestToProviderMessage(endpoint.getEndpointName(), endpoint.getServiceName(), null,
-                        HELLO_OPERATION, MEPPatternConstants.IN_OUT.value(), "<a/>"),
-                ServiceProviderImplementation.outMessage("<b/>"), MessageChecks.hasXmlContent("<b/>"),
-                ExchangeStatus.DONE);
-    }
-
-    private static @Nullable ServiceEndpoint getNotExternalEndpoint(final boolean specifyService) {
-
-        final QName service;
-        if (specifyService) {
-            service = HELLO_SERVICE;
-        } else {
-            service = new QName(HELLO_INTERFACE.getNamespaceURI(), HELLO_INTERFACE.getLocalPart() + "GeneratedService");
-        }
-
-        for (final ServiceEndpoint endpoint : MockComponentContext.resolveEndpointsForService(service)) {
-            if (!endpoint.getEndpointName().equals(EXTERNAL_HELLO_ENDPOINT)) {
-                return endpoint;
-            }
-        }
-
-        return null;
     }
 }

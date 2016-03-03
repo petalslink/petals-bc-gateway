@@ -19,10 +19,12 @@ package org.ow2.petals.bc.gateway;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.util.concurrent.Callable;
 import java.util.logging.Formatter;
 import java.util.logging.LogRecord;
 import java.util.logging.SimpleFormatter;
 
+import javax.jbi.servicedesc.ServiceEndpoint;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
@@ -38,12 +40,28 @@ import org.ow2.petals.component.framework.junit.helpers.SimpleComponent;
 import org.ow2.petals.component.framework.junit.impl.ComponentConfiguration;
 import org.ow2.petals.component.framework.junit.impl.ConsumesServiceConfiguration;
 import org.ow2.petals.component.framework.junit.impl.ServiceConfiguration;
+import org.ow2.petals.component.framework.junit.impl.mock.MockComponentContext;
 import org.ow2.petals.component.framework.junit.rule.ComponentUnderTest;
 import org.ow2.petals.junit.rules.log.handler.InMemoryLogHandler;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
+import com.jayway.awaitility.Awaitility;
+import com.jayway.awaitility.Duration;
+
 public class AbstractComponentTest extends AbstractTest implements JbiGatewayTestConstants {
+
+    protected static final String FAULT = "<c/>";
+
+    protected static final String OUT = "<b/>";
+
+    protected static final String IN = "<a/>";
+
+    protected static final Exception ERROR = new Exception();
+    static {
+        // we don't really care about the stacktrace
+        ERROR.setStackTrace(new StackTraceElement[0]);
+    }
 
     protected static final String SU_CONSUMER_NAME = "suc";
 
@@ -214,5 +232,45 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         } catch (IOException ignored) {
             return true;
         }
+    }
+
+    protected ServiceEndpoint deployTwoDomains() throws Exception {
+        return deployTwoDomains(true, true);
+    }
+
+    protected ServiceEndpoint deployTwoDomains(final boolean specifyService, final boolean specifyEndpoint)
+            throws Exception {
+        COMPONENT_UNDER_TEST.deployService(SU_CONSUMER_NAME, createHelloConsumes(specifyService, specifyEndpoint));
+
+        COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createHelloProvider());
+
+        Awaitility.await().atMost(Duration.TWO_SECONDS).until(new Callable<Boolean>() {
+            @Override
+            public Boolean call() throws Exception {
+                return getNotExternalEndpoint(specifyService) != null;
+            }
+        });
+
+        final ServiceEndpoint endpoint = getNotExternalEndpoint(specifyService);
+        assert endpoint != null;
+        return endpoint;
+    }
+
+    protected static @Nullable ServiceEndpoint getNotExternalEndpoint(final boolean specifyService) {
+
+        final QName service;
+        if (specifyService) {
+            service = HELLO_SERVICE;
+        } else {
+            service = new QName(HELLO_INTERFACE.getNamespaceURI(), HELLO_INTERFACE.getLocalPart() + "GeneratedService");
+        }
+
+        for (final ServiceEndpoint endpoint : MockComponentContext.resolveEndpointsForService(service)) {
+            if (!endpoint.getEndpointName().equals(EXTERNAL_HELLO_ENDPOINT)) {
+                return endpoint;
+            }
+        }
+
+        return null;
     }
 }
