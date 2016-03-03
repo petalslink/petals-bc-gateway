@@ -54,12 +54,16 @@ public class JbiGatewayMEPTest extends AbstractComponentTest {
                         MessageChecks.hasOut().andThen(MessageChecks.hasXmlContent(OUT)) },
                 { MEPPatternConstants.IN_OPTIONAL_OUT.value(),
                         ServiceProviderImplementation.statusMessage(ExchangeStatus.DONE), MessageChecks.onlyDone() },
+                { MEPPatternConstants.IN_OPTIONAL_OUT.value(), ServiceProviderImplementation.errorMessage(ERROR),
+                        MessageChecks.hasError() },
                 { MEPPatternConstants.IN_OPTIONAL_OUT.value(), ServiceProviderImplementation.faultMessage(FAULT),
                         MessageChecks.hasFault().andThen(MessageChecks.hasXmlContent(FAULT)) },
                 { MEPPatternConstants.IN_ONLY.value(), ServiceProviderImplementation.statusMessage(ExchangeStatus.DONE),
                         MessageChecks.onlyDone() },
                 { MEPPatternConstants.ROBUST_IN_ONLY.value(),
                         ServiceProviderImplementation.statusMessage(ExchangeStatus.DONE), MessageChecks.onlyDone() },
+                { MEPPatternConstants.ROBUST_IN_ONLY.value(), ServiceProviderImplementation.errorMessage(ERROR),
+                        MessageChecks.hasError() },
                 { MEPPatternConstants.ROBUST_IN_ONLY.value(), ServiceProviderImplementation.faultMessage(FAULT),
                         MessageChecks.hasFault().andThen(MessageChecks.hasXmlContent(FAULT)) } });
     }

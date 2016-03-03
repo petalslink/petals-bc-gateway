@@ -17,7 +17,17 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import javax.jbi.servicedesc.ServiceEndpoint;
+
+import org.eclipse.jdt.annotation.Nullable;
 import org.junit.Test;
+import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
+import org.ow2.petals.component.framework.junit.Message;
+import org.ow2.petals.component.framework.junit.RequestMessage;
+import org.ow2.petals.component.framework.junit.StatusMessage;
+import org.ow2.petals.component.framework.junit.helpers.MessageChecks;
+import org.ow2.petals.component.framework.junit.helpers.ServiceProviderImplementation;
+import org.ow2.petals.component.framework.junit.impl.message.RequestToProviderMessage;
 
 public class JbiGatewayTest extends AbstractComponentTest {
 
@@ -33,6 +43,26 @@ public class JbiGatewayTest extends AbstractComponentTest {
         COMPONENT_UNDER_TEST.deployService(SU_CONSUMER_NAME, createHelloConsumes(true, true));
 
         assertTrue(COMPONENT_UNDER_TEST.isServiceDeployed(SU_CONSUMER_NAME));
+    }
 
+    @Test
+    public void testTimeout() throws Exception {
+        final ServiceEndpoint endpoint = deployTwoDomains();
+
+        final RequestMessage request = new RequestToProviderMessage(endpoint.getEndpointName(),
+                endpoint.getServiceName(), null, HELLO_OPERATION, MEPPatternConstants.IN_OUT.value(), IN);
+
+        final ServiceProviderImplementation provider = ServiceProviderImplementation.errorMessage(ERROR)
+                .with(new MessageChecks() {
+                    @Override
+                    public void checks(final @Nullable Message message) throws Exception {
+                        Thread.sleep(DEFAULT_TIMEOUT_FOR_COMPONENT_SEND + 1000);
+                    }
+                });
+
+        final StatusMessage response = COMPONENT.sendAndGetStatus(request, provider);
+
+        // TODO would we want to receive an error in case of timeout on the other side?
+        assertNull(response);
     }
 }
