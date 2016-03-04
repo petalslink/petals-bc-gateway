@@ -17,6 +17,7 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import java.util.HashSet;
 import java.util.Set;
 
 import javax.jbi.messaging.ExchangeStatus;
@@ -62,6 +63,25 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
         return (JbiGatewayComponent) component;
     }
 
+    private static void updateProperties(final @Nullable MessageExchange from, final @Nullable MessageExchange to) {
+        assert from != null;
+        assert to != null;
+
+        // we remove all the properties of the exchange to update
+        @SuppressWarnings("unchecked")
+        final Set<String> oldProps = new HashSet<>(to.getPropertyNames());
+        for (final String oldProp : oldProps) {
+            to.setProperty(oldProp, null);
+        }
+
+        // and put all of those from the source exchange
+        @SuppressWarnings("unchecked")
+        final Set<String> props = from.getPropertyNames();
+        for (final String prop : props) {
+            to.setProperty(prop, from.getProperty(prop));
+        }
+    }
+
     /**
      * As provider partner (so called by {@link ConsumerDomain}): this handle the first and third parts of an exchange,
      * i.e., when we receive a message from a consumer partner.
@@ -100,17 +120,15 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
         try {
             // this is a Consumes I propagated on the other side
             final ServiceKey service = m.service;
+
             final Exchange exchange = createExchange(service.interfaceName, service.service, service.endpointName,
                     hisMex.getPattern());
+
+            updateProperties(hisMex, exchange.getMessageExchange());
 
             exchange.setOperation(hisMex.getOperation());
 
             exchange.setInMessage(hisMex.getMessage(Exchange.IN_MESSAGE_NAME));
-            @SuppressWarnings("unchecked")
-            final Set<String> propertyNames = (Set<String>) hisMex.getPropertyNames();
-            for (final String propName : propertyNames) {
-                exchange.setProperty(propName, hisMex.getProperty(propName));
-            }
 
             sendAsync(exchange, new JbiGatewaySenderAsyncContext(ctx, this));
         } catch (final Exception e) {
@@ -124,6 +142,8 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
         final MessageExchange hisMex = m.exchange;
 
         try {
+            updateProperties(hisMex, exchange.getMessageExchange());
+
             final NormalizedMessage out = hisMex.getMessage(Exchange.OUT_MESSAGE_NAME);
             if (out != null && !exchange.isOutMessage()) {
                 exchange.setOutMessage(out);
@@ -144,6 +164,9 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
 
         try {
             assert hisMex.getStatus() != ExchangeStatus.ACTIVE;
+
+            updateProperties(hisMex, exchange.getMessageExchange());
+
             if (hisMex.getStatus() == ExchangeStatus.ERROR) {
                 exchange.setErrorStatus();
                 exchange.setError(hisMex.getError());
@@ -170,6 +193,8 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
         final TransportedMessage m = ctx.getMessage();
 
         final MessageExchange hisMex = m.exchange;
+
+        updateProperties(exchange.getMessageExchange(), hisMex);
 
         // TODO what about properties?
         // Note: we do not verify the validity of the state/mep transitions!
