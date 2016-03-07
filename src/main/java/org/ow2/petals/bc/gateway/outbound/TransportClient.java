@@ -29,7 +29,6 @@ import org.ow2.petals.commons.log.Level;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.util.ReferenceCountUtil;
 
 /**
  * TODO detect when the connection was closed properly ({@link #channelInactive(ChannelHandlerContext)}?) and when there
@@ -61,18 +60,14 @@ public class TransportClient extends SimpleChannelInboundHandler<TransportedToCo
         assert ctx != null;
         assert msg != null;
 
-        try {
-            if (msg instanceof TransportedException) {
-                pd.exceptionReceived(((TransportedException) msg));
-            } else if (msg instanceof TransportedMessage) {
-                // this can't happen, we are the one sending new exchanges!
-                assert !(msg instanceof TransportedNewMessage);
-                pd.sendFromChannelToNMR(ctx, (TransportedMessage) msg);
-            } else if (msg instanceof TransportedTimeout) {
-                pd.timeoutReceived((TransportedTimeout) msg);
-            }
-        } finally {
-            ReferenceCountUtil.release(msg);
+        if (msg instanceof TransportedException) {
+            pd.exceptionReceived(((TransportedException) msg));
+        } else if (msg instanceof TransportedMessage) {
+            // this can't happen, we are the one sending new exchanges!
+            assert !(msg instanceof TransportedNewMessage);
+            pd.sendFromChannelToNMR(ctx, (TransportedMessage) msg);
+        } else if (msg instanceof TransportedTimeout) {
+            pd.timeoutReceived((TransportedTimeout) msg);
         }
     }
 

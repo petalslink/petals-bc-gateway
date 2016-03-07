@@ -69,7 +69,7 @@ import io.netty.handler.logging.LoggingHandler;
  * It maintains the list of Provides we should create on our side (based on the Consumes propagated)
  *
  * {@link #connect()} and {@link #disconnect()} corresponds to components start and stop. {@link #connect()} should
- * trigger {@link #initProviderServices(TransportedPropagatedConsumesList)} by the {@link Channel} normally.
+ * trigger {@link #updatePropagatedServices(TransportedPropagatedConsumesList)} by the {@link Channel} normally.
  * 
  * {@link #init()} and {@link #shutdown()} corresponds to SU init and shutdown.
  * 
@@ -226,19 +226,21 @@ public class ProviderDomain extends AbstractDomain {
      * 
      * It can be executed after or before {@link #init()} has been called.
      * 
+     * In case of reconnection, it can be called again.
+     * 
      * TODO we should be able to disable the activation of consumes (i.e., only use the provides then!)
      * 
      * TODO should we register endpoint for unexisting service on the other side????
      * 
      * 
      */
-    public void initProviderServices(final TransportedPropagatedConsumesList initServices) {
+    public void updatePropagatedServices(final TransportedPropagatedConsumesList propagatedServices) {
         initLock.readLock().lock();
         try {
 
             final Set<ServiceKey> oldKeys = new HashSet<>(services.keySet());
 
-            for (final TransportedPropagatedConsumes service : initServices.consumes) {
+            for (final TransportedPropagatedConsumes service : propagatedServices.consumes) {
                 if (oldKeys.remove(service.service)) {
                     // we already knew this service from a previous connection
                     final ServiceData data = services.get(service.service);

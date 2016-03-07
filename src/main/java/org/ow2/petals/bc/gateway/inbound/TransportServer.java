@@ -29,7 +29,6 @@ import org.ow2.petals.commons.log.Level;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.util.ReferenceCountUtil;
 
 /**
  * 
@@ -82,16 +81,12 @@ public class TransportServer extends SimpleChannelInboundHandler<TransportedToPr
         assert ctx != null;
         assert msg != null;
 
-        try {
-            if (msg instanceof TransportedException) {
-                cd.exceptionReceived((TransportedException) msg);
-            } else if (msg instanceof TransportedMessage) {
-                cd.sendFromChannelToNMR(ctx, (TransportedMessage) msg);
-            } else if (msg instanceof TransportedTimeout) {
-                cd.timeoutReceived((TransportedTimeout) msg);
-            }
-        } finally {
-            ReferenceCountUtil.release(msg);
+        if (msg instanceof TransportedException) {
+            cd.exceptionReceived((TransportedException) msg);
+        } else if (msg instanceof TransportedMessage) {
+            cd.sendFromChannelToNMR(ctx, (TransportedMessage) msg);
+        } else if (msg instanceof TransportedTimeout) {
+            cd.timeoutReceived((TransportedTimeout) msg);
         }
     }
 }

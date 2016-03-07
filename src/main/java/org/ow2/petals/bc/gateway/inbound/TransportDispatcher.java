@@ -30,7 +30,6 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
-import io.netty.util.ReferenceCountUtil;
 
 /**
  * Dispatch a connection (from {@link TransportListener}) to the correct {@link ConsumerDomain}.
@@ -62,33 +61,29 @@ public class TransportDispatcher extends SimpleChannelInboundHandler<Transported
         assert msg != null;
         assert ctx != null;
 
-        try {
-            final ConsumerDomain cd = authenticator.authenticate(msg.authName);
+        final ConsumerDomain cd = authenticator.authenticate(msg.authName);
 
-            // accept corresponds to validate that the current transport can be used for this consumer partner
-            if (cd == null) {
-                ctx.writeAndFlush(new TransportedException(String.format("Unauthorised auth-name '%s", msg.authName)));
-                ctx.close();
-                return;
-            }
-            
-            final ChannelPipeline pipeline = ctx.pipeline();
-
-            // getName should contain the transporter name
-            final String logName = logger.getName() + "." + cd.getName();
-
-            // let's replace the debug logger with something specific to this consumer
-            pipeline.replace(TransportListener.LOG_DEBUG_HANDLER, TransportListener.LOG_DEBUG_HANDLER,
-                    new LoggingHandler(logName + ".server", LogLevel.TRACE));
-
-            // remove dispatcher
-            pipeline.replace(this, "server", new TransportServer(logger, cd));
-
-            pipeline.replace(TransportListener.LOG_ERRORS_HANDLER, TransportListener.LOG_ERRORS_HANDLER,
-                    new LoggingHandler(logName + ".errors", LogLevel.ERROR));
-
-        } finally {
-            ReferenceCountUtil.release(msg);
+        // accept corresponds to validate that the current transport can be used for this consumer partner
+        if (cd == null) {
+            ctx.writeAndFlush(new TransportedException(String.format("Unauthorised auth-name '%s", msg.authName)));
+            ctx.close();
+            return;
         }
+
+        final ChannelPipeline pipeline = ctx.pipeline();
+
+        // getName should contain the transporter name
+        final String logName = logger.getName() + "." + cd.getName();
+
+        // let's replace the debug logger with something specific to this consumer
+        pipeline.replace(TransportListener.LOG_DEBUG_HANDLER, TransportListener.LOG_DEBUG_HANDLER,
+                new LoggingHandler(logName + ".server", LogLevel.TRACE));
+
+        // remove dispatcher
+        pipeline.replace(this, "server", new TransportServer(logger, cd));
+
+        pipeline.replace(TransportListener.LOG_ERRORS_HANDLER, TransportListener.LOG_ERRORS_HANDLER,
+                new LoggingHandler(logName + ".errors", LogLevel.ERROR));
+
     }
 }

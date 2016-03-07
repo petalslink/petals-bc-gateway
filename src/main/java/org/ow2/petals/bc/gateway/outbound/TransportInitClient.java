@@ -26,7 +26,6 @@ import org.ow2.petals.commons.log.Level;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.util.ReferenceCountUtil;
 
 public class TransportInitClient extends SimpleChannelInboundHandler<TransportedPropagatedConsumesList> {
 
@@ -56,13 +55,10 @@ public class TransportInitClient extends SimpleChannelInboundHandler<Transported
             final @Nullable TransportedPropagatedConsumesList msg) throws Exception {
         assert msg != null;
         assert ctx != null;
-        try {
-            pd.initProviderServices(msg);
 
-            // use replace because we want the logger to be last
-            ctx.pipeline().replace(this, "client", new TransportClient(logger, pd));
-        } finally {
-            ReferenceCountUtil.release(msg);
-        }
+        pd.updatePropagatedServices(msg);
+
+        // use replace because we want the logger to be last
+        ctx.pipeline().replace(this, "client", new TransportClient(logger, pd));
     }
 }
