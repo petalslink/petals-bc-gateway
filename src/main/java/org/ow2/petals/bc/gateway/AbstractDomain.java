@@ -112,9 +112,6 @@ public abstract class AbstractDomain {
     }
 
     private void sendTimeoutFromNMRToChannel(final ChannelHandlerContext ctx, final TransportedMessage m) {
-        if (exchangesInProgress.remove(m.exchangeId) == null) {
-            this.logger.severe("Tried to remove " + m.exchangeId + " becuse of timeout, but nothing was removed");
-        }
         sendToChannel(ctx, new TransportedTimeout(m));
     }
 
@@ -135,7 +132,8 @@ public abstract class AbstractDomain {
 
     public void timeoutReceived(final TransportedTimeout m) {
         if (exchangesInProgress.remove(m.exchangeId) == null) {
-            // TODO log
+            this.logger.severe(
+                    "Tried to remove " + m.exchangeId + " because of timeout from channel, but nothing was removed");
         }
     }
 }
