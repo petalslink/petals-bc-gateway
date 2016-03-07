@@ -35,15 +35,18 @@ import org.junit.ClassRule;
 import org.junit.rules.ExternalResource;
 import org.junit.rules.RuleChain;
 import org.junit.rules.TestRule;
+import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.junit.Component;
+import org.ow2.petals.component.framework.junit.RequestMessage;
 import org.ow2.petals.component.framework.junit.helpers.SimpleComponent;
 import org.ow2.petals.component.framework.junit.impl.ComponentConfiguration;
 import org.ow2.petals.component.framework.junit.impl.ConsumesServiceConfiguration;
 import org.ow2.petals.component.framework.junit.impl.ServiceConfiguration;
+import org.ow2.petals.component.framework.junit.impl.message.RequestToProviderMessage;
 import org.ow2.petals.component.framework.junit.impl.mock.MockComponentContext;
 import org.ow2.petals.component.framework.junit.rule.ComponentUnderTest;
 import org.ow2.petals.junit.rules.log.handler.InMemoryLogHandler;
@@ -281,6 +284,11 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         final ServiceEndpoint endpoint = getNotExternalEndpoint(specifyService);
         assert endpoint != null;
         return endpoint;
+    }
+
+    protected RequestMessage helloRequest(final ServiceEndpoint endpoint) {
+        return new RequestToProviderMessage(endpoint.getEndpointName(),
+                endpoint.getServiceName(), null, HELLO_OPERATION, MEPPatternConstants.IN_OUT.value(), IN);
     }
 
     protected static @Nullable ServiceEndpoint getNotExternalEndpoint(final boolean specifyService) {

@@ -21,10 +21,8 @@ import javax.jbi.messaging.ExchangeStatus;
 import javax.jbi.servicedesc.ServiceEndpoint;
 
 import org.junit.Test;
-import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
 import org.ow2.petals.component.framework.junit.helpers.MessageChecks;
 import org.ow2.petals.component.framework.junit.helpers.ServiceProviderImplementation;
-import org.ow2.petals.component.framework.junit.impl.message.RequestToProviderMessage;
 
 public class JbiGatewayConsumesTest extends AbstractComponentTest {
 
@@ -47,9 +45,7 @@ public class JbiGatewayConsumesTest extends AbstractComponentTest {
 
         final ServiceEndpoint endpoint = deployTwoDomains(specifyService, specifyEndpoint);
 
-        COMPONENT.sendAndCheckResponseAndSendStatus(
-                new RequestToProviderMessage(endpoint.getEndpointName(), endpoint.getServiceName(), null,
-                        HELLO_OPERATION, MEPPatternConstants.IN_OUT.value(), IN),
+        COMPONENT.sendAndCheckResponseAndSendStatus(helloRequest(endpoint),
                 ServiceProviderImplementation.outMessage(OUT),
                 MessageChecks.hasOut().andThen(MessageChecks.hasXmlContent(OUT)), ExchangeStatus.DONE);
     }

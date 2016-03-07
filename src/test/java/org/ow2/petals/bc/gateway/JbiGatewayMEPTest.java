@@ -35,7 +35,6 @@ import org.ow2.petals.component.framework.junit.RequestMessage;
 import org.ow2.petals.component.framework.junit.StatusMessage;
 import org.ow2.petals.component.framework.junit.helpers.MessageChecks;
 import org.ow2.petals.component.framework.junit.helpers.ServiceProviderImplementation;
-import org.ow2.petals.component.framework.junit.impl.message.RequestToProviderMessage;
 
 @RunWith(Parameterized.class)
 public class JbiGatewayMEPTest extends AbstractComponentTest {
@@ -100,8 +99,7 @@ public class JbiGatewayMEPTest extends AbstractComponentTest {
 
         final ServiceEndpoint endpoint = deployTwoDomains();
 
-        final RequestMessage request = new RequestToProviderMessage(endpoint.getEndpointName(),
-                endpoint.getServiceName(), null, HELLO_OPERATION, mep(), IN);
+        final RequestMessage request = helloRequest(endpoint);
         
         final ServiceProviderImplementation impl = spi().with(MessageChecks.hasXmlContent(IN));
         if (impl.statusExpected()) {
