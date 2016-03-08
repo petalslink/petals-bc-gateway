@@ -56,7 +56,8 @@ public class JbiGatewayTest extends AbstractComponentTest {
                     }
                 });
 
-        final StatusMessage response = COMPONENT.sendAndGetStatus(helloRequest(endpoint), provider);
+        final StatusMessage response = COMPONENT
+                .sendAndGetStatus(helloRequest(endpoint, MEPPatternConstants.IN_OUT.value()), provider);
 
         // TODO would we want to receive an error in case of timeout on the other side?
         assertNull(response);
