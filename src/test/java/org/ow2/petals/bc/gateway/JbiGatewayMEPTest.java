@@ -99,7 +99,7 @@ public class JbiGatewayMEPTest extends AbstractComponentTest {
 
         final ServiceEndpoint endpoint = deployTwoDomains();
 
-        final RequestMessage request = helloRequest(endpoint);
+        final RequestMessage request = helloRequest(endpoint, mep());
         
         final ServiceProviderImplementation impl = spi().with(MessageChecks.hasXmlContent(IN));
         if (impl.statusExpected()) {

@@ -19,6 +19,7 @@ package org.ow2.petals.bc.gateway;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.logging.Formatter;
@@ -35,7 +36,6 @@ import org.junit.ClassRule;
 import org.junit.rules.ExternalResource;
 import org.junit.rules.RuleChain;
 import org.junit.rules.TestRule;
-import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
@@ -286,9 +286,9 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         return endpoint;
     }
 
-    protected RequestMessage helloRequest(final ServiceEndpoint endpoint) {
+    protected RequestMessage helloRequest(final ServiceEndpoint endpoint, final URI pattern) {
         return new RequestToProviderMessage(endpoint.getEndpointName(),
-                endpoint.getServiceName(), null, HELLO_OPERATION, MEPPatternConstants.IN_OUT.value(), IN);
+                endpoint.getServiceName(), null, HELLO_OPERATION, pattern, IN);
     }
 
     protected static @Nullable ServiceEndpoint getNotExternalEndpoint(final boolean specifyService) {
