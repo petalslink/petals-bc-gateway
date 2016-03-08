@@ -172,24 +172,18 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         final SUData data = suDatas.get(ownerSU);
 
-        final List<Throwable> exceptions = new ArrayList<>();
+        final PEtALSCDKException ex = new PEtALSCDKException("Errors during SU stop");
 
         for (final ConsumerDomain cd : data.consumerDomains) {
             assert cd != null;
             try {
                 cd.close();
             } catch (final Exception e) {
-                exceptions.add(e);
+                ex.addSuppressed(e);
             }
         }
 
-        if (!exceptions.isEmpty()) {
-            final PEtALSCDKException ex = new PEtALSCDKException("Errors during SU stop");
-            for (final Throwable e : exceptions) {
-                ex.addSuppressed(e);
-            }
-            throw ex;
-        }
+        ex.throwIfNeeded();
     }
 
     @Override
@@ -198,24 +192,18 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         final SUData data = suDatas.get(suDH.getName());
 
-        final List<Throwable> exceptions = new ArrayList<>();
+        final PEtALSCDKException ex = new PEtALSCDKException("Errors during SU shutdown");
 
         for (final ProviderDomain pd : data.providerDomains) {
             try {
                 // connection will stay open until shutdown so that previous exchanges are finished
                 pd.shutdown();
             } catch (final Exception e) {
-                exceptions.add(e);
+                ex.addSuppressed(e);
             }
         }
 
-        if (!exceptions.isEmpty()) {
-            final PEtALSCDKException ex = new PEtALSCDKException("Errors during SU undeploy");
-            for (final Throwable e : exceptions) {
-                ex.addSuppressed(e);
-            }
-            throw ex;
-        }
+        ex.throwIfNeeded();
     }
 
     @Override
@@ -232,7 +220,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
             return;
         }
 
-        final List<Throwable> exceptions = new ArrayList<>();
+        final PEtALSCDKException ex = new PEtALSCDKException("Errors during SU undeploy");
 
         for (final ProviderDomain pd : data.providerDomains) {
             assert pd != null;
@@ -245,7 +233,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                             pd.getName()));
                 }
             } catch (final Exception e) {
-                exceptions.add(e);
+                ex.addSuppressed(e);
             }
         }
 
@@ -255,7 +243,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                 // in case it wasn't before
                 cd.close();
             } catch (final Exception e) {
-                exceptions.add(e);
+                ex.addSuppressed(e);
             }
         }
 
@@ -268,17 +256,11 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                             jtl.getId(), ownerSU));
                 }
             } catch (final Exception e) {
-                exceptions.add(e);
+                ex.addSuppressed(e);
             }
         }
 
-        if (!exceptions.isEmpty()) {
-            final PEtALSCDKException ex = new PEtALSCDKException("Errors during SU undeploy");
-            for (final Throwable e : exceptions) {
-                ex.addSuppressed(e);
-            }
-            throw ex;
-        }
+        ex.throwIfNeeded();
     }
 
     @Override
