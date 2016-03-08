@@ -177,10 +177,10 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         return pd;
     }
 
-    public void deregisterProviderDomain(final ProviderDomain domain) {
-        if (providers.remove(domain)) {
-            domain.disconnect();
-        }
+    public boolean deregisterProviderDomain(final ProviderDomain domain) {
+        final boolean removed = providers.remove(domain);
+        domain.disconnect();
+        return removed;
     }
 
     public ConsumerDomain createConsumerDomain(final String ownerSU, final JbiConsumerDomain jcd,
@@ -347,13 +347,19 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
     }
 
-    public void deregisterTransportListener(final String ownerSU, final JbiTransportListener jtl) {
+    public boolean deregisterTransportListener(final String ownerSU, final JbiTransportListener jtl) {
         final TransportListener tl = this.listeners.remove(getTransportListenerName(ownerSU, jtl.getId()));
-        if (getLogger().isLoggable(Level.CONFIG)) {
-            getLogger().config(String.format(
-                    "Transporter '%s' removed " + (ownerSU != null ? "for SU '%s'" : "for component"), jtl, ownerSU));
+        if (tl != null) {
+            if (getLogger().isLoggable(Level.CONFIG)) {
+                getLogger().config(
+                        String.format("Transporter '%s' removed " + (ownerSU != null ? "for SU '%s'" : "for component"),
+                                jtl, ownerSU));
+            }
+            tl.unbind();
+            return true;
+        } else {
+            return false;
         }
-        tl.unbind();
     }
 
     public TransportListener getTransportListener(final String ownerSU, final String transportId)

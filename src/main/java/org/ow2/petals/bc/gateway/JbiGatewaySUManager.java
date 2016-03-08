@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.logging.Level;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
@@ -112,55 +111,29 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         final SUData data = new SUData();
         this.suDatas.put(ownerSU, data);
 
-        try {
-            for (final JbiTransportListener jtl : jtls) {
-                assert jtl != null;
-                getComponent().registerTransportListener(ownerSU, jtl);
-                data.listeners.add(jtl);
-            }
+        for (final JbiTransportListener jtl : jtls) {
+            assert jtl != null;
+            getComponent().registerTransportListener(ownerSU, jtl);
+            data.listeners.add(jtl);
+        }
 
-            for (final Entry<JbiConsumerDomain, Collection<Consumes>> entry : cd2consumes.entrySet()) {
-                final JbiConsumerDomain jcd = entry.getKey();
-                assert jcd != null;
-                final Collection<Consumes> consumes = entry.getValue();
-                assert consumes != null;
-                final ConsumerDomain cd = getComponent().createConsumerDomain(ownerSU, jcd, consumes);
-                data.consumerDomains.add(cd);
-            }
+        for (final Entry<JbiConsumerDomain, Collection<Consumes>> entry : cd2consumes.entrySet()) {
+            final JbiConsumerDomain jcd = entry.getKey();
+            assert jcd != null;
+            final Collection<Consumes> consumes = entry.getValue();
+            assert consumes != null;
+            final ConsumerDomain cd = getComponent().createConsumerDomain(ownerSU, jcd, consumes);
+            data.consumerDomains.add(cd);
+        }
 
-            for (final Entry<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> entry : pd2provides
-                    .entrySet()) {
-                final JbiProviderDomain jpd = entry.getKey();
-                assert jpd != null;
-                final Collection<Pair<Provides, JbiProvidesConfig>> provides = entry.getValue();
-                assert provides != null;
-                final ProviderDomain pd = getComponent().registerProviderDomain(ownerSU, jpd, provides);
-                data.providerDomains.add(pd);
-            }
-        } catch (final Exception e) {
-            this.logger.log(Level.SEVERE, "Error during SU deploy, undoing everything");
-
-            for (final ProviderDomain pd : data.providerDomains) {
-                assert pd != null;
-                try {
-                    getComponent().deregisterProviderDomain(pd);
-                } catch (final Exception e1) {
-                    this.logger.log(Level.WARNING, "Error while removing provider domain", e1);
-                }
-            }
-
-            for (final JbiTransportListener jtl : data.listeners) {
-                assert jtl != null;
-                try {
-                    getComponent().deregisterTransportListener(ownerSU, jtl);
-                } catch (final Exception e1) {
-                    this.logger.log(Level.WARNING, "Error while removing SU transporter listener", e1);
-                }
-            }
-
-            suDatas.remove(ownerSU);
-
-            throw e;
+        for (final Entry<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> entry : pd2provides
+                .entrySet()) {
+            final JbiProviderDomain jpd = entry.getKey();
+            assert jpd != null;
+            final Collection<Pair<Provides, JbiProvidesConfig>> provides = entry.getValue();
+            assert provides != null;
+            final ProviderDomain pd = getComponent().registerProviderDomain(ownerSU, jpd, provides);
+            data.providerDomains.add(pd);
         }
     }
 
@@ -170,24 +143,8 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         final SUData data = suDatas.get(suDH.getName());
 
-        final List<ProviderDomain> initialised = new ArrayList<>();
-        try {
-            for (final ProviderDomain pd : data.providerDomains) {
-                pd.init();
-                initialised.add(pd);
-            }
-        } catch (final Exception e) {
-            this.logger.log(Level.SEVERE, "Error during SU init, undoing everything");
-
-            for (final ProviderDomain pd : initialised) {
-                try {
-                    pd.shutdown();
-                } catch (final Exception ex) {
-                    this.logger.log(Level.WARNING, "Error while shutdowning provider domain", ex);
-                }
-            }
-
-            throw e;
+        for (final ProviderDomain pd : data.providerDomains) {
+            pd.init();
         }
     }
 
@@ -200,26 +157,9 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         final SUData data = suDatas.get(ownerSU);
 
-        final List<ConsumerDomain> opened = new ArrayList<>();
-        try {
-            for (final ConsumerDomain cd : data.consumerDomains) {
-                assert cd != null;
-                cd.open();
-                opened.add(cd);
-            }
-        } catch (final Exception e) {
-            this.logger.log(Level.SEVERE, "Error during SU init, undoing everything");
-
-            for (final ConsumerDomain cd : opened) {
-                assert cd != null;
-                try {
-                    cd.close();
-                } catch (final Exception e1) {
-                    this.logger.log(Level.WARNING, "Error while stopping consumer domain", e1);
-                }
-            }
-
-            throw e;
+        for (final ConsumerDomain cd : data.consumerDomains) {
+            assert cd != null;
+            cd.open();
         }
     }
 
@@ -262,6 +202,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         for (final ProviderDomain pd : data.providerDomains) {
             try {
+                // connection will stay open until shutdown so that previous exchanges are finished
                 pd.shutdown();
             } catch (final Exception e) {
                 exceptions.add(e);
@@ -286,12 +227,33 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         final SUData data = suDatas.get(ownerSU);
 
+        if (data == null) {
+            // can happen in case deploy failed early
+            return;
+        }
+
         final List<Throwable> exceptions = new ArrayList<>();
 
         for (final ProviderDomain pd : data.providerDomains) {
             assert pd != null;
             try {
-                getComponent().deregisterProviderDomain(pd);
+                // in case it wasn't before
+                pd.shutdown();
+                if (!getComponent().deregisterProviderDomain(pd)) {
+                    logger.severe(String.format(
+                            "Expected to deregister provider domain '%s' but it wasn't registered...",
+                            pd.getName()));
+                }
+            } catch (final Exception e) {
+                exceptions.add(e);
+            }
+        }
+
+        for (final ConsumerDomain cd : data.consumerDomains) {
+            assert cd != null;
+            try {
+                // in case it wasn't before
+                cd.close();
             } catch (final Exception e) {
                 exceptions.add(e);
             }
@@ -300,7 +262,11 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         for (final JbiTransportListener jtl : data.listeners) {
             assert jtl != null;
             try {
-                getComponent().deregisterTransportListener(ownerSU, jtl);
+                if (!getComponent().deregisterTransportListener(ownerSU, jtl)) {
+                    logger.severe(String.format(
+                            "Expected to deregister transport listener '%s' for SU '%s' but it wasn't registered...",
+                            jtl.getId(), ownerSU));
+                }
             } catch (final Exception e) {
                 exceptions.add(e);
             }
