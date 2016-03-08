@@ -27,6 +27,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -79,6 +81,10 @@ public class ConsumerDomain extends AbstractDomain {
 
     private final TransportListener tl;
 
+    private volatile boolean open = false;
+
+    private final ReadWriteLock channelsLock = new ReentrantReadWriteLock();
+
     public ConsumerDomain(final TransportListener tl, final ComponentContext cc, final JbiConsumerDomain jcd,
             final Collection<Consumes> consumes,
             final JBISender sender, final Logger logger) {
@@ -101,23 +107,73 @@ public class ConsumerDomain extends AbstractDomain {
     /**
      * Consumer partner will be able to connect to us
      */
-    public void open() throws PEtALSCDKException {
+    public void register() throws PEtALSCDKException {
         tl.register(jcd, this);
     }
 
     /**
      * Consumer partner will be disconnected
      */
-    public void close() {
+    public void deregister() {
         tl.deregistrer(jcd);
-        for (final ChannelHandlerContext ctx : channels) {
-            ctx.close();
+        channelsLock.readLock().lock();
+        try {
+            for (final ChannelHandlerContext ctx : channels) {
+                ctx.close();
+            }
+        } finally {
+            channelsLock.readLock().unlock();
+        }
+    }
+
+    public void open() {
+        open = true;
+        channelsLock.readLock().lock();
+        try {
+            for (final ChannelHandlerContext ctx : channels) {
+                sendPropagatedServices(ctx);
+            }
+        } finally {
+            channelsLock.readLock().unlock();
+        }
+    }
+
+    public void close() {
+        open = false;
+        channelsLock.readLock().lock();
+        try {
+            for (final ChannelHandlerContext ctx : channels) {
+                ctx.writeAndFlush(
+                        new TransportedPropagatedConsumesList(new ArrayList<TransportedPropagatedConsumes>()));
+            }
+        } finally {
+            channelsLock.readLock().unlock();
         }
     }
 
     public void registerChannel(final ChannelHandlerContext ctx) {
-        channels.add(ctx);
-        final ArrayList<TransportedPropagatedConsumes> consumes = new ArrayList<>();
+        channelsLock.writeLock().lock();
+        try {
+            channels.add(ctx);
+            if (open) {
+                sendPropagatedServices(ctx);
+            }
+        } finally {
+            channelsLock.writeLock().unlock();
+        }
+    }
+
+    public void deregisterChannel(final ChannelHandlerContext ctx) {
+        channelsLock.writeLock().lock();
+        try {
+            channels.remove(ctx);
+        } finally {
+            channelsLock.writeLock().unlock();
+        }
+    }
+
+    private void sendPropagatedServices(final ChannelHandlerContext ctx) {
+        final List<TransportedPropagatedConsumes> consumes = new ArrayList<>();
         for (final Entry<ServiceKey, Consumes> entry : services.entrySet()) {
             // TODO cache the description
             // TODO reexecute if desc was missing before...?
@@ -197,10 +253,6 @@ public class ConsumerDomain extends AbstractDomain {
             }
         }
         return false;
-    }
-
-    public void deregisterChannel(final ChannelHandlerContext ctx) {
-        channels.remove(ctx);
     }
 
     public void exceptionReceived(final Exception msg) {

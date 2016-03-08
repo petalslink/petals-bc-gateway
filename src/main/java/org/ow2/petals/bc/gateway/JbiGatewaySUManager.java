@@ -146,6 +146,11 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         for (final ProviderDomain pd : data.providerDomains) {
             pd.init();
         }
+
+        for (final ConsumerDomain cd : data.consumerDomains) {
+            assert cd != null;
+            cd.register();
+        }
     }
 
     @Override
@@ -196,7 +201,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         for (final ProviderDomain pd : data.providerDomains) {
             try {
-                // connection will stay open until shutdown so that previous exchanges are finished
+                // connection will stay open until undeploy so that previous exchanges are finished
                 pd.shutdown();
             } catch (final Exception e) {
                 ex.addSuppressed(e);
@@ -225,8 +230,6 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         for (final ProviderDomain pd : data.providerDomains) {
             assert pd != null;
             try {
-                // in case it wasn't before
-                pd.shutdown();
                 if (!getComponent().deregisterProviderDomain(pd)) {
                     logger.severe(String.format(
                             "Expected to deregister provider domain '%s' but it wasn't registered...",
@@ -240,8 +243,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         for (final ConsumerDomain cd : data.consumerDomains) {
             assert cd != null;
             try {
-                // in case it wasn't before
-                cd.close();
+                cd.deregister();
             } catch (final Exception e) {
                 ex.addSuppressed(e);
             }

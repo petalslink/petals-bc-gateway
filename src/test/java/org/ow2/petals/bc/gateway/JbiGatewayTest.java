@@ -17,6 +17,11 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import static com.jayway.awaitility.Awaitility.await;
+import static com.jayway.awaitility.Awaitility.to;
+import static com.jayway.awaitility.Duration.TWO_SECONDS;
+import static org.hamcrest.Matchers.equalTo;
+
 import javax.jbi.servicedesc.ServiceEndpoint;
 
 import org.eclipse.jdt.annotation.Nullable;
@@ -61,5 +66,53 @@ public class JbiGatewayTest extends AbstractComponentTest {
 
         // TODO would we want to receive an error in case of timeout on the other side?
         assertNull(response);
+    }
+
+    @Test
+    public void testNotNewExchangeAfterShutdownConsumer() throws Exception {
+        testNotNewExchangeAfterShutdown(true, false);
+    }
+
+    @Test
+    public void testNotNewExchangeAfterShutdownProvider() throws Exception {
+        testNotNewExchangeAfterShutdown(false, true);
+
+    }
+
+    @Test
+    public void testNotNewExchangeAfterShutdownBoth() throws Exception {
+        testNotNewExchangeAfterShutdown(true, true);
+    }
+
+    public void testNotNewExchangeAfterShutdown(final boolean stopConsumer, final boolean stopProvider)
+            throws Exception {
+
+        final ServiceEndpoint endpoint = deployTwoDomains();
+
+        final ServiceProviderImplementation provider = ServiceProviderImplementation.outMessage(OUT);
+
+        COMPONENT_UNDER_TEST.pushRequestToProvider(helloRequest(endpoint, MEPPatternConstants.IN_OUT.value()));
+        
+        // let's wait for the request to be on the service provider side
+        await().atMost(TWO_SECONDS).untilCall(to(COMPONENT_UNDER_TEST).getRequestsFromConsumerCount(),
+                equalTo(1));
+
+        if (stopProvider) {
+            COMPONENT_UNDER_TEST.stopService(SU_PROVIDER_NAME);
+            COMPONENT_UNDER_TEST.shutdownService(SU_PROVIDER_NAME);
+        }
+        if (stopConsumer) {
+            COMPONENT_UNDER_TEST.stopService(SU_CONSUMER_NAME);
+            COMPONENT_UNDER_TEST.shutdownService(SU_CONSUMER_NAME);
+        }
+
+        COMPONENT.receiveResponseAsExternalProvider(provider, false);
+
+        final ResponseMessage response = COMPONENT_UNDER_TEST
+                .pollResponseFromProvider(DEFAULT_TIMEOUT_FOR_COMPONENT_SEND);
+
+        MessageChecks.hasOut().andThen(MessageChecks.hasXmlContent(OUT)).checks(response);
+
+        COMPONENT.sendDoneStatus(response, provider);
     }
 }

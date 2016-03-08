@@ -24,6 +24,7 @@ import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
 import org.ow2.petals.bc.gateway.messages.TransportedException;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
+import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
 import org.ow2.petals.bc.gateway.messages.TransportedTimeout;
 import org.ow2.petals.commons.log.Level;
 
@@ -68,6 +69,8 @@ public class TransportClient extends SimpleChannelInboundHandler<TransportedToCo
             pd.sendFromChannelToNMR(ctx, (TransportedMessage) msg);
         } else if (msg instanceof TransportedTimeout) {
             pd.timeoutReceived((TransportedTimeout) msg);
+        } else if (msg instanceof TransportedPropagatedConsumesList) {
+            pd.updatePropagatedServices((TransportedPropagatedConsumesList) msg);
         }
     }
 

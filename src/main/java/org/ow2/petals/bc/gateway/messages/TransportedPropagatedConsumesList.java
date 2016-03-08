@@ -20,7 +20,9 @@ package org.ow2.petals.bc.gateway.messages;
 import java.io.Serializable;
 import java.util.List;
 
-public class TransportedPropagatedConsumesList implements Serializable {
+import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
+
+public class TransportedPropagatedConsumesList implements TransportedToConsumer {
 
     private static final long serialVersionUID = -2818905233890110391L;
 
