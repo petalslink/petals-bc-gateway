@@ -42,7 +42,7 @@ public class LastLoggingHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(final @Nullable ChannelHandlerContext ctx, final @Nullable Object msg) throws Exception {
         assert ctx != null;
         logger.severe(String.format(
-                "Discarded inbound message %s that reached the tail of the pipeline. " + "There is something wrong!",
+                "Discarded inbound message %s that reached the tail of the pipeline. There is something wrong!",
                 msg));
         // let the last handler free resources and stuffs like this
         ctx.fireChannelRead(msg);
