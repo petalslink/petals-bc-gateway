@@ -65,7 +65,7 @@ public class TransportDispatcher extends SimpleChannelInboundHandler<Transported
 
         // accept corresponds to validate that the current transport can be used for this consumer partner
         if (cd == null) {
-            ctx.writeAndFlush(new TransportedException(String.format("Unauthorised auth-name '%s", msg.authName)));
+            ctx.writeAndFlush(new TransportedException(String.format("Unauthorised auth-name '%s'", msg.authName)));
             ctx.close();
             return;
         }
