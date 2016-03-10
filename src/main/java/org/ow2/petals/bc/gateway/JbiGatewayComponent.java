@@ -17,7 +17,6 @@
  */
 package org.ow2.petals.bc.gateway;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -120,38 +119,18 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     protected void doInit() throws JBIException {
         sender = new JbiGatewayJBISender(this);
 
-        try {
-            // TODO number of thread for the boss (acceptor)?
-            bossGroup = new NioEventLoopGroup(1);
-            // TODO should we set a specific number of thread? by default it is based on the number of processors...
-            workerGroup = new NioEventLoopGroup();
-            // TODO should we set a specific number of thread? by default it is based on the number of processors...
-            // TODO could we share it with the workerGroup?! normally yes... but do we want?
-            clientsGroup = new NioEventLoopGroup();
+        // TODO number of thread for the boss (acceptor)?
+        bossGroup = new NioEventLoopGroup(1);
+        // TODO should we set a specific number of thread? by default it is based on the number of processors...
+        workerGroup = new NioEventLoopGroup();
+        // TODO should we set a specific number of thread? by default it is based on the number of processors...
+        // TODO could we share it with the workerGroup?! normally yes... but do we want?
+        clientsGroup = new NioEventLoopGroup();
 
-            for (final JbiTransportListener jtl : JbiGatewayJBIHelper
-                    .getListeners(getJbiComponentDescriptor().getComponent())) {
-                assert jtl != null;
-                addTransporterListener(null, jtl);
-            }
-        } catch (final Exception e) {
-            getLogger().log(Level.SEVERE, "Error during component init, undoing everything");
-            if (bossGroup != null) {
-                bossGroup.shutdownGracefully();
-                bossGroup = null;
-            }
-            if (workerGroup != null) {
-                workerGroup.shutdownGracefully();
-                workerGroup = null;
-            }
-            if (clientsGroup != null) {
-                clientsGroup.shutdownGracefully();
-                clientsGroup = null;
-            }
-
-            // we can simply clear, nothing was started
-            listeners.clear();
-            throw new JBIException("Error during component init", e);
+        for (final JbiTransportListener jtl : JbiGatewayJBIHelper
+                .getListeners(getJbiComponentDescriptor().getComponent())) {
+            assert jtl != null;
+            addTransporterListener(null, jtl);
         }
     }
 
@@ -234,43 +213,14 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
     @Override
     protected void doStart() throws JBIException {
-        final List<TransportListener> bound = new ArrayList<>();
-        final List<ProviderDomain> connected = new ArrayList<>();
-        try {
-            for (final TransportListener tl : listeners.values()) {
-                // Bind and start to accept incoming connections.
-                tl.bind();
-                bound.add(tl);
-            }
 
-            for (final ProviderDomain pd : providers) {
-                pd.connect();
-                connected.add(pd);
-            }
+        for (final TransportListener tl : listeners.values()) {
+            // Bind and start to accept incoming connections.
+            tl.bind();
+        }
 
-        } catch (final Exception e) {
-            // normally this shouldn't really happen, but well...
-            getLogger().log(Level.SEVERE, "Error during component start, stopping listeners and clients");
-
-            for (final ProviderDomain pd : connected) {
-                try {
-                    pd.disconnect();
-                } catch (final Exception e1) {
-                    // normally this shouldn't really happen, but well...
-                    getLogger().log(Level.WARNING, "Error while stopping client", e1);
-                }
-            }
-
-            for (final TransportListener tl : bound) {
-                try {
-                    tl.unbind();
-                } catch (final Exception e1) {
-                    // normally this shouldn't really happen, but well...
-                    getLogger().log(Level.WARNING, "Error while stopping listener", e1);
-                }
-            }
-
-            throw new JBIException("Error during component start", e);
+        for (final ProviderDomain pd : providers) {
+            pd.connect();
         }
 
         this.started = true;
