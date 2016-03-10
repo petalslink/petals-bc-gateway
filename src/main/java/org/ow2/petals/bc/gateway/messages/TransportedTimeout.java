@@ -25,7 +25,7 @@ public class TransportedTimeout extends TransportedForService implements Transpo
     private static final long serialVersionUID = -9060178770181538907L;
 
     public TransportedTimeout(final TransportedMessage m) {
-        super(m.service, m.exchangeId);
+        super(m.service, m.flowAttributes, m.exchangeId);
     }
 
 }

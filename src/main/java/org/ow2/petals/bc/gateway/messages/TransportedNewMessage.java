@@ -20,12 +20,14 @@ package org.ow2.petals.bc.gateway.messages;
 import javax.jbi.messaging.MessageExchange;
 
 import org.ow2.petals.bc.gateway.messages.Transported.TransportedToProvider;
+import org.ow2.petals.commons.log.FlowAttributes;
 
 public class TransportedNewMessage extends TransportedMessage implements TransportedToProvider {
 
     private static final long serialVersionUID = 8953552087309338043L;
 
-    public TransportedNewMessage(final ServiceKey service, final MessageExchange exchange) {
-        super(service, exchange.getExchangeId(), exchange);
+    public TransportedNewMessage(final ServiceKey service, final FlowAttributes flowAttributes,
+            final MessageExchange exchange) {
+        super(service, flowAttributes, exchange.getExchangeId(), exchange);
     }
 }

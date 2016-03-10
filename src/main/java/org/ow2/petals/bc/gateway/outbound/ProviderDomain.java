@@ -27,7 +27,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.jbi.messaging.MessageExchange;
@@ -45,9 +44,13 @@ import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.bc.gateway.utils.LastLoggingHandler;
+import org.ow2.petals.commons.log.FlowAttributes;
+import org.ow2.petals.commons.log.Level;
+import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
+import org.ow2.petals.component.framework.logger.ProvideExtFlowStepBeginLogData;
 import org.ow2.petals.component.framework.util.EndpointUtil;
 import org.ow2.petals.component.framework.util.ServiceEndpointKey;
 import org.ow2.petals.component.framework.util.WSDLUtilImpl;
@@ -360,12 +363,25 @@ public class ProviderDomain extends AbstractDomain {
     public void send(final ServiceKey service, final Exchange exchange) {
         final MessageExchange mex = exchange.getMessageExchange();
         assert mex != null;
-        final TransportedNewMessage m = new TransportedNewMessage(service, mex);
+
+        // step for this provides, different from the one in the exchange!
+        final FlowAttributes fa = PetalsExecutionContext.getFlowAttributes();
+
+        // step for the external call
+        final FlowAttributes extFa = PetalsExecutionContext.nextFlowStepId();
+
+        // TODO can I use this logger for that?!
+        logger.log(Level.MONIT, "", new ProvideExtFlowStepBeginLogData(extFa.getFlowInstanceId(), fa.getFlowStepId(),
+                extFa.getFlowStepId()));
+
+        // TODO log on error and send it back! see sendToChannel in motherClass
+
+        final TransportedNewMessage m = new TransportedNewMessage(service, extFa, mex);
         final Channel channel = this.channel;
         // we can't be disconnected because it would mean that the component is stopped and in that case we don't
         // receive messages!
         assert channel != null;
-        // let's use the context of the client so that the error logger does not log the message
+        // let's use the context of the client
         final ChannelHandlerContext ctx = channel.pipeline().context(TransportClient.class);
         assert ctx != null;
         sendToChannel(ctx, m, exchange);

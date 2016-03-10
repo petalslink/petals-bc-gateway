@@ -19,8 +19,10 @@ package org.ow2.petals.bc.gateway;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import javax.jbi.messaging.ExchangeStatus;
+import javax.jbi.messaging.MessageExchange.Role;
 
 import org.ow2.petals.bc.gateway.messages.Transported;
 import org.ow2.petals.bc.gateway.messages.TransportedException;
@@ -29,7 +31,16 @@ import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedMiddleMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedTimeout;
+import org.ow2.petals.bc.gateway.utils.JbiGatewayConsumeExtFlowStepBeginLogData;
+import org.ow2.petals.commons.log.FlowAttributes;
+import org.ow2.petals.commons.log.Level;
+import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.message.Exchange;
+import org.ow2.petals.component.framework.logger.ProvideExtFlowStepEndLogData;
+import org.ow2.petals.component.framework.logger.ProvideExtFlowStepFailureLogData;
+import org.ow2.petals.component.framework.logger.Utils;
+
+import com.ebmwebsourcing.easycommons.lang.StringHelper;
 
 import io.netty.channel.ChannelHandlerContext;
 
@@ -52,13 +63,47 @@ public abstract class AbstractDomain {
     public void sendFromChannelToNMR(final ChannelHandlerContext ctx, final TransportedMessage m) {
         final String exchangeId = m.exchangeId;
 
+        // let's get the flow attribute from the received exchange and put them in context as soon as we get it
+        // TODO add tests!
+        PetalsExecutionContext.putFlowAttributes(m.flowAttributes);
+
         final Exchange exchange;
         if (m instanceof TransportedNewMessage) {
             exchange = null;
+
+            // acting as a provider partner, a new consumes ext starts here
+
+            // let's start a new step (it will for example be used to create the new exchange later)
+            final FlowAttributes fa = PetalsExecutionContext.nextFlowStepId();
+
+            logger.log(Level.MONIT, "",
+                    new JbiGatewayConsumeExtFlowStepBeginLogData(fa, StringHelper.nonNullValue(m.service.interfaceName),
+                            StringHelper.nonNullValue(m.service.service),
+                            StringHelper.nonNullValue(m.service.endpointName),
+                            StringHelper.nonNullValue(m.exchange.getOperation()), m.flowAttributes.getFlowStepId()));
         } else {
             // we remove it now, if it has to come back (normally for InOptOut fault after out) it will be put back
             exchange = exchangesInProgress.remove(exchangeId);
             assert exchange != null;
+
+            // in all the other case, we are acting as a consumer partner (in a ProviderDomain object) and this is the
+            // end of provides ext that started in ProviderDomain.send
+            if (!(exchange.isInOptionalOutPattern() && exchange.getFault() != null && exchange.isOutMessage())) {
+                // the message contains the FA we created before sending it as a TransportedNewMessage
+                // TODO factorise this in Utils!!!
+                if (m.exchange.getStatus() == ExchangeStatus.ERROR) {
+                    logger.log(Level.MONIT, "", new ProvideExtFlowStepFailureLogData(
+                            m.flowAttributes.getFlowInstanceId(), m.flowAttributes.getFlowStepId(),
+                            String.format(Utils.TECHNICAL_ERROR_MESSAGE_PATTERN, m.exchange.getError().getMessage())));
+                } else if (m.exchange.getFault() != null) {
+                    logger.log(Level.MONIT, "", new ProvideExtFlowStepFailureLogData(
+                            m.flowAttributes.getFlowInstanceId(), m.flowAttributes.getFlowStepId(),
+                            Utils.BUSINESS_ERROR_MESSAGE));
+                } else {
+                    logger.log(Level.MONIT, "", new ProvideExtFlowStepEndLogData(m.flowAttributes.getFlowInstanceId(),
+                            m.flowAttributes.getFlowStepId()));
+                }
+            }
         }
 
         this.sender.sendToNMR(getContext(this, ctx, m), exchange);
@@ -91,7 +136,15 @@ public abstract class AbstractDomain {
 
     private void sendFromNMRToChannel(final ChannelHandlerContext ctx, final TransportedMessage m,
             final Exception e) {
+
+        // for the other it is not needed
+        if (m instanceof TransportedNewMessage) {
+            Utils.addMonitFailureTrace(logger, PetalsExecutionContext.getFlowAttributes(), e.getMessage(),
+                    Role.CONSUMER);
+        }
+
         logger.log(Level.FINE, "Exception caught", e);
+
         if (m instanceof TransportedLastMessage) {
             ctx.writeAndFlush(new TransportedException(e), ctx.voidPromise());
         } else {
@@ -103,6 +156,12 @@ public abstract class AbstractDomain {
     private void sendFromNMRToChannel(final ChannelHandlerContext ctx, final TransportedMessage m,
             final Exchange exchange) {
         assert !(m instanceof TransportedLastMessage);
+
+        // for the other it is not needed
+        if (m instanceof TransportedNewMessage) {
+            Utils.addMonitEndOrFailureTrace(logger, exchange, PetalsExecutionContext.getFlowAttributes());
+        }
+
         if (exchange.isActiveStatus()) {
             // we will be expecting an answer
             sendToChannel(ctx, new TransportedMiddleMessage(m, exchange.getMessageExchange()), exchange);
@@ -111,22 +170,30 @@ public abstract class AbstractDomain {
         }
     }
 
+
     private void sendTimeoutFromNMRToChannel(final ChannelHandlerContext ctx, final TransportedMessage m) {
+
+        // for the other it is not needed
+        if (m instanceof TransportedNewMessage) {
+            Utils.addMonitFailureTrace(logger, PetalsExecutionContext.getFlowAttributes(), "Timeout on the other side",
+                    Role.CONSUMER);
+        }
+
         sendToChannel(ctx, new TransportedTimeout(m));
     }
 
     protected void sendToChannel(final ChannelHandlerContext ctx, final TransportedMessage m, final Exchange exchange) {
         if (!(m instanceof TransportedLastMessage)) {
-            if (exchangesInProgress.putIfAbsent(m.exchangeId, exchange) != null) {
-                // this can happen with InOptOut from the consumer partner point of view, but the Exchange is always the
-                // same normally!
-            }
+            final Exchange prev = exchangesInProgress.putIfAbsent(m.exchangeId, exchange);
+            assert prev == null;
         }
+
         sendToChannel(ctx, m);
     }
 
     private void sendToChannel(final ChannelHandlerContext ctx, final Transported m) {
         // TODO couldn't make exceptions be logged by the channel without using this voidPromise...
+        // TODO We need to take care what happens in case of error: logging flow error for example, returning error too!
         ctx.writeAndFlush(m, ctx.voidPromise());
     }
 

@@ -17,6 +17,8 @@
  */
 package org.ow2.petals.bc.gateway.messages;
 
+import org.ow2.petals.commons.log.FlowAttributes;
+
 public abstract class TransportedForService implements Transported {
 
     private static final long serialVersionUID = 1884695104410740307L;
@@ -32,8 +34,15 @@ public abstract class TransportedForService implements Transported {
      */
     public final String exchangeId;
 
-    public TransportedForService(final ServiceKey service, final String exchangeId) {
+    /**
+     * The attributes of the step handled by the gateway: the idea is that both side will use following steps!
+     */
+    public final FlowAttributes flowAttributes;
+
+    public TransportedForService(final ServiceKey service, final FlowAttributes flowAttributes,
+            final String exchangeId) {
         this.service = service;
         this.exchangeId = exchangeId;
+        this.flowAttributes = flowAttributes;
     }
 }

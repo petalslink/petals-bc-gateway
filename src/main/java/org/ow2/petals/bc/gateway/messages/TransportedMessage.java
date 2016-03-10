@@ -20,6 +20,7 @@ package org.ow2.petals.bc.gateway.messages;
 import javax.jbi.messaging.MessageExchange;
 
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
+import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 
 /**
@@ -47,14 +48,15 @@ public abstract class TransportedMessage extends TransportedForService {
     @SuppressWarnings("squid:S1948")
     public final MessageExchange exchange;
 
-    public TransportedMessage(final ServiceKey service, final String exchangeId, final MessageExchange exchange) {
-        super(service, exchangeId);
+    public TransportedMessage(final ServiceKey service, final FlowAttributes flowAttributes, final String exchangeId,
+            final MessageExchange exchange) {
+        super(service, flowAttributes, exchangeId);
         this.exchange = exchange;
     }
 
     public TransportedMessage(final TransportedMessage m, final MessageExchange exchange) {
         // we keep the service and the exchangeId, they should not change!
-        this(m.service, m.exchangeId, exchange);
+        this(m.service, m.flowAttributes, m.exchangeId, exchange);
         assert m instanceof TransportedNewMessage || m instanceof TransportedMiddleMessage;
     }
 }
