@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jbi:jbi version="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:jbi="http://java.sun.com/xml/ns/jbi"
+   xmlns:cdk="http://petals.ow2.org/components/extensions/version-5" xmlns:jg="http://petals.ow2.org/components/petals-bc-jbi-gateway/version-1.0"
+   xmlns:hello="http://petals.ow2.org">
+
+   <jbi:services binding-component="true">
+      
+      <jg:provider-domain id="domain0">
+         <jg:auth-name>Domain1Secret</jg:auth-name>
+         <jg:ip>localhost</jg:ip>
+         <jg:port>7500</jg:port>
+      </jg:provider-domain>
+
+   </jbi:services>
+</jbi:jbi>

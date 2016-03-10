@@ -25,6 +25,9 @@
    <modules>
       <module>su-jbi-gateway-hello-consumes</module>
       <module>sa-jbi-gateway-hello-domain0</module>
+      <module>su-jbi-gateway-hello-provides</module>
+      <module>sa-jbi-gateway-hello-domain1</module>
+
    </modules>
 
    <dependencyManagement>

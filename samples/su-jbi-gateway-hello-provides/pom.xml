@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:schemaLocation="http://maven.apache.org/maven-v4_0_0.xsd">
+   <modelVersion>4.0.0</modelVersion>
+   <parent>
+      <artifactId>petals-jbi-gateway-samples-parent</artifactId>
+      <groupId>org.ow2.petals.samples</groupId>
+      <version>5.0.0-SNAPSHOT</version>
+   </parent>
+
+   <artifactId>su-jbi-gateway-hello-provides</artifactId>
+   <name>Petals ESB - Samples - BC JBI Gateway - SU Hello Provides</name>
+   <packaging>jbi-service-unit</packaging>
+
+   <properties>
+      <!-- Skip dependency check for service unit. -->
+      <maven-dependency-plugin.failOnWarning>false</maven-dependency-plugin.failOnWarning>
+   </properties>
+
+   <dependencies>
+      <dependency>
+         <groupId>org.ow2.petals</groupId>
+         <artifactId>petals-bc-jbi-gateway</artifactId>
+         <type>jbi-component</type>
+      </dependency>
+   </dependencies>
+
+   <build>
+      <plugins>
+         <plugin>
+            <groupId>org.ow2.petals</groupId>
+            <artifactId>petals-maven-plugin</artifactId>
+         </plugin>
+      </plugins>
+   </build>
+
+   <scm>
+      <connection>scm:git:https://github.com/petalslink/petals-bc-jbi-gateway.git</connection>
+      <developerConnection>${project.scm.connection}</developerConnection>
+   </scm>
+</project>
