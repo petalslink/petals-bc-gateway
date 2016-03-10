@@ -24,12 +24,14 @@ import java.util.logging.Logger;
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
+import org.ow2.petals.bc.gateway.utils.LastLoggingHandler;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 
 import com.ebmwebsourcing.easycommons.lang.UncheckedException;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.serialization.ClassResolvers;
@@ -78,7 +80,8 @@ public class TransportListener implements ConsumerAuthenticator {
         // shared between all the connections of this listener
         final TransportDispatcher dispatcher = new TransportDispatcher(logger, this);
         final LoggingHandler debugs = new LoggingHandler(logger.getName() + ".dispatcher", LogLevel.TRACE);
-        final LoggingHandler errors = new LoggingHandler(logger.getName() + ".errors", LogLevel.ERROR);
+        final ChannelHandler errors = new LastLoggingHandler(logger.getName() + ".errors");
+
         final ObjectEncoder objectEncoder = new ObjectEncoder();
 
         final ServerBootstrap _bootstrap = partialBootstrap.handler(new LoggingHandler(logger.getName() + ".listener"))

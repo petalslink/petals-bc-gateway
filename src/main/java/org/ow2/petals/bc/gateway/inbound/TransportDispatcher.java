@@ -22,6 +22,7 @@ import java.util.logging.Logger;
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.messages.TransportedAuthentication;
 import org.ow2.petals.bc.gateway.messages.TransportedException;
+import org.ow2.petals.bc.gateway.utils.LastLoggingHandler;
 import org.ow2.petals.commons.log.Level;
 
 import io.netty.channel.ChannelHandler.Sharable;
@@ -83,7 +84,7 @@ public class TransportDispatcher extends SimpleChannelInboundHandler<Transported
         pipeline.replace(this, "server", new TransportServer(logger, cd));
 
         pipeline.replace(TransportListener.LOG_ERRORS_HANDLER, TransportListener.LOG_ERRORS_HANDLER,
-                new LoggingHandler(logName + ".errors", LogLevel.ERROR));
+                new LastLoggingHandler(logName + ".errors"));
 
     }
 }

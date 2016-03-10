@@ -44,6 +44,7 @@ import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
+import org.ow2.petals.bc.gateway.utils.LastLoggingHandler;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
@@ -56,6 +57,7 @@ import com.ebmwebsourcing.easycommons.lang.UncheckedException;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
@@ -138,7 +140,7 @@ public class ProviderDomain extends AbstractDomain {
         }
 
         final LoggingHandler debugs = new LoggingHandler(logger.getName() + ".client", LogLevel.TRACE);
-        final LoggingHandler errors = new LoggingHandler(logger.getName() + ".errors", LogLevel.ERROR);
+        final ChannelHandler errors = new LastLoggingHandler(logger.getName() + ".errors");
         final ObjectEncoder objectEncoder = new ObjectEncoder();
 
         final Bootstrap _bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
@@ -371,6 +373,9 @@ public class ProviderDomain extends AbstractDomain {
 
     /**
      * Connect to the provider partner
+     * 
+     * TODO how to be sure the authentication succeeded?! because the connect, even if done sync, does not contain the
+     * auth (it is done after asynchronously...)
      */
     public void connect() {
         final Channel _channel;
