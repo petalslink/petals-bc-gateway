@@ -52,6 +52,8 @@ import org.ow2.petals.component.framework.util.ServiceEndpointKey;
 import org.ow2.petals.component.framework.util.WSDLUtilImpl;
 import org.w3c.dom.Document;
 
+import com.ebmwebsourcing.easycommons.lang.UncheckedException;
+
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
@@ -369,11 +371,15 @@ public class ProviderDomain extends AbstractDomain {
 
     /**
      * Connect to the provider partner
-     * 
-     * TODO how to ensure that connecting and authenticating worked or raised an exception if not?
      */
     public void connect() {
-        final Channel _channel = bootstrap.connect().channel();
+        final Channel _channel;
+        try {
+            // we must use sync so that we know if a problem arises
+            _channel = bootstrap.connect().sync().channel();
+        } catch (final InterruptedException e) {
+            throw new UncheckedException(e);
+        }
         assert _channel != null;
         channel = _channel;
     }
@@ -384,7 +390,12 @@ public class ProviderDomain extends AbstractDomain {
     public void disconnect() {
         final Channel _channel = this.channel;
         if (_channel != null && _channel.isOpen()) {
-            _channel.close();
+            try {
+                // we must use sync so that we know if a problem arises
+                _channel.close().sync();
+            } catch (final InterruptedException e) {
+                throw new UncheckedException(e);
+            }
             channel = null;
         }
     }

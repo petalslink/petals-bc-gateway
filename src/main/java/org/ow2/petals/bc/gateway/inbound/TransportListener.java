@@ -26,6 +26,8 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 
+import com.ebmwebsourcing.easycommons.lang.UncheckedException;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
@@ -97,18 +99,32 @@ public class TransportListener implements ConsumerAuthenticator {
     }
 
     /**
-     * TODO how to ensure that binding worked?
+     * Start listening
      */
     public void bind() {
-        final Channel _channel = bootstrap.bind().channel();
+        final Channel _channel;
+        try {
+            // we must use sync so that we know if a problem arises
+            _channel = bootstrap.bind().sync().channel();
+        } catch (final InterruptedException e) {
+            throw new UncheckedException(e);
+        }
         assert _channel != null;
         channel = _channel;
     }
 
+    /**
+     * Stop listening
+     */
     public void unbind() {
         final Channel _channel = channel;
         if (_channel != null && _channel.isOpen()) {
-            _channel.close();
+            try {
+                // we must use sync so that we know if a problem arises
+                _channel.close().sync();
+            } catch (final InterruptedException e) {
+                throw new UncheckedException(e);
+            }
             channel = null;
         }
     }
