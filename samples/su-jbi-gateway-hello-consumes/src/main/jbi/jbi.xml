@@ -14,6 +14,10 @@
          <jg:consumer domain="domain1" />
 
       </jbi:consumes>
+      
+      <jg:transport-listener id="default">
+         <jg:port>7500</jg:port>
+      </jg:transport-listener>
 
       <jg:consumer-domain id="domain1" transport="default">
          <jg:auth-name>Domain1Secret</jg:auth-name>

@@ -52,9 +52,5 @@
       <!-- Component specific configuration -->
       <jg:restrict-to-component-listeners />
       
-      <jg:transport-listener id="default">
-         <jg:port>7500</jg:port>
-      </jg:transport-listener>
-
    </jbi:component>
 </jbi:jbi>

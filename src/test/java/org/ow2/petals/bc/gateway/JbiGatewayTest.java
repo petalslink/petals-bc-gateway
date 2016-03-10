@@ -41,10 +41,15 @@ public class JbiGatewayTest extends AbstractComponentTest {
         assertTrue(COMPONENT_UNDER_TEST.isInstalled());
         assertTrue(COMPONENT_UNDER_TEST.isStarted());
 
-        assertFalse(available(TEST_TRANSPORT_PORT));
+        // used by TEST_TRANSPORT_NAME
+        assertTrue(available(TEST_TRANSPORT_PORT));
+        // used by TEST_TRANSPORT2_NAME
         assertFalse(available(DEFAULT_PORT));
 
         COMPONENT_UNDER_TEST.deployService(SU_CONSUMER_NAME, createHelloConsumes(true, true));
+
+        // used by TEST_TRANSPORT_NAME
+        assertFalse(available(TEST_TRANSPORT_PORT));
 
         assertTrue(COMPONENT_UNDER_TEST.isServiceDeployed(SU_CONSUMER_NAME));
     }

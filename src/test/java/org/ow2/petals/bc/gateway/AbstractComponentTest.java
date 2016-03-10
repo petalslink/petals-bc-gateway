@@ -91,6 +91,8 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
 
     protected static final String TEST_TRANSPORT_NAME = "test-transport";
 
+    protected static final String TEST_TRANSPORT2_NAME = "test-transport-default-port";
+
     protected static final String TEST_CONSUMER_DOMAIN = "test-consumer-domain";
 
     protected static final String TEST_AUTH_NAME = "test-auth-name";
@@ -108,9 +110,10 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
 
             final Element compo = getComponentElement(jbiDocument);
 
-            final Element transport = addElement(jbiDocument, compo, EL_TRANSPORT_LISTENER);
-            transport.setAttribute(ATTR_TRANSPORT_LISTENER_ID, TEST_TRANSPORT_NAME);
-            addElement(jbiDocument, transport, EL_TRANSPORT_LISTENER_PORT, "" + TEST_TRANSPORT_PORT);
+            final Element transport2 = addElement(jbiDocument, compo, EL_TRANSPORT_LISTENER);
+            transport2.setAttribute(ATTR_TRANSPORT_LISTENER_ID, TEST_TRANSPORT2_NAME);
+            // the element is needed even if without value!
+            addElement(jbiDocument, transport2, EL_TRANSPORT_LISTENER_PORT);
         }
     };
 
@@ -123,13 +126,17 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
     private static class EnsurePortsAreOK extends ExternalResource {
         @Override
         protected void before() throws Throwable {
+            // used by TEST_TRANSPORT_NAME
             assertTrue(available(TEST_TRANSPORT_PORT));
+            // used by TEST_TRANSPORT2_NAME
             assertTrue(available(DEFAULT_PORT));
         }
 
         @Override
         protected void after() {
+            // used by TEST_TRANSPORT_NAME
             assertTrue(available(TEST_TRANSPORT_PORT));
+            // used by TEST_TRANSPORT2_NAME
             assertTrue(available(DEFAULT_PORT));
         }
     }
@@ -238,6 +245,10 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
                 assert jbiDocument != null;
 
                 final Element services = getOrCreateServicesElement(jbiDocument);
+
+                final Element transport = addElement(jbiDocument, services, EL_TRANSPORT_LISTENER);
+                transport.setAttribute(ATTR_TRANSPORT_LISTENER_ID, TEST_TRANSPORT_NAME);
+                addElement(jbiDocument, transport, EL_TRANSPORT_LISTENER_PORT, "" + TEST_TRANSPORT_PORT);
 
                 final Element cDomain = addElement(jbiDocument, services, EL_CONSUMER_DOMAIN);
                 cDomain.setAttribute(ATTR_SERVICES_CONSUMER_DOMAIN_ID, TEST_CONSUMER_DOMAIN);
