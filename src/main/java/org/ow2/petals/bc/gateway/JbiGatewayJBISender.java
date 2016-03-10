@@ -39,6 +39,7 @@ import org.ow2.petals.component.framework.AbstractComponent;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.listener.AbstractListener;
 import org.ow2.petals.component.framework.process.async.AsyncContext;
+import org.ow2.petals.component.framework.process.async.AsyncMessageManager;
 
 import io.netty.channel.ChannelHandlerContext;
 
@@ -71,15 +72,39 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
         @SuppressWarnings("unchecked")
         final Set<String> oldProps = new HashSet<>(to.getPropertyNames());
         for (final String oldProp : oldProps) {
+            if (ignoreProperty(oldProp)) {
+                // TODO find a better solution...
+                // let's skip this one, we don't want to remove it!
+                continue;
+            }
             to.setProperty(oldProp, null);
         }
+
+        // and put all of those from the source exchange
+        setProperties(from, to);
+    }
+
+    private static void setProperties(final @Nullable MessageExchange from, final @Nullable MessageExchange to) {
+        assert from != null;
+        assert to != null;
 
         // and put all of those from the source exchange
         @SuppressWarnings("unchecked")
         final Set<String> props = from.getPropertyNames();
         for (final String prop : props) {
+            if (ignoreProperty(prop)) {
+                // TODO find a better solution...
+                // let's skip this one, we don't want to propagate it!
+                continue;
+            }
             to.setProperty(prop, from.getProperty(prop));
         }
+    }
+
+    private static boolean ignoreProperty(final String prop) {
+        return prop.startsWith("org.ow2.petals.microkernel.jbi.messaging.exchange.DeliveryChannelImpl.")
+                || prop.startsWith(AsyncMessageManager.ASYNC_MESSAGE_PROPERTY_PREFIX)
+                || prop.equals("javax.jbi.messaging.sendSync");
     }
 
     /**
@@ -124,7 +149,7 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
             final Exchange exchange = createExchange(service.interfaceName, service.service, service.endpointName,
                     hisMex.getPattern());
 
-            updateProperties(hisMex, exchange.getMessageExchange());
+            setProperties(hisMex, exchange.getMessageExchange());
 
             exchange.setOperation(hisMex.getOperation());
 
@@ -196,7 +221,6 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
 
         updateProperties(exchange.getMessageExchange(), hisMex);
 
-        // TODO what about properties?
         // Note: we do not verify the validity of the state/mep transitions!
         if (exchange.isErrorStatus()) {
             hisMex.setStatus(ExchangeStatus.ERROR);
