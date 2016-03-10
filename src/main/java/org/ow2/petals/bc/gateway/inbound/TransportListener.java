@@ -34,7 +34,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
-import io.netty.handler.codec.serialization.ClassResolvers;
+import io.netty.handler.codec.serialization.ClassResolver;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
 import io.netty.handler.logging.LogLevel;
@@ -74,7 +74,7 @@ public class TransportListener implements ConsumerAuthenticator {
     private final ConcurrentMap<String, ConsumerDomain> consumers = new ConcurrentHashMap<>();
 
     public TransportListener(final JbiTransportListener jtl,
-            final ServerBootstrap partialBootstrap, final Logger logger) {
+            final ServerBootstrap partialBootstrap, final Logger logger, final ClassResolver cr) {
         this.jtl = jtl;
 
         // shared between all the connections of this listener
@@ -92,7 +92,7 @@ public class TransportListener implements ConsumerAuthenticator {
                         final ChannelPipeline p = ch.pipeline();
                         p.addLast(LOG_DEBUG_HANDLER, debugs);
                         p.addLast(objectEncoder);
-                        p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
+                        p.addLast(new ObjectDecoder(cr));
                         p.addLast("dispatcher", dispatcher);
                         p.addLast(LOG_ERRORS_HANDLER, errors);
                     }

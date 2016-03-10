@@ -29,6 +29,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.jbi.JBIException;
+import javax.jbi.messaging.MessagingException;
 import javax.jbi.servicedesc.ServiceEndpoint;
 
 import org.eclipse.jdt.annotation.Nullable;
@@ -59,6 +60,8 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.serialization.ClassResolver;
+import io.netty.handler.codec.serialization.ClassResolvers;
 
 /**
  * There is one instance for the whole component. The class is declared in the jbi.xml.
@@ -147,7 +150,8 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         } catch (final MissingResourceException | JBIException e) {
             throw new PEtALSCDKException("Can't create logger", e);
         }
-        final ProviderDomain pd = new ProviderDomain(this, jpd, provides, getSender(), newClientBootstrap(), logger);
+        final ProviderDomain pd = new ProviderDomain(this, jpd, provides, getSender(), newClientBootstrap(), logger,
+                newClassResolver());
         // we need to store it to be able to start and stop with the component
         providers.add(pd);
         if (started) {
@@ -189,6 +193,27 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
                 .channel(NioServerSocketChannel.class);
         assert bootstrap != null;
         return bootstrap;
+    }
+
+    private ClassResolver newClassResolver() throws PEtALSCDKException {
+        final ClassLoader cl;
+        try {
+            cl = getChannel().createExchangeFactory().createInOnlyExchange().getClass().getClassLoader();
+        } catch (final MessagingException e) {
+            throw new PEtALSCDKException(e);
+        }
+        final ClassResolver cr = ClassResolvers.cacheDisabled(cl);
+        final ClassResolver mine = ClassResolvers.cacheDisabled(null);
+        return new ClassResolver() {
+            @Override
+            public @Nullable Class<?> resolve(final @Nullable String className) throws ClassNotFoundException {
+                try {
+                    return mine.resolve(className);
+                } catch (final ClassNotFoundException e) {
+                    return cr.resolve(className);
+                }
+            }
+        };
     }
 
     @Override
@@ -243,7 +268,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         } catch (final MissingResourceException | JBIException e) {
             throw new PEtALSCDKException("Can't create logger", e);
         }
-        final TransportListener tl = new TransportListener(jtl, newServerBootstrap(), logger);
+        final TransportListener tl = new TransportListener(jtl, newServerBootstrap(), logger, newClassResolver());
         if (listeners.putIfAbsent(getTransportListenerName(ownerSU, jtl.getId()), tl) != null) {
             throw new PEtALSCDKException(String.format("Duplicate transporter id '%s'", jtl.getId()));
         }

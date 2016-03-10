@@ -61,7 +61,7 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
-import io.netty.handler.codec.serialization.ClassResolvers;
+import io.netty.handler.codec.serialization.ClassResolver;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
 import io.netty.handler.logging.LogLevel;
@@ -129,7 +129,7 @@ public class ProviderDomain extends AbstractDomain {
 
     public ProviderDomain(final ProviderMatcher matcher, final JbiProviderDomain jpd,
             final Collection<Pair<Provides, JbiProvidesConfig>> provides, final JBISender sender,
-            final Bootstrap partialBootstrap, final Logger logger) throws PEtALSCDKException {
+            final Bootstrap partialBootstrap, final Logger logger, final ClassResolver cr) throws PEtALSCDKException {
         super(sender, logger);
         this.matcher = matcher;
         this.jpd = jpd;
@@ -151,7 +151,7 @@ public class ProviderDomain extends AbstractDomain {
                 final ChannelPipeline p = ch.pipeline();
                 p.addFirst("log-debug", debugs);
                 p.addLast(objectEncoder);
-                p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
+                p.addLast(new ObjectDecoder(cr));
                 p.addLast("init", new TransportInitClient(logger, ProviderDomain.this));
                 p.addLast("log-errors", errors);
             }

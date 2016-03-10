@@ -94,11 +94,6 @@
          <groupId>org.jvnet.jaxb2_commons</groupId>
          <artifactId>jaxb2-basics-runtime</artifactId>
       </dependency>
-      <dependency>
-         <groupId>org.ow2.petals</groupId>
-         <artifactId>petals-message-exchange</artifactId>
-         <version>1.2.4-SNAPSHOT</version>
-      </dependency>
       <!-- Code quality dependencies -->
       <dependency>
          <groupId>org.eclipse.jdt</groupId>
@@ -166,8 +161,6 @@
                   <configuration>
                      <usedDependencies>
                         <usedDependency>org.javassist:javassist</usedDependency>
-                        <!-- This is needed to deserialize the exchange sent over the wire! -->
-                        <usedDependency>org.ow2.petals:petals-message-exchange</usedDependency>
                      </usedDependencies>
                   </configuration>
                </execution>
