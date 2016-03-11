@@ -17,7 +17,6 @@
  */
 package org.ow2.petals.bc.gateway.outbound;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -36,7 +35,6 @@ import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.easywsdl.wsdl.api.WSDLException;
-import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
 import org.ow2.petals.bc.gateway.AbstractDomain;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
@@ -454,27 +452,22 @@ public class ProviderDomain extends AbstractDomain {
     @Override
     protected void logBeforeSendingToNMR(TransportedMessage m) {
         if (!(m instanceof TransportedNewMessage)) {
-            final URI pattern = m.exchange.getPattern();
-            final boolean hasOut = m.exchange.getMessage(Exchange.OUT_MESSAGE_NAME) != null;
-            final boolean hasFault = m.exchange.getFault() != null;
+            // the message contains the FA we created before sending it as a TransportedNewMessage in send
 
-            // in all the other case, we are acting as a consumer partner (in a ProviderDomain object) and this is the
+            // we are acting as a consumer partner (in a ProviderDomain object) and this is the
             // end of provides ext that started in ProviderDomain.send
-            if (!(MEPPatternConstants.IN_OPTIONAL_OUT.equals(pattern) && hasFault && hasOut)) {
-                // the message contains the FA we created before sending it as a TransportedNewMessage in send
-                // TODO factorise this in Utils!!!
-                if (m.exchange.getStatus() == ExchangeStatus.ERROR) {
-                    logger.log(Level.MONIT, "", new ProvideExtFlowStepFailureLogData(
-                            m.flowAttributes.getFlowInstanceId(), m.flowAttributes.getFlowStepId(),
-                            String.format(Utils.TECHNICAL_ERROR_MESSAGE_PATTERN, m.exchange.getError().getMessage())));
-                } else if (m.exchange.getFault() != null) {
-                    logger.log(Level.MONIT, "",
-                            new ProvideExtFlowStepFailureLogData(m.flowAttributes.getFlowInstanceId(),
-                                    m.flowAttributes.getFlowStepId(), Utils.BUSINESS_ERROR_MESSAGE));
-                } else {
-                    logger.log(Level.MONIT, "", new ProvideExtFlowStepEndLogData(m.flowAttributes.getFlowInstanceId(),
-                            m.flowAttributes.getFlowStepId()));
-                }
+
+            // TODO factorise this in Utils!!!
+            if (m.exchange.getStatus() == ExchangeStatus.ERROR) {
+                logger.log(Level.MONIT, "", new ProvideExtFlowStepFailureLogData(m.flowAttributes.getFlowInstanceId(),
+                        m.flowAttributes.getFlowStepId(),
+                        String.format(Utils.TECHNICAL_ERROR_MESSAGE_PATTERN, m.exchange.getError().getMessage())));
+            } else if (m.exchange.getFault() != null) {
+                logger.log(Level.MONIT, "", new ProvideExtFlowStepFailureLogData(m.flowAttributes.getFlowInstanceId(),
+                        m.flowAttributes.getFlowStepId(), Utils.BUSINESS_ERROR_MESSAGE));
+            } else {
+                logger.log(Level.MONIT, "", new ProvideExtFlowStepEndLogData(m.flowAttributes.getFlowInstanceId(),
+                        m.flowAttributes.getFlowStepId()));
             }
         }
     }

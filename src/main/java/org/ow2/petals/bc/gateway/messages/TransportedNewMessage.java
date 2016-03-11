@@ -28,6 +28,6 @@ public class TransportedNewMessage extends TransportedMessage implements Transpo
 
     public TransportedNewMessage(final ServiceKey service, final FlowAttributes flowAttributes,
             final MessageExchange exchange) {
-        super(service, flowAttributes, exchange.getExchangeId(), exchange);
+        super(service, flowAttributes, exchange.getExchangeId(), exchange, 1);
     }
 }

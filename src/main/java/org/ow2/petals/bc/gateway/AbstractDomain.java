@@ -79,7 +79,11 @@ public abstract class AbstractDomain {
 
     private void sendToNMR(final ChannelHandlerContext ctx, final TransportedMessage m,
             final @Nullable Exchange exchange) {
-        logBeforeSendingToNMR(m);
+
+        if (m.step < 3) {
+            // the MONIT log only make sense for the first and second steps of an exchange
+            logBeforeSendingToNMR(m);
+        }
 
         this.sender.sendToNMR(getContext(this, ctx, m), exchange);
     }
@@ -114,8 +118,8 @@ public abstract class AbstractDomain {
     private void sendFromNMRToChannel(final ChannelHandlerContext ctx, final TransportedMessage m,
             final Exception e) {
 
-        // for the other it is not needed
-        if (m instanceof TransportedNewMessage) {
+        // the end of the one started in ConsumerDomain.logBeforeSendingToNMR
+        if (m.step == 1) {
             Utils.addMonitFailureTrace(logger, PetalsExecutionContext.getFlowAttributes(), e.getMessage(),
                     Role.CONSUMER);
         }
@@ -137,8 +141,8 @@ public abstract class AbstractDomain {
             final Exchange exchange) {
         assert !(m instanceof TransportedLastMessage);
 
-        // for the other it is not needed
-        if (m instanceof TransportedNewMessage) {
+        // the end of the one started in ConsumerDomain.logBeforeSendingToNMR
+        if (m.step == 1) {
             Utils.addMonitEndOrFailureTrace(logger, exchange, PetalsExecutionContext.getFlowAttributes());
         }
 
@@ -156,8 +160,8 @@ public abstract class AbstractDomain {
 
     private void sendTimeoutFromNMRToChannel(final ChannelHandlerContext ctx, final TransportedMessage m) {
 
-        // for the other it is not needed
-        if (m instanceof TransportedNewMessage) {
+        // the end of the one started in ConsumerDomain.logBeforeSendingToNMR
+        if (m.step == 1) {
             Utils.addMonitFailureTrace(logger, PetalsExecutionContext.getFlowAttributes(), "Timeout on the other side",
                     Role.CONSUMER);
         }
