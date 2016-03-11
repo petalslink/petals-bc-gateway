@@ -229,13 +229,14 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
             hisMex.setStatus(ExchangeStatus.ERROR);
             hisMex.setError(exchange.getError());
         } else if (exchange.isDoneStatus()) {
-            // for InOnly, RobustInOnly and InOptOnly (2nd or 4th part)
+            // for InOnly, RobustInOnly and InOptOnly (2nd, 3rd or 4th part)
             hisMex.setStatus(ExchangeStatus.DONE);
-        } else if (exchange.getFault() != null) {
-            // for RobustInOnly, InOut and InOptOnly
+        } else if (exchange.isFaultMessage()) {
+            // for RobustInOnly, InOut and InOptOut (2nd or 3rd part)
             hisMex.setFault(exchange.getFault());
         } else {
-            // for InOut and InOptOnly (all other cases will be covered by previous tests)
+            // for InOut and InOptOnly (2nd part)
+            // (all other cases are covered by previous tests)
             hisMex.setMessage(exchange.getOutMessage(), Exchange.OUT_MESSAGE_NAME);
         }
 
