@@ -30,9 +30,11 @@ import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedMiddleMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedTimeout;
+import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.message.Exchange;
+import org.ow2.petals.component.framework.logger.ProvideExtFlowStepFailureLogData;
 import org.ow2.petals.component.framework.logger.Utils;
 
 import io.netty.channel.ChannelHandlerContext;
@@ -112,12 +114,15 @@ public abstract class AbstractDomain {
 
         logger.log(Level.FINE, "Exception caught", e);
 
+        final Transported msg;
         if (m instanceof TransportedLastMessage) {
-            ctx.writeAndFlush(new TransportedException(e), ctx.voidPromise());
+            msg = new TransportedException(e);
         } else {
             m.exchange.setError(e);
-            ctx.writeAndFlush(new TransportedLastMessage(m, m.exchange), ctx.voidPromise());
+            msg = new TransportedLastMessage(m, m.exchange);
         }
+
+        sendToChannel(ctx, msg);
     }
 
     private void sendFromNMRToChannel(final ChannelHandlerContext ctx, final TransportedMessage m,
@@ -129,12 +134,15 @@ public abstract class AbstractDomain {
             Utils.addMonitEndOrFailureTrace(logger, exchange, PetalsExecutionContext.getFlowAttributes());
         }
 
+        final TransportedMessage msg;
         if (exchange.isActiveStatus()) {
+            msg = new TransportedMiddleMessage(m, exchange.getMessageExchange());
             // we will be expecting an answer
-            sendToChannel(ctx, new TransportedMiddleMessage(m, exchange.getMessageExchange()), exchange);
         } else {
-            sendToChannel(ctx, new TransportedLastMessage(m, exchange.getMessageExchange()), exchange);
+            msg = new TransportedLastMessage(m, exchange.getMessageExchange());
         }
+
+        sendToChannel(ctx, msg, exchange);
     }
 
 
@@ -146,7 +154,9 @@ public abstract class AbstractDomain {
                     Role.CONSUMER);
         }
 
-        sendToChannel(ctx, new TransportedTimeout(m));
+        final Transported msg = new TransportedTimeout(m);
+
+        sendToChannel(ctx, msg);
     }
 
     protected void sendToChannel(final ChannelHandlerContext ctx, final TransportedMessage m, final Exchange exchange) {
@@ -165,9 +175,13 @@ public abstract class AbstractDomain {
     }
 
     public void timeoutReceived(final TransportedTimeout m) {
-        if (exchangesInProgress.remove(m.exchangeId) == null) {
-            this.logger.severe(
-                    "Tried to remove " + m.exchangeId + " because of timeout from channel, but nothing was removed");
+        final Exchange removed = exchangesInProgress.remove(m.exchangeId);
+        assert removed != null;
+        
+        if (this instanceof ProviderDomain
+                && !(removed.isInOptionalOutPattern() && removed.isOutMessage() && removed.isFaultMessage())) {
+            logger.log(Level.MONIT, "", new ProvideExtFlowStepFailureLogData(m.flowAttributes.getFlowInstanceId(),
+                    m.flowAttributes.getFlowStepId(), "Timeout on the other side"));
         }
     }
 }
