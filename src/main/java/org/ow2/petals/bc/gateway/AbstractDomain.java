@@ -23,6 +23,7 @@ import java.util.logging.Logger;
 
 import javax.jbi.messaging.MessageExchange.Role;
 
+import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.messages.Transported;
 import org.ow2.petals.bc.gateway.messages.TransportedException;
 import org.ow2.petals.bc.gateway.messages.TransportedLastMessage;
@@ -37,6 +38,8 @@ import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.logger.ProvideExtFlowStepFailureLogData;
 import org.ow2.petals.component.framework.logger.Utils;
 
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 
 public abstract class AbstractDomain {
@@ -71,6 +74,11 @@ public abstract class AbstractDomain {
             assert exchange != null;
         }
 
+        sendToNMR(ctx, m, exchange);
+    }
+
+    private void sendToNMR(final ChannelHandlerContext ctx, final TransportedMessage m,
+            final @Nullable Exchange exchange) {
         beforeSendingToNMR(m);
 
         this.sender.sendToNMR(getContext(this, ctx, m), exchange);
@@ -154,9 +162,7 @@ public abstract class AbstractDomain {
                     Role.CONSUMER);
         }
 
-        final Transported msg = new TransportedTimeout(m);
-
-        sendToChannel(ctx, msg);
+        sendToChannel(ctx, new TransportedTimeout(m));
     }
 
     protected void sendToChannel(final ChannelHandlerContext ctx, final TransportedMessage m, final Exchange exchange) {
@@ -169,9 +175,34 @@ public abstract class AbstractDomain {
     }
 
     private void sendToChannel(final ChannelHandlerContext ctx, final Transported m) {
-        // TODO couldn't make exceptions be logged by the channel without using this voidPromise...
-        // TODO We need to take care what happens in case of error: logging flow error for example, returning error too!
-        ctx.writeAndFlush(m, ctx.voidPromise());
+        ctx.writeAndFlush(m).addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(final @Nullable ChannelFuture future) throws Exception {
+                assert future != null;
+                // TODO add tests for these use cases!
+                if (!future.isSuccess()) {
+                    final Throwable cause = future.cause();
+                    // TODO is the channel notified of the error too?
+                    if (m instanceof TransportedMessage && !(m instanceof TransportedLastMessage)
+                            && cause instanceof Exception) {
+                        final TransportedMessage tm = (TransportedMessage) m;
+                        // TODO what about the other side waiting for this exchange?!
+                        final Exchange exchange = exchangesInProgress.remove(tm.exchangeId);
+                        assert exchange != null;
+                        exchange.setError((Exception) cause);
+                        final TransportedLastMessage tlm = new TransportedLastMessage(tm,
+                                exchange.getMessageExchange());
+                        // TODO I logged ConsumeExtEnd/Failure in the sendFromNMRToChannel methods, but now, should I
+                        // have logged instead this error?! (in ConsumerDomain.beforeSendingToNMR)
+                        // TODO if this fail, the channel will get notified again and this will form a loop...
+                        sendToNMR(ctx, tlm, exchange);
+                    } else {
+                        logger.log(Level.WARNING, "Can't send message over the channel but nothing I can do now: " + m,
+                                cause);
+                    }
+                }
+            }
+        });
     }
 
     public void timeoutReceived(final TransportedTimeout m) {

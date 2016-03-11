@@ -113,6 +113,9 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
      * 
      * As consumer partner (so called by {@link ProviderDomain}): this handle the second and fourth (in case of
      * InOutOnly) parts of an exchange, i.e., when we receive answers from a provider partner.
+     * 
+     * TODO this is not so good... it relies both on the {@link TransportedMessage} and the {@link Exchange} to know
+     * what to do... maybe move the convert logic to {@link AbstractDomain} instead?
      */
     @Override
     public void sendToNMR(final DomainContext ctx, final @Nullable Exchange exchange) {
