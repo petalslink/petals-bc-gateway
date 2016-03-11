@@ -21,7 +21,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 
-import javax.jbi.messaging.ExchangeStatus;
 import javax.jbi.messaging.MessageExchange.Role;
 
 import org.ow2.petals.bc.gateway.messages.Transported;
@@ -31,16 +30,10 @@ import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedMiddleMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedTimeout;
-import org.ow2.petals.bc.gateway.utils.JbiGatewayConsumeExtFlowStepBeginLogData;
-import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.message.Exchange;
-import org.ow2.petals.component.framework.logger.ProvideExtFlowStepEndLogData;
-import org.ow2.petals.component.framework.logger.ProvideExtFlowStepFailureLogData;
 import org.ow2.petals.component.framework.logger.Utils;
-
-import com.ebmwebsourcing.easycommons.lang.StringHelper;
 
 import io.netty.channel.ChannelHandlerContext;
 
@@ -70,44 +63,18 @@ public abstract class AbstractDomain {
         final Exchange exchange;
         if (m instanceof TransportedNewMessage) {
             exchange = null;
-
-            // acting as a provider partner, a new consumes ext starts here
-
-            // let's start a new step (it will for example be used to create the new exchange later)
-            final FlowAttributes fa = PetalsExecutionContext.nextFlowStepId();
-
-            logger.log(Level.MONIT, "",
-                    new JbiGatewayConsumeExtFlowStepBeginLogData(fa, StringHelper.nonNullValue(m.service.interfaceName),
-                            StringHelper.nonNullValue(m.service.service),
-                            StringHelper.nonNullValue(m.service.endpointName),
-                            StringHelper.nonNullValue(m.exchange.getOperation()), m.flowAttributes.getFlowStepId()));
         } else {
             // we remove it now, if it has to come back (normally for InOptOut fault after out) it will be put back
             exchange = exchangesInProgress.remove(exchangeId);
             assert exchange != null;
-
-            // in all the other case, we are acting as a consumer partner (in a ProviderDomain object) and this is the
-            // end of provides ext that started in ProviderDomain.send
-            if (!(exchange.isInOptionalOutPattern() && exchange.getFault() != null && exchange.isOutMessage())) {
-                // the message contains the FA we created before sending it as a TransportedNewMessage
-                // TODO factorise this in Utils!!!
-                if (m.exchange.getStatus() == ExchangeStatus.ERROR) {
-                    logger.log(Level.MONIT, "", new ProvideExtFlowStepFailureLogData(
-                            m.flowAttributes.getFlowInstanceId(), m.flowAttributes.getFlowStepId(),
-                            String.format(Utils.TECHNICAL_ERROR_MESSAGE_PATTERN, m.exchange.getError().getMessage())));
-                } else if (m.exchange.getFault() != null) {
-                    logger.log(Level.MONIT, "", new ProvideExtFlowStepFailureLogData(
-                            m.flowAttributes.getFlowInstanceId(), m.flowAttributes.getFlowStepId(),
-                            Utils.BUSINESS_ERROR_MESSAGE));
-                } else {
-                    logger.log(Level.MONIT, "", new ProvideExtFlowStepEndLogData(m.flowAttributes.getFlowInstanceId(),
-                            m.flowAttributes.getFlowStepId()));
-                }
-            }
         }
+
+        beforeSendingToNMR(m);
 
         this.sender.sendToNMR(getContext(this, ctx, m), exchange);
     }
+
+    protected abstract void beforeSendingToNMR(TransportedMessage m);
 
     private static DomainContext getContext(final AbstractDomain domain, final ChannelHandlerContext ctx,
             final TransportedMessage m) {

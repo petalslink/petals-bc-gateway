@@ -17,6 +17,7 @@
  */
 package org.ow2.petals.bc.gateway.outbound;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -29,16 +30,19 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Logger;
 
+import javax.jbi.messaging.ExchangeStatus;
 import javax.jbi.messaging.MessageExchange;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.easywsdl.wsdl.api.WSDLException;
+import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
 import org.ow2.petals.bc.gateway.AbstractDomain;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
+import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
@@ -51,6 +55,9 @@ import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.logger.ProvideExtFlowStepBeginLogData;
+import org.ow2.petals.component.framework.logger.ProvideExtFlowStepEndLogData;
+import org.ow2.petals.component.framework.logger.ProvideExtFlowStepFailureLogData;
+import org.ow2.petals.component.framework.logger.Utils;
 import org.ow2.petals.component.framework.util.EndpointUtil;
 import org.ow2.petals.component.framework.util.ServiceEndpointKey;
 import org.ow2.petals.component.framework.util.WSDLUtilImpl;
@@ -442,5 +449,33 @@ public class ProviderDomain extends AbstractDomain {
     public void close() {
         // this is like a disconnect... but emanating from the other side
         // TODO what should I do? the same as with shutdown()?
+    }
+
+    @Override
+    protected void beforeSendingToNMR(TransportedMessage m) {
+        if (!(m instanceof TransportedNewMessage)) {
+            final URI pattern = m.exchange.getPattern();
+            final boolean hasOut = m.exchange.getMessage(Exchange.OUT_MESSAGE_NAME) != null;
+            final boolean hasFault = m.exchange.getFault() != null;
+
+            // in all the other case, we are acting as a consumer partner (in a ProviderDomain object) and this is the
+            // end of provides ext that started in ProviderDomain.send
+            if (!(MEPPatternConstants.IN_OPTIONAL_OUT.equals(pattern) && hasFault && hasOut)) {
+                // the message contains the FA we created before sending it as a TransportedNewMessage in send
+                // TODO factorise this in Utils!!!
+                if (m.exchange.getStatus() == ExchangeStatus.ERROR) {
+                    logger.log(Level.MONIT, "", new ProvideExtFlowStepFailureLogData(
+                            m.flowAttributes.getFlowInstanceId(), m.flowAttributes.getFlowStepId(),
+                            String.format(Utils.TECHNICAL_ERROR_MESSAGE_PATTERN, m.exchange.getError().getMessage())));
+                } else if (m.exchange.getFault() != null) {
+                    logger.log(Level.MONIT, "",
+                            new ProvideExtFlowStepFailureLogData(m.flowAttributes.getFlowInstanceId(),
+                                    m.flowAttributes.getFlowStepId(), Utils.BUSINESS_ERROR_MESSAGE));
+                } else {
+                    logger.log(Level.MONIT, "", new ProvideExtFlowStepEndLogData(m.flowAttributes.getFlowInstanceId(),
+                            m.flowAttributes.getFlowStepId()));
+                }
+            }
+        }
     }
 }

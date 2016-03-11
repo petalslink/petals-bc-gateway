@@ -29,7 +29,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.jbi.JBIException;
@@ -42,11 +41,19 @@ import org.ow2.petals.bc.gateway.AbstractDomain;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
+import org.ow2.petals.bc.gateway.messages.TransportedMessage;
+import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
+import org.ow2.petals.bc.gateway.utils.JbiGatewayConsumeExtFlowStepBeginLogData;
+import org.ow2.petals.commons.log.FlowAttributes;
+import org.ow2.petals.commons.log.Level;
+import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.w3c.dom.Document;
+
+import com.ebmwebsourcing.easycommons.lang.StringHelper;
 
 import io.netty.channel.ChannelHandlerContext;
 
@@ -259,5 +266,22 @@ public class ConsumerDomain extends AbstractDomain {
         logger.log(Level.WARNING,
                 "Received an exeception from the other side, this is purely informative, we can't do anything about it",
                 msg);
+    }
+
+    @Override
+    protected void beforeSendingToNMR(final TransportedMessage m) {
+
+        if (m instanceof TransportedNewMessage) {
+            // acting as a provider partner, a new consumes ext starts here
+
+            // let's start a new step (it will for example be used to create the new exchange later)
+            final FlowAttributes fa = PetalsExecutionContext.nextFlowStepId();
+
+            logger.log(Level.MONIT, "",
+                    new JbiGatewayConsumeExtFlowStepBeginLogData(fa, StringHelper.nonNullValue(m.service.interfaceName),
+                            StringHelper.nonNullValue(m.service.service),
+                            StringHelper.nonNullValue(m.service.endpointName),
+                            StringHelper.nonNullValue(m.exchange.getOperation()), m.flowAttributes.getFlowStepId()));
+        }
     }
 }
