@@ -29,7 +29,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Logger;
 
-import javax.jbi.messaging.ExchangeStatus;
 import javax.jbi.messaging.MessageExchange;
 import javax.xml.namespace.QName;
 
@@ -40,10 +39,12 @@ import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
+import org.ow2.petals.bc.gateway.messages.TransportedForService;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
+import org.ow2.petals.bc.gateway.messages.TransportedTimeout;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.bc.gateway.utils.LastLoggingHandler;
 import org.ow2.petals.commons.log.FlowAttributes;
@@ -53,9 +54,8 @@ import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.logger.ProvideExtFlowStepBeginLogData;
-import org.ow2.petals.component.framework.logger.ProvideExtFlowStepEndLogData;
-import org.ow2.petals.component.framework.logger.ProvideExtFlowStepFailureLogData;
 import org.ow2.petals.component.framework.logger.Utils;
+import org.ow2.petals.component.framework.message.ExchangeImpl;
 import org.ow2.petals.component.framework.util.EndpointUtil;
 import org.ow2.petals.component.framework.util.ServiceEndpointKey;
 import org.ow2.petals.component.framework.util.WSDLUtilImpl;
@@ -296,8 +296,8 @@ public class ProviderDomain extends AbstractDomain {
 
         final ProviderService ps = new ProviderService() {
             @Override
-            public void send(final Exchange exchange) {
-                ProviderDomain.this.send(sk, exchange);
+            public void sendToChannel(final Exchange exchange) {
+                ProviderDomain.this.sendToChannel(sk, exchange);
             }
         };
 
@@ -365,21 +365,12 @@ public class ProviderDomain extends AbstractDomain {
      * 
      * 3rd is taken care of by {@link AbstractDomain}.
      */
-    public void send(final ServiceKey service, final Exchange exchange) {
+    private void sendToChannel(final ServiceKey service, final Exchange exchange) {
         final MessageExchange mex = exchange.getMessageExchange();
         assert mex != null;
 
-        // step for this provides, different from the one in the exchange!
-        final FlowAttributes fa = PetalsExecutionContext.getFlowAttributes();
-
         // step for the external call
         final FlowAttributes extFa = PetalsExecutionContext.nextFlowStepId();
-
-        // TODO can I use this logger for that?!
-        logger.log(Level.MONIT, "", new ProvideExtFlowStepBeginLogData(extFa.getFlowInstanceId(), fa.getFlowStepId(),
-                extFa.getFlowStepId()));
-
-        // TODO log on error and send it back! see sendToChannel in motherClass
 
         final TransportedNewMessage m = new TransportedNewMessage(service, extFa, mex);
         final Channel channel = this.channel;
@@ -426,12 +417,6 @@ public class ProviderDomain extends AbstractDomain {
         }
     }
 
-    public void exceptionReceived(final Exception msg) {
-        logger.log(Level.WARNING,
-                "Received an exeception from the other side, this is purely informative, we can't do anything about it",
-                msg);
-    }
-
     public String getName() {
         final String id = jpd.getId();
         assert id != null;
@@ -450,24 +435,30 @@ public class ProviderDomain extends AbstractDomain {
     }
 
     @Override
-    protected void logBeforeSendingToNMR(TransportedMessage m) {
-        if (!(m instanceof TransportedNewMessage)) {
-            // the message contains the FA we created before sending it as a TransportedNewMessage in send
+    protected void logAfterReceivingFromChannel(final TransportedForService m) {
+        if (m.step == 2) {
+            if (m instanceof TransportedMessage) {
+                final TransportedMessage tm = (TransportedMessage) m;
+                // the message contains the FA we created before sending it as a TransportedNewMessage in send
 
-            // we are acting as a consumer partner (in a ProviderDomain object) and this is the
-            // end of provides ext that started in ProviderDomain.send
+                // this is the end of provides ext that started in ProviderDomain.send
+                Utils.addMonitEndOrFailureTrace(logger, new ExchangeImpl(tm.exchange),
+                        PetalsExecutionContext.getFlowAttributes());
+            } else if (m instanceof TransportedTimeout) {
+                Utils.addMonitFailureTrace(logger, PetalsExecutionContext.getFlowAttributes(),
+                        "A timeout happened while the JBI Gateway sent an exchange to a JBI service");
+            }
+        }
+    }
 
-            // TODO factorise this in Utils!!!
-            if (m.exchange.getStatus() == ExchangeStatus.ERROR) {
-                logger.log(Level.MONIT, "", new ProvideExtFlowStepFailureLogData(m.flowAttributes.getFlowInstanceId(),
-                        m.flowAttributes.getFlowStepId(),
-                        String.format(Utils.TECHNICAL_ERROR_MESSAGE_PATTERN, m.exchange.getError().getMessage())));
-            } else if (m.exchange.getFault() != null) {
-                logger.log(Level.MONIT, "", new ProvideExtFlowStepFailureLogData(m.flowAttributes.getFlowInstanceId(),
-                        m.flowAttributes.getFlowStepId(), Utils.BUSINESS_ERROR_MESSAGE));
-            } else {
-                logger.log(Level.MONIT, "", new ProvideExtFlowStepEndLogData(m.flowAttributes.getFlowInstanceId(),
-                        m.flowAttributes.getFlowStepId()));
+    @Override
+    protected void logBeforeSendingToChannel(final TransportedForService m) {
+        if (m instanceof TransportedMessage) {
+            final TransportedMessage tm = (TransportedMessage) m;
+            if (tm.step == 1) {
+                final FlowAttributes fa = PetalsExecutionContext.getFlowAttributes();
+                logger.log(Level.MONIT, "", new ProvideExtFlowStepBeginLogData(fa.getFlowInstanceId(),
+                        PetalsExecutionContext.getPreviousFlowStepId(), fa.getFlowStepId()));
             }
         }
     }

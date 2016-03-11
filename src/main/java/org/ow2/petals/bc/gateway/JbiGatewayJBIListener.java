@@ -51,7 +51,7 @@ public class JbiGatewayJBIListener extends AbstractJBIListener {
             final ServiceEndpointKey key = new ServiceEndpointKey(exchange.getEndpoint());
             final ProviderService ps = getComponent().matches(key);
             if (ps != null) {
-                ps.send(exchange);
+                ps.sendToChannel(exchange);
             } else {
                 // TODO this should not happen... it is not for us!
             }

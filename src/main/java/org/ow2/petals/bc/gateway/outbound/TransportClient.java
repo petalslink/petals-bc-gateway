@@ -21,11 +21,9 @@ import java.util.logging.Logger;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
-import org.ow2.petals.bc.gateway.messages.TransportedException;
-import org.ow2.petals.bc.gateway.messages.TransportedMessage;
+import org.ow2.petals.bc.gateway.messages.TransportedForService;
 import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
-import org.ow2.petals.bc.gateway.messages.TransportedTimeout;
 import org.ow2.petals.commons.log.Level;
 
 import io.netty.channel.ChannelHandlerContext;
@@ -61,16 +59,14 @@ public class TransportClient extends SimpleChannelInboundHandler<TransportedToCo
         assert ctx != null;
         assert msg != null;
 
-        if (msg instanceof TransportedException) {
-            pd.exceptionReceived(((TransportedException) msg));
-        } else if (msg instanceof TransportedMessage) {
+        if (msg instanceof TransportedForService) {
             // this can't happen, we are the one sending new exchanges!
             assert !(msg instanceof TransportedNewMessage);
-            pd.sendFromChannelToNMR(ctx, (TransportedMessage) msg);
-        } else if (msg instanceof TransportedTimeout) {
-            pd.timeoutReceived((TransportedTimeout) msg);
+            pd.receiveFromChannel(ctx, (TransportedForService) msg);
         } else if (msg instanceof TransportedPropagatedConsumesList) {
             pd.updatePropagatedServices((TransportedPropagatedConsumesList) msg);
+        } else {
+            throw new IllegalArgumentException("Impossible case");
         }
     }
 

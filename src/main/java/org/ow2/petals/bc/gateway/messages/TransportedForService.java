@@ -39,10 +39,13 @@ public abstract class TransportedForService implements Transported {
      */
     public final FlowAttributes flowAttributes;
 
+    public final int step;
+
     public TransportedForService(final ServiceKey service, final FlowAttributes flowAttributes,
-            final String exchangeId) {
+            final String exchangeId, final int step) {
         this.service = service;
         this.exchangeId = exchangeId;
         this.flowAttributes = flowAttributes;
+        this.step = step;
     }
 }

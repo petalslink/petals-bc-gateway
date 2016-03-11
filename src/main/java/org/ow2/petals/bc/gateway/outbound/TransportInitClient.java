@@ -25,9 +25,10 @@ import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
 import org.ow2.petals.commons.log.Level;
 
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.util.ReferenceCountUtil;
 
-public class TransportInitClient extends SimpleChannelInboundHandler<TransportedPropagatedConsumesList> {
+public class TransportInitClient extends ChannelInboundHandlerAdapter {
 
     private final ProviderDomain pd;
 
@@ -51,14 +52,24 @@ public class TransportInitClient extends SimpleChannelInboundHandler<Transported
     }
 
     @Override
-    protected void channelRead0(final @Nullable ChannelHandlerContext ctx,
-            final @Nullable TransportedPropagatedConsumesList msg) throws Exception {
+    public void channelRead(final @Nullable ChannelHandlerContext ctx, final @Nullable Object msg) throws Exception {
         assert msg != null;
         assert ctx != null;
 
-        pd.updatePropagatedServices(msg);
+        try {
+            if (msg instanceof TransportedPropagatedConsumesList) {
+                pd.updatePropagatedServices((TransportedPropagatedConsumesList) msg);
 
-        // use replace because we want the logger to be last
-        ctx.pipeline().replace(this, "client", new TransportClient(logger, pd));
+                // use replace because we want the logger to be last
+                ctx.pipeline().replace(this, "client", new TransportClient(logger, pd));
+            } else if (msg instanceof String) {
+                logger.severe("Authentication failed: " + msg);
+            } else {
+                // TODO is that the correct way?
+                throw new IllegalArgumentException("Impossible");
+            }
+        } finally {
+            ReferenceCountUtil.release(msg);
+        }
     }
 }

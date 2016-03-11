@@ -21,6 +21,6 @@ import org.ow2.petals.component.framework.api.message.Exchange;
 
 public interface ProviderService {
 
-    void send(Exchange exchange);
+    void sendToChannel(Exchange exchange);
 
 }

@@ -21,7 +21,6 @@ import java.util.logging.Logger;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.messages.TransportedAuthentication;
-import org.ow2.petals.bc.gateway.messages.TransportedException;
 import org.ow2.petals.bc.gateway.utils.LastLoggingHandler;
 import org.ow2.petals.commons.log.Level;
 
@@ -66,7 +65,7 @@ public class TransportDispatcher extends SimpleChannelInboundHandler<Transported
 
         // accept corresponds to validate that the current transport can be used for this consumer partner
         if (cd == null) {
-            ctx.writeAndFlush(new TransportedException(String.format("Unauthorised auth-name '%s'", msg.authName)));
+            ctx.writeAndFlush(String.format("Unauthorised auth-name '%s'", msg.authName));
             ctx.close();
             return;
         }

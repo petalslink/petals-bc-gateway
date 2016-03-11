@@ -48,13 +48,10 @@ public abstract class TransportedMessage extends TransportedForService {
     @SuppressWarnings("squid:S1948")
     public final MessageExchange exchange;
 
-    public final int step;
-
     public TransportedMessage(final ServiceKey service, final FlowAttributes flowAttributes, final String exchangeId,
             final MessageExchange exchange, final int step) {
-        super(service, flowAttributes, exchangeId);
+        super(service, flowAttributes, exchangeId, step);
         this.exchange = exchange;
-        this.step = step;
     }
 
     public TransportedMessage(final TransportedMessage m, final MessageExchange exchange) {

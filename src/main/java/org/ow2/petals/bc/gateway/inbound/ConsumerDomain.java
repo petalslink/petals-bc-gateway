@@ -41,16 +41,19 @@ import org.ow2.petals.bc.gateway.AbstractDomain;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
+import org.ow2.petals.bc.gateway.messages.TransportedForService;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
-import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
+import org.ow2.petals.bc.gateway.messages.TransportedTimeout;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayConsumeExtFlowStepBeginLogData;
 import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
+import org.ow2.petals.component.framework.logger.Utils;
+import org.ow2.petals.component.framework.message.ExchangeImpl;
 import org.w3c.dom.Document;
 
 import com.ebmwebsourcing.easycommons.lang.StringHelper;
@@ -262,26 +265,36 @@ public class ConsumerDomain extends AbstractDomain {
         return false;
     }
 
-    public void exceptionReceived(final Exception msg) {
-        logger.log(Level.WARNING,
-                "Received an exeception from the other side, this is purely informative, we can't do anything about it",
-                msg);
+    @Override
+    protected void logAfterReceivingFromChannel(final TransportedForService m) {
+        if (m instanceof TransportedMessage) {
+            final TransportedMessage tm = (TransportedMessage) m;
+            if (tm.step == 1) {
+                // acting as a provider partner, a new consumes ext starts here
+
+                // let's start a new step (it will for example be used to create the new exchange later)
+                final FlowAttributes fa = PetalsExecutionContext.nextFlowStepId();
+
+                logger.log(Level.MONIT, "", new JbiGatewayConsumeExtFlowStepBeginLogData(fa,
+                        StringHelper.nonNullValue(m.service.interfaceName),
+                        StringHelper.nonNullValue(tm.service.service),
+                        StringHelper.nonNullValue(tm.service.endpointName),
+                        StringHelper.nonNullValue(tm.exchange.getOperation()), m.flowAttributes.getFlowStepId()));
+            }
+        }
     }
 
     @Override
-    protected void logBeforeSendingToNMR(final TransportedMessage m) {
-
-        if (m instanceof TransportedNewMessage) {
-            // acting as a provider partner, a new consumes ext starts here
-
-            // let's start a new step (it will for example be used to create the new exchange later)
-            final FlowAttributes fa = PetalsExecutionContext.nextFlowStepId();
-
-            logger.log(Level.MONIT, "",
-                    new JbiGatewayConsumeExtFlowStepBeginLogData(fa, StringHelper.nonNullValue(m.service.interfaceName),
-                            StringHelper.nonNullValue(m.service.service),
-                            StringHelper.nonNullValue(m.service.endpointName),
-                            StringHelper.nonNullValue(m.exchange.getOperation()), m.flowAttributes.getFlowStepId()));
+    protected void logBeforeSendingToChannel(final TransportedForService m) {
+        // the end of the one started in ConsumerDomain.logBeforeSendingToNMR
+        if (m.step == 2) {
+            if (m instanceof TransportedTimeout) {
+                Utils.addMonitFailureTrace(logger, PetalsExecutionContext.getFlowAttributes(),
+                        "A timeout happened while the JBI Gateway sent an exchange to a JBI service");
+            } else if (m instanceof TransportedMessage) {
+                Utils.addMonitEndOrFailureTrace(logger, new ExchangeImpl(((TransportedMessage) m).exchange),
+                        PetalsExecutionContext.getFlowAttributes());
+            }
         }
     }
 }

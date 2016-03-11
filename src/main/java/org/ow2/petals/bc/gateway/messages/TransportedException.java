@@ -20,19 +20,15 @@ package org.ow2.petals.bc.gateway.messages;
 import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
 import org.ow2.petals.bc.gateway.messages.Transported.TransportedToProvider;
 
-public class TransportedException extends Exception implements TransportedToProvider, TransportedToConsumer {
+public class TransportedException extends TransportedForService
+        implements TransportedToProvider, TransportedToConsumer {
 
     private static final long serialVersionUID = -6316196934605106284L;
 
-    public TransportedException(final String message, final Throwable cause) {
-        super(message, cause);
-    }
+    public final Throwable cause;
 
-    public TransportedException(final String message) {
-        super(message);
-    }
-
-    public TransportedException(final Throwable cause) {
-        super(cause);
+    public TransportedException(final TransportedMessage m, final Exception cause) {
+        super(m.service, m.flowAttributes, m.exchangeId, m.step + 1);
+        this.cause = cause;
     }
 }
