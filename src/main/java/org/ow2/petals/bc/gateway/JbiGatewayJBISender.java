@@ -266,7 +266,7 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
             this.sender.sendExchangeToChannel(exchange, ctx);
         }
 
-        public void handleTimeout(final Exchange exchange) {
+        public void handleTimeout() {
             this.sender.sendTimeoutToChannel(ctx);
         }
     }

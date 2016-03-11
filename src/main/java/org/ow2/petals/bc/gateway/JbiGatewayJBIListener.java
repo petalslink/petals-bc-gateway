@@ -90,7 +90,7 @@ public class JbiGatewayJBIListener extends AbstractJBIListener {
 
         if (asyncContext instanceof JbiGatewaySenderAsyncContext) {
             final JbiGatewaySenderAsyncContext context = (JbiGatewaySenderAsyncContext) asyncContext;
-            context.handleTimeout(originalExchange);
+            context.handleTimeout();
         } else {
             // TODO
         }
