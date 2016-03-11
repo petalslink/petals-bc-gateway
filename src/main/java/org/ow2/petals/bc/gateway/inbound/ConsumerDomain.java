@@ -269,7 +269,7 @@ public class ConsumerDomain extends AbstractDomain {
     }
 
     @Override
-    protected void beforeSendingToNMR(final TransportedMessage m) {
+    protected void logBeforeSendingToNMR(final TransportedMessage m) {
 
         if (m instanceof TransportedNewMessage) {
             // acting as a provider partner, a new consumes ext starts here

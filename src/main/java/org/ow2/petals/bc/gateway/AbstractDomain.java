@@ -79,12 +79,12 @@ public abstract class AbstractDomain {
 
     private void sendToNMR(final ChannelHandlerContext ctx, final TransportedMessage m,
             final @Nullable Exchange exchange) {
-        beforeSendingToNMR(m);
+        logBeforeSendingToNMR(m);
 
         this.sender.sendToNMR(getContext(this, ctx, m), exchange);
     }
 
-    protected abstract void beforeSendingToNMR(TransportedMessage m);
+    protected abstract void logBeforeSendingToNMR(TransportedMessage m);
 
     private static DomainContext getContext(final AbstractDomain domain, final ChannelHandlerContext ctx,
             final TransportedMessage m) {

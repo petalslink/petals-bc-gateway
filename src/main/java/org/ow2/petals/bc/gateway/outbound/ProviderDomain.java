@@ -452,7 +452,7 @@ public class ProviderDomain extends AbstractDomain {
     }
 
     @Override
-    protected void beforeSendingToNMR(TransportedMessage m) {
+    protected void logBeforeSendingToNMR(TransportedMessage m) {
         if (!(m instanceof TransportedNewMessage)) {
             final URI pattern = m.exchange.getPattern();
             final boolean hasOut = m.exchange.getMessage(Exchange.OUT_MESSAGE_NAME) != null;
