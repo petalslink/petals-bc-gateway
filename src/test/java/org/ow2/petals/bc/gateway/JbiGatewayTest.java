@@ -22,6 +22,10 @@ import static com.jayway.awaitility.Awaitility.to;
 import static com.jayway.awaitility.Duration.TWO_SECONDS;
 import static org.hamcrest.Matchers.equalTo;
 
+import java.util.concurrent.Callable;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+
 import javax.jbi.servicedesc.ServiceEndpoint;
 
 import org.eclipse.jdt.annotation.Nullable;
@@ -32,6 +36,8 @@ import org.ow2.petals.component.framework.junit.ResponseMessage;
 import org.ow2.petals.component.framework.junit.StatusMessage;
 import org.ow2.petals.component.framework.junit.helpers.MessageChecks;
 import org.ow2.petals.component.framework.junit.helpers.ServiceProviderImplementation;
+
+import com.jayway.awaitility.Duration;
 
 public class JbiGatewayTest extends AbstractComponentTest {
 
@@ -52,6 +58,29 @@ public class JbiGatewayTest extends AbstractComponentTest {
         assertFalse(available(TEST_TRANSPORT_PORT));
 
         assertTrue(COMPONENT_UNDER_TEST.isServiceDeployed(SU_CONSUMER_NAME));
+    }
+
+    @Test
+    public void testIncorrectAuthName() throws Exception {
+        COMPONENT_UNDER_TEST.deployService(SU_CONSUMER_NAME, createHelloConsumes(true, true));
+
+        final String authName = "INCORRECT";
+        COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createHelloProvider(authName));
+
+        // TODO wouldn't we want the deployment to fail instead?!
+        await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
+            @Override
+            public Boolean call() throws Exception {
+                for (final LogRecord lr : IN_MEMORY_LOG_HANDLER.getAllRecords(Level.SEVERE)) {
+                    if (lr.getMessage().contains("Authentication failed: Unauthorised auth-name '" + authName + "'")) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        });
+
+        // TODO we should also test that the connection is closed!
     }
 
     @Test

@@ -202,6 +202,10 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
     }
 
     protected static ServiceConfiguration createHelloProvider() {
+        return createHelloProvider(TEST_AUTH_NAME);
+    }
+
+    protected static ServiceConfiguration createHelloProvider(final String authName) {
         final ServiceConfiguration provides = new ServiceConfiguration() {
             @Override
             protected void extraJBIConfiguration(final @Nullable Document jbiDocument) {
@@ -214,7 +218,7 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
                 addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_IP).setTextContent("localhost");
                 addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_PORT)
                         .setTextContent("" + TEST_TRANSPORT_PORT);
-                addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_AUTH_NAME).setTextContent(TEST_AUTH_NAME);
+                addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_AUTH_NAME).setTextContent(authName);
             }
         };
 

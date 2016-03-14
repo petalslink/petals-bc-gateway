@@ -56,20 +56,26 @@ public class TransportInitClient extends ChannelInboundHandlerAdapter {
         assert msg != null;
         assert ctx != null;
 
+        boolean release = true;
         try {
             if (msg instanceof TransportedPropagatedConsumesList) {
-                pd.updatePropagatedServices((TransportedPropagatedConsumesList) msg);
-
                 // use replace because we want the logger to be last
                 ctx.pipeline().replace(this, "client", new TransportClient(logger, pd));
+                release = false;
+                // it will be taken care of by the newly instantiated client!
+                ctx.fireChannelRead(msg);
             } else if (msg instanceof String) {
                 logger.severe("Authentication failed: " + msg);
+                // TODO should we do something else such as marking the SU as disabled or something like that?!
+                ctx.close();
             } else {
                 // TODO is that the correct way?
                 throw new IllegalArgumentException("Impossible");
             }
         } finally {
-            ReferenceCountUtil.release(msg);
+            if (release) {
+                ReferenceCountUtil.release(msg);
+            }
         }
     }
 }
