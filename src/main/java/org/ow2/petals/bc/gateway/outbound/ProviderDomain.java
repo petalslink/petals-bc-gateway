@@ -54,8 +54,7 @@ import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.logger.ProvideExtFlowStepBeginLogData;
-import org.ow2.petals.component.framework.logger.Utils;
-import org.ow2.petals.component.framework.message.ExchangeImpl;
+import org.ow2.petals.component.framework.logger.StepLogHelper;
 import org.ow2.petals.component.framework.util.EndpointUtil;
 import org.ow2.petals.component.framework.util.ServiceEndpointKey;
 import org.ow2.petals.component.framework.util.WSDLUtilImpl;
@@ -442,11 +441,11 @@ public class ProviderDomain extends AbstractDomain {
                 // the message contains the FA we created before sending it as a TransportedNewMessage in send
 
                 // this is the end of provides ext that started in ProviderDomain.send
-                Utils.addMonitEndOrFailureTrace(logger, new ExchangeImpl(tm.exchange),
-                        PetalsExecutionContext.getFlowAttributes());
+                StepLogHelper.addMonitEndOrFailureTrace(logger, tm.exchange,
+                        PetalsExecutionContext.getFlowAttributes(), false);
             } else if (m instanceof TransportedTimeout) {
-                Utils.addMonitFailureTrace(logger, PetalsExecutionContext.getFlowAttributes(),
-                        "A timeout happened while the JBI Gateway sent an exchange to a JBI service");
+                StepLogHelper.addMonitFailureTrace(logger, PetalsExecutionContext.getFlowAttributes(),
+                        "A timeout happened while the JBI Gateway sent an exchange to a JBI service", false);
             }
         }
     }

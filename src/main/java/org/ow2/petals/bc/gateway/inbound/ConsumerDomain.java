@@ -52,8 +52,7 @@ import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
-import org.ow2.petals.component.framework.logger.Utils;
-import org.ow2.petals.component.framework.message.ExchangeImpl;
+import org.ow2.petals.component.framework.logger.StepLogHelper;
 import org.w3c.dom.Document;
 
 import com.ebmwebsourcing.easycommons.lang.StringHelper;
@@ -289,11 +288,11 @@ public class ConsumerDomain extends AbstractDomain {
         // the end of the one started in ConsumerDomain.logBeforeSendingToNMR
         if (m.step == 2) {
             if (m instanceof TransportedTimeout) {
-                Utils.addMonitFailureTrace(logger, PetalsExecutionContext.getFlowAttributes(),
-                        "A timeout happened while the JBI Gateway sent an exchange to a JBI service");
+                StepLogHelper.addMonitFailureTrace(logger, PetalsExecutionContext.getFlowAttributes(),
+                        "A timeout happened while the JBI Gateway sent an exchange to a JBI service", true);
             } else if (m instanceof TransportedMessage) {
-                Utils.addMonitEndOrFailureTrace(logger, new ExchangeImpl(((TransportedMessage) m).exchange),
-                        PetalsExecutionContext.getFlowAttributes());
+                StepLogHelper.addMonitEndOrFailureTrace(logger, ((TransportedMessage) m).exchange,
+                        PetalsExecutionContext.getFlowAttributes(), true);
             }
         }
     }
