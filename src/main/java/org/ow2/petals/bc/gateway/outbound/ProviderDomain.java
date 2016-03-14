@@ -41,7 +41,6 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedForService;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
-import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
 import org.ow2.petals.bc.gateway.messages.TransportedTimeout;
@@ -371,7 +370,7 @@ public class ProviderDomain extends AbstractDomain {
         // step for the external call
         final FlowAttributes extFa = PetalsExecutionContext.nextFlowStepId();
 
-        final TransportedNewMessage m = new TransportedNewMessage(service, extFa, mex);
+        final TransportedMessage m = TransportedMessage.newMessage(service, extFa, mex);
         final Channel channel = this.channel;
         // we can't be disconnected because it would mean that the component is stopped and in that case we don't
         // receive messages!

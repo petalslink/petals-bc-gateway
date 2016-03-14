@@ -29,10 +29,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.inbound.TransportServer;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
-import org.ow2.petals.bc.gateway.messages.TransportedLastMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
-import org.ow2.petals.bc.gateway.messages.TransportedMiddleMessage;
-import org.ow2.petals.bc.gateway.messages.TransportedNewMessage;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.bc.gateway.outbound.TransportClient;
 import org.ow2.petals.component.framework.AbstractComponent;
@@ -120,21 +117,20 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
     @Override
     public void sendToNMR(final DomainContext ctx, final @Nullable Exchange exchange) {
         final TransportedMessage m = ctx.getMessage();
-        if (m instanceof TransportedNewMessage) {
+        if (m.step == 1) {
             // provider: it is the first part of an exchange
             assert exchange == null;
             sendNewToNMR(ctx);
-        } else if (m instanceof TransportedMiddleMessage) {
-            assert exchange != null;
-            // provider: it is the third part of an exchange (if still active)
-            // consumer: it is the second part of an exchange (if still active)
-            sendMiddleToNMR(ctx, exchange);
-        } else {
-            assert m instanceof TransportedLastMessage;
+        } else if (m.last) {
             assert exchange != null;
             // provider: it is the third part of an exchange (if not active)
             // consumer: it is the second/fourth part of an exchange (if not active)
             sendLastToNMR(ctx, exchange);
+        } else {
+            assert exchange != null;
+            // provider: it is the third part of an exchange (if still active)
+            // consumer: it is the second part of an exchange (if still active)
+            sendMiddleToNMR(ctx, exchange);
         }
         // provider: second and fourth parts of exchange happens in sendToChannel
         // consumer: third part of exchange happens in sendToChannel

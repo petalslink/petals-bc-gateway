@@ -24,9 +24,7 @@ import java.util.logging.Logger;
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.messages.TransportedException;
 import org.ow2.petals.bc.gateway.messages.TransportedForService;
-import org.ow2.petals.bc.gateway.messages.TransportedLastMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
-import org.ow2.petals.bc.gateway.messages.TransportedMiddleMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedTimeout;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
@@ -123,11 +121,11 @@ public abstract class AbstractDomain {
         logger.log(Level.FINE, "Exception caught", e);
 
         final TransportedForService msg;
-        if (m instanceof TransportedLastMessage) {
+        if (m.last) {
             msg = new TransportedException(m, e);
         } else {
             m.exchange.setError(e);
-            msg = new TransportedLastMessage(m, m.exchange);
+            msg = TransportedMessage.lastMessage(m, m.exchange);
         }
 
         sendToChannel(ctx, msg);
@@ -135,14 +133,14 @@ public abstract class AbstractDomain {
 
     private void sendFromNMRToChannel(final ChannelHandlerContext ctx, final TransportedMessage m,
             final Exchange exchange) {
-        assert !(m instanceof TransportedLastMessage);
+        assert !m.last;
 
         final TransportedMessage msg;
         if (exchange.isActiveStatus()) {
-            msg = new TransportedMiddleMessage(m, exchange.getMessageExchange());
+            msg = TransportedMessage.middleMessage(m, exchange.getMessageExchange());
             // we will be expecting an answer
         } else {
-            msg = new TransportedLastMessage(m, exchange.getMessageExchange());
+            msg = TransportedMessage.lastMessage(m, exchange.getMessageExchange());
         }
 
         sendToChannel(ctx, msg, exchange);
@@ -154,7 +152,7 @@ public abstract class AbstractDomain {
     }
 
     protected void sendToChannel(final ChannelHandlerContext ctx, final TransportedMessage m, final Exchange exchange) {
-        if (!(m instanceof TransportedLastMessage)) {
+        if (!m.last) {
             final Exchange prev = exchangesInProgress.putIfAbsent(m.exchangeId, exchange);
             assert prev == null;
         }
@@ -176,13 +174,12 @@ public abstract class AbstractDomain {
                 if (!future.isSuccess()) {
                     final Throwable cause = future.cause();
                     // TODO is the channel notified of the error too?
-                    if (m instanceof TransportedMessage && !(m instanceof TransportedLastMessage)
-                            && cause instanceof Exception) {
+                    if (!m.last && cause instanceof Exception) {
                         final TransportedMessage tm = (TransportedMessage) m;
                         tm.exchange.setError((Exception) cause);
                         // TODO what about the other side waiting for this exchange?! it should be removed there...
                         // TODO there will be double copy of the error in the exchange again by the JBI Sender...
-                        receiveFromChannel(ctx, new TransportedLastMessage(tm, tm.exchange));
+                        receiveFromChannel(ctx, TransportedMessage.lastMessage(tm, tm.exchange));
                     } else {
                         logger.log(Level.WARNING, "Can't send message over the channel but nothing I can do now: " + m,
                                 cause);

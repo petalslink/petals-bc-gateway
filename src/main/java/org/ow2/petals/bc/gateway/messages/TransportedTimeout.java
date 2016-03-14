@@ -17,15 +17,12 @@
  */
 package org.ow2.petals.bc.gateway.messages;
 
-import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
-import org.ow2.petals.bc.gateway.messages.Transported.TransportedToProvider;
-
-public class TransportedTimeout extends TransportedForService implements TransportedToConsumer, TransportedToProvider {
+public class TransportedTimeout extends TransportedForService {
 
     private static final long serialVersionUID = -9060178770181538907L;
 
     public TransportedTimeout(final TransportedMessage m) {
-        super(m.service, m.flowAttributes, m.exchangeId, m.step + 1);
+        super(m.service, m.flowAttributes, m.exchangeId, m.step + 1, true);
     }
 
 }

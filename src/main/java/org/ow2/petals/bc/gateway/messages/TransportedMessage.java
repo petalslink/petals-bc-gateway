@@ -35,7 +35,7 @@ import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
  * @author vnoel
  *
  */
-public abstract class TransportedMessage extends TransportedForService {
+public class TransportedMessage extends TransportedForService {
 
     private static final long serialVersionUID = 7102614527427146536L;
 
@@ -48,15 +48,27 @@ public abstract class TransportedMessage extends TransportedForService {
     @SuppressWarnings("squid:S1948")
     public final MessageExchange exchange;
 
-    public TransportedMessage(final ServiceKey service, final FlowAttributes flowAttributes, final String exchangeId,
-            final MessageExchange exchange, final int step) {
-        super(service, flowAttributes, exchangeId, step);
+    protected TransportedMessage(final ServiceKey service, final FlowAttributes flowAttributes, final String exchangeId,
+            final MessageExchange exchange, final int step, final boolean last) {
+        super(service, flowAttributes, exchangeId, step, last);
         this.exchange = exchange;
     }
 
-    public TransportedMessage(final TransportedMessage m, final MessageExchange exchange) {
-        // we keep the service and the exchangeId, they should not change!
-        this(m.service, m.flowAttributes, m.exchangeId, exchange, m.step + 1);
-        assert m instanceof TransportedNewMessage || m instanceof TransportedMiddleMessage;
+    protected TransportedMessage(final TransportedMessage m, final boolean last, final MessageExchange exchange) {
+        super(m, last);
+        this.exchange = exchange;
+    }
+
+    public static TransportedMessage newMessage(final ServiceKey service, final FlowAttributes flowAttributes,
+            final MessageExchange exchange) {
+        return new TransportedMessage(service, flowAttributes, exchange.getExchangeId(), exchange, 1, false);
+    }
+
+    public static TransportedMessage middleMessage(final TransportedMessage m, final MessageExchange exchange) {
+        return new TransportedMessage(m, false, exchange);
+    }
+
+    public static TransportedMessage lastMessage(final TransportedMessage m, final MessageExchange exchange) {
+        return new TransportedMessage(m, true, exchange);
     }
 }
