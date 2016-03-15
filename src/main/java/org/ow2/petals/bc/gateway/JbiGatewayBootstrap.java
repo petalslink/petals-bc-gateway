@@ -19,10 +19,10 @@ package org.ow2.petals.bc.gateway;
 
 import java.util.Collection;
 
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.component.framework.DefaultBootstrap;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
-import org.ow2.petals.component.framework.jbidescriptor.generated.Component;
 
 /**
  * There is one instance of this class for the whole component. The class is declared in the jbi.xml.
@@ -32,13 +32,16 @@ import org.ow2.petals.component.framework.jbidescriptor.generated.Component;
  */
 public class JbiGatewayBootstrap extends DefaultBootstrap {
 
-    public static final String METHOD_NAME_ADD_TRANSPORT = "addTransportListener";
+    public static final String METHOD_ADD_TRANSPORT = "addTransportListener";
+
+    public static final String METHOD_REMOVE_TRANSPORT = "removeTransportListener";
 
     @Override
     public Collection<String> getMBeanOperationsNames() {
         final Collection<String> methods = super.getMBeanOperationsNames();
 
-        methods.add(METHOD_NAME_ADD_TRANSPORT);
+        methods.add(METHOD_ADD_TRANSPORT);
+        methods.add(METHOD_REMOVE_TRANSPORT);
 
         return methods;
     }
@@ -47,8 +50,13 @@ public class JbiGatewayBootstrap extends DefaultBootstrap {
      * This will automatically be saved in the jbi.xml by the bootstrap before install of the component!
      */
     public void addTransportListener(final String id, final int port) throws PEtALSCDKException {
-        final Component component = getJbiComponentConfiguration().getComponent();
-        JbiGatewayJBIHelper.addTransportListener(id, port, component);
+        JbiGatewayJBIHelper.addTransportListener(id, port, getJbiComponentConfiguration().getComponent());
+    }
+
+    public boolean removeTransportListener(final String id) throws PEtALSCDKException {
+        final JbiTransportListener removed = JbiGatewayJBIHelper.removeTransportListener(id,
+                getJbiComponentConfiguration().getComponent());
+        return removed != null;
     }
 
 }

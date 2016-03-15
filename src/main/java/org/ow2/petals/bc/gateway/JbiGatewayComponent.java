@@ -442,7 +442,8 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     public Collection<String> getMBeanOperationsNames() {
         final Collection<String> methods = super.getMBeanOperationsNames();
 
-        methods.add(JbiGatewayBootstrap.METHOD_NAME_ADD_TRANSPORT);
+        methods.add(JbiGatewayBootstrap.METHOD_ADD_TRANSPORT);
+        methods.add(JbiGatewayBootstrap.METHOD_REMOVE_TRANSPORT);
 
         return methods;
     }
@@ -454,9 +455,11 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         if (listeners.containsKey(id)) {
             throw new PEtALSCDKException("A transport listener with id '" + id + "' already exists");
         }
+
         // TODO persistence!
         final JbiTransportListener jtl = JbiGatewayJBIHelper.addTransportListener(id, port,
                 getJbiComponentDescriptor().getComponent());
+
         try {
             registerTransportListener(jtl);
         } catch (final PEtALSCDKException e) {
@@ -469,4 +472,16 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
     }
 
+    public boolean removeTransportListener(final String id) throws PEtALSCDKException {
+        // TODO persistence
+        final JbiTransportListener removed = JbiGatewayJBIHelper.removeTransportListener(id,
+                getJbiComponentDescriptor().getComponent());
+
+        if (removed != null) {
+            // TODO should I remove it even if removed is null? In case of inconsistency, it is safer...
+            return deregisterTransportListener(removed);
+        } else {
+            return false;
+        }
+    }
 }
