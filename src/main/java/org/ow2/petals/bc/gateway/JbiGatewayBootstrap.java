@@ -32,8 +32,7 @@ import org.ow2.petals.component.framework.jbidescriptor.generated.Component;
  */
 public class JbiGatewayBootstrap extends DefaultBootstrap {
 
-    private static final String METHOD_NAME_ADD_TRANSPORT = "addTransportListener";
-
+    public static final String METHOD_NAME_ADD_TRANSPORT = "addTransportListener";
 
     @Override
     public Collection<String> getMBeanOperationsNames() {
@@ -45,7 +44,7 @@ public class JbiGatewayBootstrap extends DefaultBootstrap {
     }
 
     /**
-     * TODO could we infer all of this from the jbi without bothering? Like it is the case with the runtimeint and co?
+     * This will automatically be saved in the jbi.xml by the bootstrap before install of the component!
      */
     public void addTransportListener(final String id, final int port) throws PEtALSCDKException {
         final Component component = getJbiComponentConfiguration().getComponent();

@@ -20,6 +20,7 @@ package org.ow2.petals.bc.gateway.utils;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -140,7 +141,8 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         return res;
     }
 
-    public static void addTransportListener(final String id, final int port, final @Nullable Component component)
+    public static JbiTransportListener addTransportListener(final String id, final int port,
+            final @Nullable Component component)
             throws PEtALSCDKException {
         assert component != null;
 
@@ -154,7 +156,31 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         eP.setTextContent("" + port);
         e.appendChild(eP);
 
+        // let's ensure it is correct
+        final JbiTransportListener jtl = asObject(e, EL_TRANSPORT_LISTENER, JbiTransportListener.class);
+        assert jtl != null;
+
         component.getAny().add(e);
+
+        return jtl;
+    }
+
+    public static @Nullable JbiTransportListener removeTransportListener(final String id,
+            final @Nullable Component component) throws PEtALSCDKException {
+        assert component != null;
+
+        final Iterator<Element> iterator = component.getAny().iterator();
+        while (iterator.hasNext()) {
+            final Element e = iterator.next();
+            assert e != null;
+            final JbiTransportListener jtl = asObject(e, EL_TRANSPORT_LISTENER, JbiTransportListener.class);
+            if (jtl != null && jtl.getId().equals(id)) {
+                iterator.remove();
+                return jtl;
+            }
+        }
+
+        return null;
     }
 
     public static Collection<JbiTransportListener> getListeners(final @Nullable Component component)

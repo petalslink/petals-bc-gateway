@@ -437,4 +437,36 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         assert suManager != null;
         return (JbiGatewaySUManager) suManager;
     }
+
+    @Override
+    public Collection<String> getMBeanOperationsNames() {
+        final Collection<String> methods = super.getMBeanOperationsNames();
+
+        methods.add(JbiGatewayBootstrap.METHOD_NAME_ADD_TRANSPORT);
+
+        return methods;
+    }
+
+    /**
+     * TODO what about synchronization?
+     */
+    public void addTransportListener(final String id, final int port) throws PEtALSCDKException {
+        if (listeners.containsKey(id)) {
+            throw new PEtALSCDKException("A transport listener with id '" + id + "' already exists");
+        }
+        // TODO persistence!
+        final JbiTransportListener jtl = JbiGatewayJBIHelper.addTransportListener(id, port,
+                getJbiComponentDescriptor().getComponent());
+        try {
+            registerTransportListener(jtl);
+        } catch (final PEtALSCDKException e) {
+            try {
+                JbiGatewayJBIHelper.removeTransportListener(id, getJbiComponentDescriptor().getComponent());
+            } catch (final PEtALSCDKException ex) {
+                e.addSuppressed(ex);
+            }
+            throw e;
+        }
+    }
+
 }
