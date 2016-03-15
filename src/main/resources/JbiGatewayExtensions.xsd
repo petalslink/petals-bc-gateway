@@ -39,8 +39,6 @@
    
    <!-- To be used in component and services -->
    <xs:element name="transport-listener" type="jg:JbiTransportListener" />
-   
-   <xs:element name="restrict-to-component-listeners" type="cdk:settableboolean" default="false" />
 
    <!-- this is only here for documentation -->
 <!--    <xs:complexType name="Component"> -->

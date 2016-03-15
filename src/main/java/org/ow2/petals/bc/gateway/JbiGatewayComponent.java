@@ -133,7 +133,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         for (final JbiTransportListener jtl : JbiGatewayJBIHelper
                 .getListeners(getJbiComponentDescriptor().getComponent())) {
             assert jtl != null;
-            addTransporterListener(null, jtl);
+            addTransporterListener(jtl);
         }
     }
 
@@ -176,7 +176,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         } catch (final MissingResourceException | JBIException e) {
             throw new PEtALSCDKException("Can't create logger", e);
         }
-        final TransportListener tl = getTransportListener(ownerSU, jcd.getTransport());
+        final TransportListener tl = getTransportListener(jcd.getTransport());
         return new ConsumerDomain(tl, getContext(), jcd, consumes, getSender(), logger);
     }
 
@@ -251,36 +251,29 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         this.started = true;
     }
 
-    public void registerTransportListener(final String ownerSU, final JbiTransportListener jtl)
-            throws PEtALSCDKException {
-        final TransportListener tl = addTransporterListener(ownerSU, jtl);
+    private void registerTransportListener(final JbiTransportListener jtl) throws PEtALSCDKException {
+        final TransportListener tl = addTransporterListener(jtl);
         if (started) {
             tl.bind();
         }
     }
 
-    private TransportListener addTransporterListener(final @Nullable String ownerSU, final JbiTransportListener jtl)
-            throws PEtALSCDKException {
+    private TransportListener addTransporterListener(final JbiTransportListener jtl) throws PEtALSCDKException {
         final Logger logger;
         try {
-            logger = getContext().getLogger((ownerSU == null ? "" : ownerSU + ".") + jtl.getId(), null);
+            logger = getContext().getLogger(jtl.getId(), null);
             assert logger != null;
         } catch (final MissingResourceException | JBIException e) {
             throw new PEtALSCDKException("Can't create logger", e);
         }
         final TransportListener tl = new TransportListener(jtl, newServerBootstrap(), logger, newClassResolver());
-        if (listeners.putIfAbsent(getTransportListenerName(ownerSU, jtl.getId()), tl) != null) {
+        if (listeners.putIfAbsent(jtl.getId(), tl) != null) {
             throw new PEtALSCDKException(String.format("Duplicate transporter id '%s'", jtl.getId()));
         }
         if (getLogger().isLoggable(Level.CONFIG)) {
-            getLogger().config(String.format(
-                    "Transporter '%s' added " + (ownerSU != null ? "for SU '%s'" : "for component"), jtl, ownerSU));
+            getLogger().config(String.format("Transporter '%s' added", jtl));
         }
         return tl;
-    }
-
-    private String getTransportListenerName(final @Nullable String ownerSU, final String transportId) {
-        return (ownerSU == null ? "c:" : (ownerSU + ":")) + transportId;
     }
 
     /**
@@ -322,13 +315,11 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
     }
 
-    public boolean deregisterTransportListener(final String ownerSU, final JbiTransportListener jtl) {
-        final TransportListener tl = this.listeners.remove(getTransportListenerName(ownerSU, jtl.getId()));
+    private boolean deregisterTransportListener(final JbiTransportListener jtl) {
+        final TransportListener tl = this.listeners.remove(jtl.getId());
         if (tl != null) {
             if (getLogger().isLoggable(Level.CONFIG)) {
-                getLogger().config(
-                        String.format("Transporter '%s' removed " + (ownerSU != null ? "for SU '%s'" : "for component"),
-                                jtl, ownerSU));
+                getLogger().config(String.format("Transporter '%s' removed", jtl));
             }
             tl.unbind();
             return true;
@@ -337,17 +328,10 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
     }
 
-    public TransportListener getTransportListener(final String ownerSU, final String transportId)
-            throws PEtALSCDKException {
-        final TransportListener tl = listeners.get(getTransportListenerName(ownerSU, transportId));
+    private TransportListener getTransportListener(final String transportId) throws PEtALSCDKException {
+        final TransportListener tl = listeners.get(transportId);
         if (tl == null) {
-            final TransportListener tl2 = listeners.get(getTransportListenerName(null, transportId));
-            if (tl2 == null) {
-                throw new PEtALSCDKException(
-                        String.format("Missing transporter '%s' for SU '%s'", transportId, ownerSU));
-            } else {
-                return tl2;
-            }
+            throw new PEtALSCDKException(String.format("Missing transporter '%s'", transportId));
         } else {
             return tl;
         }
@@ -365,8 +349,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     @Override
-    public void register(final ServiceEndpointKey key, final ProviderService ps)
-            throws PEtALSCDKException {
+    public void register(final ServiceEndpointKey key, final ProviderService ps) throws PEtALSCDKException {
         this.register(key, ps, null, false);
     }
 
@@ -393,7 +376,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         if (services.putIfAbsent(key, data) != null) {
             throw new PEtALSCDKException("Duplicate service " + key);
         }
-        
+
         final ServiceEndpoint endpoint;
         if (activate) {
             assert description != null;

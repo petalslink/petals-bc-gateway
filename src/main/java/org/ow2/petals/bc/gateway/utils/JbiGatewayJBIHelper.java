@@ -45,7 +45,6 @@ import org.ow2.petals.component.framework.jbidescriptor.generated.Component;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Services;
-import org.ow2.petals.component.framework.jbidescriptor.generated.Settableboolean;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -158,23 +157,6 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         component.getAny().add(e);
     }
 
-    public static boolean isRestrictedToComponentListeners(final @Nullable Component component)
-            throws PEtALSCDKException {
-        assert component != null;
-        final Collection<Settableboolean> elements = getAll(component.getAny(), EL_RESTRICT_TO_COMPONENT_LISTENERS,
-                Settableboolean.class);
-        if (elements.isEmpty()) {
-            throw new PEtALSCDKException(
-                    "Missing " + EL_RESTRICT_TO_COMPONENT_LISTENERS.getLocalPart() + " in Component");
-        }
-        if (elements.size() > 1) {
-            throw new PEtALSCDKException(
-                    "Duplicate " + EL_RESTRICT_TO_COMPONENT_LISTENERS.getLocalPart() + " in Component");
-        }
-        final Settableboolean element = elements.iterator().next();
-        return element.isValue();
-    }
-
     public static Collection<JbiTransportListener> getListeners(final @Nullable Component component)
             throws PEtALSCDKException {
         assert component != null;
@@ -191,12 +173,6 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
             throws PEtALSCDKException {
         assert services != null;
         return getAll(services.getAnyOrAny(), EL_PROVIDER_DOMAIN, JbiProviderDomain.class);
-    }
-
-    public static Collection<JbiTransportListener> getTransportListeners(final @Nullable Services services)
-            throws PEtALSCDKException {
-        assert services != null;
-        return getAll(services.getAnyOrAny(), EL_TRANSPORT_LISTENER, JbiTransportListener.class);
     }
 
     public static JbiProvidesConfig getProviderConfig(final @Nullable Provides provides) throws PEtALSCDKException {

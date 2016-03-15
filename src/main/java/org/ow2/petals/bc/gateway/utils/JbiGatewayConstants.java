@@ -26,14 +26,10 @@ public interface JbiGatewayConstants {
     public static final ObjectFactory FACTORY = new ObjectFactory();
 
     @SuppressWarnings("null")
-    public static final QName EL_RESTRICT_TO_COMPONENT_LISTENERS = FACTORY.createRestrictToComponentListeners(null)
-            .getName();
-
-    @SuppressWarnings("null")
-    public static final String JG_NS_URI = EL_RESTRICT_TO_COMPONENT_LISTENERS.getNamespaceURI();
-
-    @SuppressWarnings("null")
     public static final QName EL_TRANSPORT_LISTENER = FACTORY.createTransportListener(null).getName();
+
+    @SuppressWarnings("null")
+    public static final String JG_NS_URI = EL_TRANSPORT_LISTENER.getNamespaceURI();
 
     @SuppressWarnings("null")
     public static final QName EL_CONSUMER_DOMAIN = FACTORY.createConsumerDomain(null).getName();

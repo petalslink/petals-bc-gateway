@@ -110,6 +110,10 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
 
             final Element compo = getComponentElement(jbiDocument);
 
+            final Element transport = addElement(jbiDocument, compo, EL_TRANSPORT_LISTENER);
+            transport.setAttribute(ATTR_TRANSPORT_LISTENER_ID, TEST_TRANSPORT_NAME);
+            addElement(jbiDocument, transport, EL_TRANSPORT_LISTENER_PORT, "" + TEST_TRANSPORT_PORT);
+
             final Element transport2 = addElement(jbiDocument, compo, EL_TRANSPORT_LISTENER);
             transport2.setAttribute(ATTR_TRANSPORT_LISTENER_ID, TEST_TRANSPORT2_NAME);
             // the element is needed even if without value!
@@ -249,10 +253,6 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
                 assert jbiDocument != null;
 
                 final Element services = getOrCreateServicesElement(jbiDocument);
-
-                final Element transport = addElement(jbiDocument, services, EL_TRANSPORT_LISTENER);
-                transport.setAttribute(ATTR_TRANSPORT_LISTENER_ID, TEST_TRANSPORT_NAME);
-                addElement(jbiDocument, transport, EL_TRANSPORT_LISTENER_PORT, "" + TEST_TRANSPORT_PORT);
 
                 final Element cDomain = addElement(jbiDocument, services, EL_CONSUMER_DOMAIN);
                 cDomain.setAttribute(ATTR_SERVICES_CONSUMER_DOMAIN_ID, TEST_CONSUMER_DOMAIN);

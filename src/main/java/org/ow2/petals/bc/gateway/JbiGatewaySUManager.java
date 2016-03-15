@@ -30,7 +30,6 @@ import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
-import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
@@ -64,8 +63,6 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         private final List<ProviderDomain> providerDomains = new ArrayList<>();
 
         private final List<ConsumerDomain> consumerDomains = new ArrayList<>();
-
-        private final List<JbiTransportListener> listeners = new ArrayList<>();
     }
 
     public Collection<ProviderDomain> getProviderDomains() {
@@ -93,13 +90,6 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         final Services services = suDH.getDescriptor().getServices();
 
-        final Collection<JbiTransportListener> jtls = JbiGatewayJBIHelper.getTransportListeners(services);
-
-        if (JbiGatewayJBIHelper.isRestrictedToComponentListeners(
-                getComponent().getJbiComponentDescriptor().getComponent()) && !jtls.isEmpty()) {
-            throw new PEtALSCDKException("Defining transporter listeners in the SU is forbidden by the component");
-        }
-
         final Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> pd2provides = JbiGatewayJBIHelper
                 .getProvidesPerDomain(services);
         final Map<JbiConsumerDomain, Collection<Consumes>> cd2consumes = JbiGatewayJBIHelper
@@ -110,12 +100,6 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         final SUData data = new SUData();
         this.suDatas.put(ownerSU, data);
-
-        for (final JbiTransportListener jtl : jtls) {
-            assert jtl != null;
-            getComponent().registerTransportListener(ownerSU, jtl);
-            data.listeners.add(jtl);
-        }
 
         for (final Entry<JbiConsumerDomain, Collection<Consumes>> entry : cd2consumes.entrySet()) {
             final JbiConsumerDomain jcd = entry.getKey();
@@ -232,8 +216,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
             try {
                 if (!getComponent().deregisterProviderDomain(pd)) {
                     logger.severe(String.format(
-                            "Expected to deregister provider domain '%s' but it wasn't registered...",
-                            pd.getName()));
+                            "Expected to deregister provider domain '%s' but it wasn't registered...", pd.getName()));
                 }
             } catch (final Exception e) {
                 ex.addSuppressed(e);
@@ -244,19 +227,6 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
             assert cd != null;
             try {
                 cd.deregister();
-            } catch (final Exception e) {
-                ex.addSuppressed(e);
-            }
-        }
-
-        for (final JbiTransportListener jtl : data.listeners) {
-            assert jtl != null;
-            try {
-                if (!getComponent().deregisterTransportListener(ownerSU, jtl)) {
-                    logger.severe(String.format(
-                            "Expected to deregister transport listener '%s' for SU '%s' but it wasn't registered...",
-                            jtl.getId(), ownerSU));
-                }
             } catch (final Exception e) {
                 ex.addSuppressed(e);
             }
