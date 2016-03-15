@@ -146,6 +146,13 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
             throws PEtALSCDKException {
         assert component != null;
 
+        for (final JbiTransportListener jtl : getAll(component.getAny(), EL_TRANSPORT_LISTENER,
+                JbiTransportListener.class)) {
+            if (jtl.getId().equals(id)) {
+                throw new PEtALSCDKException("A transport listener with id '" + id + "' already exists in the jbi.xml");
+            }
+        }
+
         final Document doc = DocumentBuilders.newDocument();
 
         final Element e = doc.createElementNS(EL_TRANSPORT_LISTENER.getNamespaceURI(),
