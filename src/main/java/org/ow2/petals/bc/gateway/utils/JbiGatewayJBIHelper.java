@@ -46,9 +46,12 @@ import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Services;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Settableboolean;
+import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
+
+import com.ebmwebsourcing.easycommons.xml.DocumentBuilders;
 
 /**
  * Helper class to manipulate the jbi.xml according to the schema in the resources directory.
@@ -67,13 +70,14 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
     static {
         try {
             final JAXBContext jaxbContext = JAXBContext.newInstance(ObjectFactory.class.getPackage().getName());
-            final Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
 
             final SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
             final Schema schemas = factory.newSchema(new StreamSource[] {
                     new StreamSource(JbiGatewayJBIHelper.class.getResourceAsStream("/CDKextensions.xsd")),
                     new StreamSource(JbiGatewayJBIHelper.class.getResourceAsStream("/CDKjbi.xsd")),
                     new StreamSource(JbiGatewayJBIHelper.class.getResourceAsStream("/JbiGatewayExtensions.xsd")) });
+
+            final Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
             unmarshaller.setSchema(schemas);
 
             JbiGatewayJBIHelper.unmarshaller = unmarshaller;
@@ -135,6 +139,23 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
             }
         }
         return res;
+    }
+
+    public static void addTransportListener(final String id, final int port, final @Nullable Component component)
+            throws PEtALSCDKException {
+        assert component != null;
+
+        final Document doc = DocumentBuilders.newDocument();
+
+        final Element e = doc.createElementNS(EL_TRANSPORT_LISTENER.getNamespaceURI(),
+                EL_TRANSPORT_LISTENER.getLocalPart());
+        e.setAttribute("id", id);
+
+        final Element eP = doc.createElementNS(EL_TRANSPORT_LISTENER.getNamespaceURI(), "port");
+        eP.setTextContent("" + port);
+        e.appendChild(eP);
+
+        component.getAny().add(e);
     }
 
     public static boolean isRestrictedToComponentListeners(final @Nullable Component component)

@@ -20,7 +20,10 @@ package org.ow2.petals.bc.gateway;
 import java.util.List;
 
 import org.ow2.petals.bc.gateway.utils.JbiGatewayConstants;
+import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.component.framework.DefaultBootstrap;
+import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
+import org.ow2.petals.component.framework.jbidescriptor.generated.Component;
 
 /**
  * There is one instance of this class for the whole component. The class is declared in the jbi.xml.
@@ -31,6 +34,8 @@ import org.ow2.petals.component.framework.DefaultBootstrap;
 public class JbiGatewayBootstrap extends DefaultBootstrap {
 
     private static final String ATTR_NAME_RESTRICT = "restrictToComponentListeners";
+
+    private static final String METHOD_NAME_ADD_TRANSPORT = "addTransportListener";
 
     @SuppressWarnings("null")
     private static final String PARAM_NAME_RESTRICT = JbiGatewayConstants.EL_RESTRICT_TO_COMPONENT_LISTENERS
@@ -46,12 +51,29 @@ public class JbiGatewayBootstrap extends DefaultBootstrap {
         return attributes;
     }
 
+    @Override
+    public List<String> getMethodList() {
+        final List<String> methods = super.getMethodList();
+
+        methods.add(METHOD_NAME_ADD_TRANSPORT);
+
+        return methods;
+    }
+
     public void setRestrictToComponentListeners(final boolean value) {
         setParam(PARAM_NAME_RESTRICT, Boolean.toString(value));
     }
 
     public boolean getRestrictToComponentListeners() {
         return getParamAsBoolean(PARAM_NAME_RESTRICT, false);
+    }
+
+    /**
+     * TODO could we infer all of this from the jbi without bothering? Like it is the case with the runtimeint and co?
+     */
+    public void addTransportListener(final String id, final int port) throws PEtALSCDKException {
+        final Component component = getJbiComponentConfiguration().getComponent();
+        JbiGatewayJBIHelper.addTransportListener(id, port, component);
     }
 
 }
