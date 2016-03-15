@@ -17,7 +17,7 @@
  */
 package org.ow2.petals.bc.gateway;
 
-import java.util.List;
+import java.util.Collection;
 
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.component.framework.DefaultBootstrap;
@@ -34,9 +34,10 @@ public class JbiGatewayBootstrap extends DefaultBootstrap {
 
     private static final String METHOD_NAME_ADD_TRANSPORT = "addTransportListener";
 
+
     @Override
-    public List<String> getMethodList() {
-        final List<String> methods = super.getMethodList();
+    public Collection<String> getMBeanOperationsNames() {
+        final Collection<String> methods = super.getMBeanOperationsNames();
 
         methods.add(METHOD_NAME_ADD_TRANSPORT);
 
