@@ -190,7 +190,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         return null;
     }
 
-    public static Collection<JbiTransportListener> getListeners(final @Nullable Component component)
+    public static Collection<JbiTransportListener> getTransportListeners(final @Nullable Component component)
             throws PEtALSCDKException {
         assert component != null;
         return getAll(component.getAny(), EL_TRANSPORT_LISTENER, JbiTransportListener.class);

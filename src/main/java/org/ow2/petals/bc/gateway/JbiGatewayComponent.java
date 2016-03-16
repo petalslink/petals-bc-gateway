@@ -131,7 +131,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         clientsGroup = new NioEventLoopGroup();
 
         for (final JbiTransportListener jtl : JbiGatewayJBIHelper
-                .getListeners(getJbiComponentDescriptor().getComponent())) {
+                .getTransportListeners(getJbiComponentDescriptor().getComponent())) {
             assert jtl != null;
             addTransporterListener(jtl);
         }
