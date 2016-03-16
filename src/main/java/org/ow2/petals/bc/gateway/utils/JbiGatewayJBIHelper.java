@@ -119,7 +119,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         }
     }
 
-    private static @Nullable Object unmarshal(final Node e) throws PEtALSCDKException {
+    private synchronized static @Nullable Object unmarshal(final Node e) throws PEtALSCDKException {
         final Unmarshaller unmarshallerl = unmarshaller;
         if (unmarshallerl != null) {
             try {
