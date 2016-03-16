@@ -442,10 +442,10 @@ public class ProviderDomain extends AbstractDomain {
                 // the message contains the FA we created before sending it as a TransportedNewMessage in send
 
                 // this is the end of provides ext that started in ProviderDomain.send
-                StepLogHelper.addMonitEndOrFailureTrace(logger, tm.exchange,
+                StepLogHelper.addMonitExtEndOrFailureTrace(logger, tm.exchange,
                         PetalsExecutionContext.getFlowAttributes(), false);
             } else if (m instanceof TransportedTimeout) {
-                StepLogHelper.addMonitFailureTrace(logger, PetalsExecutionContext.getFlowAttributes(),
+                StepLogHelper.addMonitExtFailureTrace(logger, PetalsExecutionContext.getFlowAttributes(),
                         "A timeout happened while the JBI Gateway sent an exchange to a JBI service", false);
             }
         }

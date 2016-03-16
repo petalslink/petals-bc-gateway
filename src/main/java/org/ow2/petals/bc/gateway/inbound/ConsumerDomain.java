@@ -288,10 +288,10 @@ public class ConsumerDomain extends AbstractDomain {
         // the end of the one started in ConsumerDomain.logBeforeSendingToNMR
         if (m.step == 2) {
             if (m instanceof TransportedTimeout) {
-                StepLogHelper.addMonitFailureTrace(logger, PetalsExecutionContext.getFlowAttributes(),
+                StepLogHelper.addMonitExtFailureTrace(logger, PetalsExecutionContext.getFlowAttributes(),
                         "A timeout happened while the JBI Gateway sent an exchange to a JBI service", true);
             } else if (m instanceof TransportedMessage) {
-                StepLogHelper.addMonitEndOrFailureTrace(logger, ((TransportedMessage) m).exchange,
+                StepLogHelper.addMonitExtEndOrFailureTrace(logger, ((TransportedMessage) m).exchange,
                         PetalsExecutionContext.getFlowAttributes(), true);
             }
         }
