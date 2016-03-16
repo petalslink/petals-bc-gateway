@@ -23,6 +23,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import java.util.logging.Logger;
 
 import javax.xml.XMLConstants;
 import javax.xml.bind.JAXBContext;
@@ -41,6 +43,8 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.ObjectFactory;
+import org.ow2.petals.commons.log.Level;
+import org.ow2.petals.component.framework.api.configuration.ConfigurationExtensions;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Component;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
@@ -51,12 +55,17 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
+import com.ebmwebsourcing.easycommons.properties.PropertiesException;
+import com.ebmwebsourcing.easycommons.properties.PropertiesHelper;
 import com.ebmwebsourcing.easycommons.xml.DocumentBuilders;
 
 /**
  * Helper class to manipulate the jbi.xml according to the schema in the resources directory.
  * 
  * TODO one day we should actually exploit in an automatised way this schema in the CDK directly.
+ * 
+ * TODO also we should support generic handling of placeholders directly in the jbi descriptor instead of the
+ * {@link ConfigurationExtensions} if possible
  * 
  * @author vnoel
  *
@@ -89,6 +98,10 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
     private JbiGatewayJBIHelper() {
     }
 
+    /**
+     * An object will always be created (except if it's <code>null</code>): modifying it won't impact the jbi
+     * descriptor!
+     */
     private static @Nullable <T> T asObject(final Node e, final @Nullable QName name, final Class<T> clazz)
             throws PEtALSCDKException {
         final Object o = unmarshal(e);
@@ -127,8 +140,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
     }
 
     private static <T> Collection<T> getAll(final @Nullable List<Element> elements, final QName name,
-            final Class<T> clazz)
-            throws PEtALSCDKException {
+            final Class<T> clazz) throws PEtALSCDKException {
         assert elements != null;
         final List<T> res = new ArrayList<>();
         for (final Element e : elements) {
@@ -142,8 +154,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
     }
 
     public static JbiTransportListener addTransportListener(final String id, final int port,
-            final @Nullable Component component)
-            throws PEtALSCDKException {
+            final @Nullable Component component) throws PEtALSCDKException {
         assert component != null;
 
         for (final JbiTransportListener jtl : getAll(component.getAny(), EL_TRANSPORT_LISTENER,
@@ -196,16 +207,69 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         return getAll(component.getAny(), EL_TRANSPORT_LISTENER, JbiTransportListener.class);
     }
 
-    public static Collection<JbiConsumerDomain> getConsumerDomains(final @Nullable Services services)
-            throws PEtALSCDKException {
+    public static Collection<JbiConsumerDomain> getConsumerDomains(final @Nullable Services services,
+            final Properties placeholders, final Logger logger) throws PEtALSCDKException {
         assert services != null;
-        return getAll(services.getAnyOrAny(), EL_CONSUMER_DOMAIN, JbiConsumerDomain.class);
+        final Collection<JbiConsumerDomain> jcds = getAll(services.getAnyOrAny(), EL_CONSUMER_DOMAIN,
+                JbiConsumerDomain.class);
+        for (final JbiConsumerDomain jcd : jcds) {
+            assert jcd != null;
+            replace(jcd, placeholders, logger);
+        }
+        return jcds;
     }
 
-    public static Collection<JbiProviderDomain> getProviderDomains(final @Nullable Services services)
-            throws PEtALSCDKException {
+    private static void replace(final JbiConsumerDomain jcd, final Properties placeholders, final Logger logger) {
+        try {
+            jcd.setAuthName(PropertiesHelper.resolveString(jcd.getAuthName(), placeholders));
+        } catch (final PropertiesException e) {
+            logger.log(Level.WARNING, "Error while resolving consumer domain ('" + jcd.getId() + "') auth name ('"
+                    + jcd.getAuthName() + "') with placeholders", e);
+        }
+    }
+
+    public static Collection<JbiProviderDomain> getProviderDomains(final @Nullable Services services,
+            final Properties placeholders, final Logger logger) throws PEtALSCDKException {
         assert services != null;
-        return getAll(services.getAnyOrAny(), EL_PROVIDER_DOMAIN, JbiProviderDomain.class);
+        final Collection<JbiProviderDomain> jpds = getAll(services.getAnyOrAny(), EL_PROVIDER_DOMAIN,
+                JbiProviderDomain.class);
+        for (final JbiProviderDomain jpd : jpds) {
+            assert jpd != null;
+            replace(jpd, placeholders, logger);
+            validate(jpd);
+        }
+        return jpds;
+    }
+
+    private static void validate(final JbiProviderDomain jpd) throws PEtALSCDKException {
+        try {
+            Integer.parseInt(jpd.getPort());
+        } catch (final NumberFormatException e) {
+            throw new PEtALSCDKException(
+                    "Invalid port (" + jpd.getPort() + ") for provider domain (" + jpd.getId() + ")");
+        }
+    }
+
+    private static void replace(final JbiProviderDomain jpd, final Properties placeholders, final Logger logger) {
+        try {
+            jpd.setAuthName(PropertiesHelper.resolveString(jpd.getAuthName(), placeholders));
+        } catch (final PropertiesException e) {
+            logger.log(Level.WARNING, "Error while resolving provider domain ('" + jpd.getId() + "') auth name ('"
+                    + jpd.getAuthName() + "') with placeholders", e);
+        }
+        try {
+            jpd.setIp(PropertiesHelper.resolveString(jpd.getIp(), placeholders));
+        } catch (final PropertiesException e) {
+            logger.log(Level.WARNING, "Error while resolving provider domain ('" + jpd.getId() + "') ip ('"
+                    + jpd.getIp() + "') with placeholders", e);
+        }
+
+        try {
+            jpd.setPort(PropertiesHelper.resolveString(jpd.getPort(), placeholders));
+        } catch (final PropertiesException e) {
+            logger.log(Level.WARNING, "Error while resolving provider domain ('" + jpd.getId() + "') port ('"
+                    + jpd.getPort() + "') with placeholders", e);
+        }
     }
 
     public static JbiProvidesConfig getProviderConfig(final @Nullable Provides provides) throws PEtALSCDKException {
@@ -231,13 +295,14 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
     }
 
     public static Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> getProvidesPerDomain(
-            final @Nullable Services services) throws PEtALSCDKException {
+            final @Nullable Services services, final Properties placeholders, final Logger logger)
+            throws PEtALSCDKException {
         assert services != null;
 
         final Map<String, JbiProviderDomain> jpds = new HashMap<>();
         final Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> pd2provides = new HashMap<>();
 
-        for (final JbiProviderDomain jpd : getProviderDomains(services)) {
+        for (final JbiProviderDomain jpd : getProviderDomains(services, placeholders, logger)) {
             jpds.put(jpd.getId(), jpd);
             pd2provides.put(jpd, new ArrayList<Pair<Provides, JbiProvidesConfig>>());
         }
@@ -255,14 +320,14 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         return pd2provides;
     }
 
-    public static Map<JbiConsumerDomain, Collection<Consumes>> getConsumesPerDomain(final @Nullable Services services)
-            throws PEtALSCDKException {
+    public static Map<JbiConsumerDomain, Collection<Consumes>> getConsumesPerDomain(final @Nullable Services services,
+            final Properties placeholders, final Logger logger) throws PEtALSCDKException {
         assert services != null;
 
         final Map<String, JbiConsumerDomain> jcds = new HashMap<>();
         final Map<JbiConsumerDomain, Collection<Consumes>> cd2consumes = new HashMap<>();
 
-        for (final JbiConsumerDomain jcd : JbiGatewayJBIHelper.getConsumerDomains(services)) {
+        for (final JbiConsumerDomain jcd : JbiGatewayJBIHelper.getConsumerDomains(services, placeholders, logger)) {
             jcds.put(jcd.getId(), jcd);
             cd2consumes.put(jcd, new ArrayList<Consumes>());
         }

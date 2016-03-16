@@ -478,7 +478,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
                 getJbiComponentDescriptor().getComponent());
 
         if (removed != null) {
-            // TODO should I remove it even if removed is null? In case of inconsistency, it is safer...
+            // TODO should I remove it even if removed is null? In case of inconsistency, it would be safer...
             return deregisterTransportListener(removed);
         } else {
             return false;

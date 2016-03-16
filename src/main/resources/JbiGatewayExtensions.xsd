@@ -64,10 +64,12 @@
          <xs:documentation>Define the provider domains from which services they provide will be propagated.
          </xs:documentation>
       </xs:annotation>
-      <!-- the elements are the parameters that could be transport specific in the future... -->
+      <!-- the elements are the parameters that could be transport specific in the future... 
+            Also they are all replaced with the placeholders at runtime! -->
       <xs:all>
          <xs:element name="ip" type="xs:string" />
-         <xs:element name="port" type="xs:int" default="7500" />
+         <!-- it must be string because it supports placeholders -->
+         <xs:element name="port" type="xs:string" default="7500" />
          <!-- Shared identifier with consumer domain -->
          <xs:element name="auth-name" type="xs:string" />
       </xs:all>
@@ -82,7 +84,8 @@
          <xs:documentation> Define the consumer domains that will be able to propagate services we provide.
          </xs:documentation>
       </xs:annotation>
-      <!-- the elements are the parameters that could be transport specific in the future... -->
+      <!-- the elements are the parameters that could be transport specific in the future... 
+            Also they are all replaced with the placeholders at runtime! -->
       <xs:all>
          <!-- Shared identifier with provider domain -->
          <xs:element name="auth-name" type="xs:string" />

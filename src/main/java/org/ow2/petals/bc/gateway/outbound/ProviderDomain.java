@@ -149,6 +149,8 @@ public class ProviderDomain extends AbstractDomain {
         final ChannelHandler errors = new LastLoggingHandler(logger.getName() + ".errors");
         final ObjectEncoder objectEncoder = new ObjectEncoder();
 
+        // it should have been checked already by JbiGatewayJBIHelper
+        final int port = Integer.parseInt(jpd.getPort());
         final Bootstrap _bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
             @Override
             protected void initChannel(final @Nullable Channel ch) throws Exception {
@@ -161,7 +163,7 @@ public class ProviderDomain extends AbstractDomain {
                 p.addLast("init", new TransportInitClient(logger, ProviderDomain.this));
                 p.addLast("log-errors", errors);
             }
-        }).remoteAddress(jpd.getIp(), jpd.getPort());
+        }).remoteAddress(jpd.getIp(), port);
         assert _bootstrap != null;
         bootstrap = _bootstrap;
     }

@@ -72,6 +72,10 @@
          <artifactId>easycommons-lang</artifactId>
       </dependency>
       <dependency>
+         <groupId>org.ow2.easycommons</groupId>
+         <artifactId>easycommons-properties</artifactId>
+      </dependency>
+      <dependency>
          <groupId>org.ow2.easywsdl</groupId>
          <artifactId>easywsdl-wsdl</artifactId>
       </dependency>

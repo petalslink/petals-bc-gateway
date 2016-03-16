@@ -90,10 +90,11 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         final Services services = suDH.getDescriptor().getServices();
 
+        // TODO support placeholders reloading!!!
         final Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> pd2provides = JbiGatewayJBIHelper
-                .getProvidesPerDomain(services);
+                .getProvidesPerDomain(services, getComponent().getPlaceHolders(), logger);
         final Map<JbiConsumerDomain, Collection<Consumes>> cd2consumes = JbiGatewayJBIHelper
-                .getConsumesPerDomain(services);
+                .getConsumesPerDomain(services, getComponent().getPlaceHolders(), logger);
 
         final String ownerSU = suDH.getName();
         assert ownerSU != null;

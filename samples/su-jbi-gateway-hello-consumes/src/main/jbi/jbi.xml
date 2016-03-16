@@ -16,7 +16,7 @@
       </jbi:consumes>
 
       <jg:consumer-domain id="domain1" transport="default">
-         <jg:auth-name>Domain1Secret</jg:auth-name>
+         <jg:auth-name>${domain1.consumer.auth-name}</jg:auth-name>
       </jg:consumer-domain>
 
    </jbi:services>
