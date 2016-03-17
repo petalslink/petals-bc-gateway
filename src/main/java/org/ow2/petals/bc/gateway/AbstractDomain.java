@@ -179,6 +179,7 @@ public abstract class AbstractDomain {
                         tm.exchange.setError((Exception) cause);
                         // TODO what about the other side waiting for this exchange?! it should be removed there...
                         // TODO there will be double copy of the error in the exchange again by the JBI Sender...
+                        // improve that!
                         receiveFromChannel(ctx, TransportedMessage.lastMessage(tm, tm.exchange));
                     } else {
                         logger.log(Level.WARNING, "Can't send message over the channel but nothing I can do now: " + m,

@@ -171,7 +171,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
     public ConsumerDomain createConsumerDomain(final String ownerSU, final JbiConsumerDomain jcd,
             final Collection<Consumes> consumes) throws PEtALSCDKException {
-        // TODO support many transports?
+        // TODO support many transports for one consumer domain
         final Logger logger;
         try {
             logger = getContext().getLogger("consumer." + ownerSU + "." + jcd.getId(), null);
@@ -280,9 +280,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     /**
-     * TODO do we want to stop all connections? or should we simply pause the event loop?!?!
-     * 
-     * TODO should we stop the consumerdomain too??!!
+     * TODO do we really want to disconnect everything?! more like simply stop processing new exchanges!
      */
     @Override
     protected void doStop() throws JBIException {
@@ -367,12 +365,6 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         return desc;
     }
 
-    /**
-     * TODO if description is null, we should reask for it later!
-     * 
-     * TODO make it to safely (i.e. detect errors vs valid) support re-registering (for when we reask for description
-     * for example)
-     */
     private void register(final ServiceEndpointKey key, final ProviderService ps, final @Nullable Document description,
             final boolean activate) throws PEtALSCDKException {
 
@@ -384,10 +376,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         final ServiceEndpoint endpoint;
         if (activate) {
             assert description != null;
-            // TODO we need to store the Document somewhere so that we can override getServiceDescription!
-            // -> store in services, then do the activation, then remove if problem or update endpoint if not
             try {
-                // TODO we need to activate or get that only on SU INIT!
                 endpoint = getContext().activateEndpoint(key.getServiceName(), key.getEndpointName());
                 getLogger().log(Level.INFO, "New Service Endpoint deployed: " + endpoint);
             } catch (final JBIException e) {
@@ -397,7 +386,6 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         } else {
             assert description == null;
             final ServiceUnitDataHandler suDH = getServiceUnitManager().getSUDataHandler(key);
-            // TODO we need to get that only on SU INIT!
             endpoint = suDH.getEndpoint(key);
         }
         assert endpoint != null;
@@ -462,15 +450,12 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
     }
 
-    /**
-     * TODO what about synchronization?
-     */
     public void addTransportListener(final String id, final int port) throws PEtALSCDKException {
+        // TODO synchronization?!
         if (listeners.containsKey(id)) {
             throw new PEtALSCDKException("A transport listener with id '" + id + "' already exists");
         }
 
-        // TODO persistence!
         final JbiTransportListener jtl = JbiGatewayJBIHelper.addTransportListener(id, port,
                 getJbiComponentDescriptor().getComponent());
 
@@ -487,7 +472,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     public boolean removeTransportListener(final String id) throws PEtALSCDKException {
-        // TODO persistence
+        // TODO synchronization?!
         final JbiTransportListener removed = JbiGatewayJBIHelper.removeTransportListener(id,
                 getJbiComponentDescriptor().getComponent());
 

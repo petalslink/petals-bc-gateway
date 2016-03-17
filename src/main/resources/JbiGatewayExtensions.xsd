@@ -81,8 +81,7 @@
 
    <xs:complexType name="JbiConsumerDomain">
       <xs:annotation>
-         <xs:documentation> Define the consumer domains that will be able to propagate services we provide.
-         </xs:documentation>
+         <xs:documentation>Define the consumer domains that will be able to propagate services we provide.</xs:documentation>
       </xs:annotation>
       <!-- the elements are the parameters that could be transport specific in the future... 
             Also they are all replaced with the placeholders at runtime! -->
