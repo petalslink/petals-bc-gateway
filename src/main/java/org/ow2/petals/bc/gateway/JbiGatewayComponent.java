@@ -97,10 +97,13 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
      */
     private final ConcurrentMap<String, TransportListener> listeners = new ConcurrentHashMap<>();
 
+    /**
+     * TODO duplicate with {@link JbiGatewaySUManager#getProviderDomains()}??
+     */
     @SuppressWarnings("null")
     private final Set<ProviderDomain> providers = Collections
             .newSetFromMap(new ConcurrentHashMap<ProviderDomain, Boolean>());
-
+    
     private final ConcurrentMap<ServiceEndpointKey, ServiceData> services = new ConcurrentHashMap<>();
 
     private static class ServiceData {
@@ -297,6 +300,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             }
         }
 
+        // TODO are the consumerdomain disconnected in that case?!?!?!
         for (final TransportListener tl : this.listeners.values()) {
             try {
                 tl.unbind();
@@ -385,6 +389,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             try {
                 // TODO we need to activate or get that only on SU INIT!
                 endpoint = getContext().activateEndpoint(key.getServiceName(), key.getEndpointName());
+                getLogger().log(Level.INFO, "New Service Endpoint deployed: " + endpoint);
             } catch (final JBIException e) {
                 services.remove(key);
                 throw new PEtALSCDKException(e);
@@ -402,12 +407,13 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
     @Override
     public boolean deregister(final ServiceEndpointKey key) throws PEtALSCDKException {
-        // TODO this is not correct
+        // TODO this is not correct (why?!!)
         final ServiceData removed = services.remove(key);
 
         if (removed != null) {
             try {
                 getContext().deactivateEndpoint(removed.endpoint);
+                getLogger().log(Level.INFO, "Service Endpoint undeployed: " + removed.endpoint);
             } catch (final JBIException e) {
                 throw new PEtALSCDKException(e);
             }
