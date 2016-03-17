@@ -109,6 +109,8 @@ public class ProviderDomain extends AbstractDomain {
      * writeLock for {@link #init()} and {@link #shutdown()}.
      * 
      * readlock for event from the {@link TransportClient}.
+     *
+     * The idea is to give precedences to init/shutdown over events... ?
      */
     private final ReadWriteLock initLock = new ReentrantReadWriteLock();
 
@@ -229,6 +231,10 @@ public class ProviderDomain extends AbstractDomain {
         }
     }
 
+    public void updatePropagatedServices(final TransportedPropagatedConsumesList propagatedServices) {
+        updatePropagatedServices(propagatedServices.consumes);
+    }
+
     /**
      * 
      * This registers and initialises the consumes being declared in the provider domain that we mirror on this side.
@@ -246,13 +252,13 @@ public class ProviderDomain extends AbstractDomain {
      * 
      * 
      */
-    public void updatePropagatedServices(final TransportedPropagatedConsumesList propagatedServices) {
+    private void updatePropagatedServices(final List<TransportedPropagatedConsumes> propagated) {
         initLock.readLock().lock();
         try {
 
             final Set<ServiceKey> oldKeys = new HashSet<>(services.keySet());
 
-            for (final TransportedPropagatedConsumes service : propagatedServices.consumes) {
+            for (final TransportedPropagatedConsumes service : propagated) {
                 if (oldKeys.remove(service.service)) {
                     // we already knew this service from a previous connection
                     final ServiceData data = services.get(service.service);
@@ -328,7 +334,8 @@ public class ProviderDomain extends AbstractDomain {
         final ServiceEndpointKey key = data.key;
         if (key != null) {
             try {
-                if (!deregisterProviderService(data)) {
+                data.key = null;
+                if (!matcher.deregister(key)) {
                     logger.warning("Expected to deregister '" + key + "' but it wasn't registered...");
                 }
             } catch (final PEtALSCDKException e) {
@@ -341,13 +348,6 @@ public class ProviderDomain extends AbstractDomain {
         } else {
             assert !init;
         }
-    }
-
-    private boolean deregisterProviderService(final ServiceData data) throws PEtALSCDKException {
-        final ServiceEndpointKey key = data.key;
-        assert key != null;
-        data.key = null;
-        return matcher.deregister(key);
     }
 
     private static ServiceEndpointKey generateSEK(final ServiceKey sk) {
@@ -409,6 +409,7 @@ public class ProviderDomain extends AbstractDomain {
         if (_channel != null && _channel.isOpen()) {
             try {
                 // we must use sync so that we know if a problem arises
+                // Note: this should trigger a call to close normally!
                 _channel.close().sync();
             } catch (final InterruptedException e) {
                 throw new UncheckedException(e);
@@ -431,7 +432,7 @@ public class ProviderDomain extends AbstractDomain {
 
     public void close() {
         // this is like a disconnect... but emanating from the other side
-        // TODO what should I do? the same as with shutdown()?
+        updatePropagatedServices(new ArrayList<TransportedPropagatedConsumes>());
     }
 
     @Override
