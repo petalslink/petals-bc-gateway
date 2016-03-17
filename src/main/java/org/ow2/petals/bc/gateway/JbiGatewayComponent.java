@@ -444,8 +444,16 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
         methods.add(JbiGatewayBootstrap.METHOD_ADD_TRANSPORT);
         methods.add(JbiGatewayBootstrap.METHOD_REMOVE_TRANSPORT);
+        methods.add("refreshPropagations");
 
         return methods;
+    }
+    
+    public void refreshPropagations() {
+        // TODO synchronization?!
+        for (final ConsumerDomain cd : getServiceUnitManager().getConsumerDomains()) {
+            cd.refreshPropagations();
+        }
     }
 
     /**

@@ -136,8 +136,9 @@ public class ConsumerDomain extends AbstractDomain {
     }
 
     public void open() {
-        open = true;
         channelsLock.readLock().lock();
+        // note: open and close are never called concurrently
+        open = true;
         try {
             for (final ChannelHandlerContext ctx : channels) {
                 sendPropagatedServices(ctx);
@@ -148,8 +149,9 @@ public class ConsumerDomain extends AbstractDomain {
     }
 
     public void close() {
-        open = false;
         channelsLock.readLock().lock();
+        // note: open and close are never called concurrently
+        open = false;
         try {
             for (final ChannelHandlerContext ctx : channels) {
                 ctx.writeAndFlush(
@@ -181,13 +183,23 @@ public class ConsumerDomain extends AbstractDomain {
         }
     }
 
+    public void refreshPropagations() {
+        if (open) {
+            open();
+        }
+    }
+
     private void sendPropagatedServices(final ChannelHandlerContext ctx) {
         final List<TransportedPropagatedConsumes> consumes = new ArrayList<>();
         for (final Entry<ServiceKey, Consumes> entry : services.entrySet()) {
-            // TODO cache the description
-            // TODO reexecute if desc was missing before...?
-            final Document description = getDescription(entry.getValue());
-            consumes.add(new TransportedPropagatedConsumes(entry.getKey(), description));
+            final ServiceEndpoint[] endpoints = getEndpoints(entry.getValue());
+            // only add the consumes if there is an activated endpoint for it!
+            // TODO poll for newly added endpoints, removed ones and updated descriptions (who knows if the endpoint has
+            // been deactivated then reactivated with an updated description!)
+            if (endpoints.length > 0) {
+                final Document description = getFirstDescription(endpoints);
+                consumes.add(new TransportedPropagatedConsumes(entry.getKey(), description));
+            }
         }
         ctx.writeAndFlush(new TransportedPropagatedConsumesList(consumes));
     }
@@ -198,7 +210,7 @@ public class ConsumerDomain extends AbstractDomain {
      * 
      * TODO maybe factor that into CDK?
      */
-    private @Nullable Document getDescription(final Consumes consumes) {
+    private ServiceEndpoint[] getEndpoints(final Consumes consumes) {
         final String endpointName = consumes.getEndpointName();
         final QName serviceName = consumes.getServiceName();
         final QName interfaceName = consumes.getInterfaceName();
@@ -241,6 +253,10 @@ public class ConsumerDomain extends AbstractDomain {
             endpoints = cc.getEndpoints(interfaceName);
         }
 
+        return endpoints;
+    }
+
+    private @Nullable Document getFirstDescription(final ServiceEndpoint[] endpoints) {
         for (final ServiceEndpoint endpoint : endpoints) {
             try {
                 Document desc = cc.getEndpointDescriptor(endpoint);
