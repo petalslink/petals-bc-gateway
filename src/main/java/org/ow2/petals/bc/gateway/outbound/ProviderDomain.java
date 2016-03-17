@@ -259,19 +259,31 @@ public class ProviderDomain extends AbstractDomain {
             final Set<ServiceKey> oldKeys = new HashSet<>(services.keySet());
 
             for (final TransportedPropagatedConsumes service : propagated) {
+                final boolean register;
+                final ServiceData data;
                 if (oldKeys.remove(service.service)) {
-                    // we already knew this service from a previous connection
-                    final ServiceData data = services.get(service.service);
+                    // we already knew this service from a previous event
+                    data = services.get(service.service);
                     assert data != null;
                     if (service.description != null) {
-                        // Note: this is not always used because the description is only retrieved by the container
-                        // on activation
+                        if (data.description == null) {
+                            // let's re-register it then!
+                            deregisterOrStoreOrLog(data, null);
+                            register = true;
+                        } else {
+                            register = false;
+                        }
                         data.description = service.description;
+                    } else {
+                        register = false;
                     }
                 } else {
                     // the service is new!
-                    final ServiceData data = new ServiceData(service.description);
+                    data = new ServiceData(service.description);
+                    register = true;
+                }
 
+                if (register) {
                     try {
                         if (init) {
                             registerProviderService(service.service, data);
