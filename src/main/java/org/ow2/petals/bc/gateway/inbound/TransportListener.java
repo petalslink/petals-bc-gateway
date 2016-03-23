@@ -140,7 +140,8 @@ public class TransportListener implements ConsumerAuthenticator {
     public void register(final JbiConsumerDomain jcd, final ConsumerDomain cd) throws PEtALSCDKException {
         if (consumers.putIfAbsent(jcd.getAuthName(), cd) != null) {
             throw new PEtALSCDKException(
-                    "Duplicate auth name '" + jcd.getAuthName() + "' in transporter " + jtl.getId());
+                    "A consumer partner with the auth-name '" + jcd.getAuthName()
+                            + "' is already registered for the transporter '" + jtl.getId() + "'");
         }
     }
 
