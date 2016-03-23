@@ -193,6 +193,15 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
             }
         }
 
+        for (final ConsumerDomain cd : data.consumerDomains) {
+            assert cd != null;
+            try {
+                cd.deregister();
+            } catch (final Exception e) {
+                ex.addSuppressed(e);
+            }
+        }
+
         ex.throwIfNeeded();
     }
 
@@ -227,7 +236,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         for (final ConsumerDomain cd : data.consumerDomains) {
             assert cd != null;
             try {
-                cd.deregister();
+                cd.destroy();
             } catch (final Exception e) {
                 ex.addSuppressed(e);
             }

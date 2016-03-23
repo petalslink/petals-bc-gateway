@@ -121,10 +121,16 @@ public class ConsumerDomain extends AbstractDomain {
     }
 
     /**
-     * Consumer partner will be disconnected
+     * No new connection can be created by the consumer partner
      */
     public void deregister() {
         tl.deregistrer(jcd);
+    }
+
+    /**
+     * Consumer partner will be disconnected
+     */
+    public void destroy() {
         channelsLock.readLock().lock();
         try {
             for (final ChannelHandlerContext ctx : channels) {
