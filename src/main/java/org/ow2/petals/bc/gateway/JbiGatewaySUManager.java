@@ -203,7 +203,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         final String ownerSU = suDH.getName();
         assert ownerSU != null;
 
-        final SUData data = suDatas.get(ownerSU);
+        final SUData data = suDatas.remove(ownerSU);
 
         if (data == null) {
             // can happen in case deploy failed early
