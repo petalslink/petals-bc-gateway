@@ -45,6 +45,7 @@ import org.ow2.petals.bc.gateway.outbound.ProviderMatcher;
 import org.ow2.petals.bc.gateway.outbound.ProviderService;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
+import org.ow2.petals.binding.gateway.clientserver.api.AdminService;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.bc.AbstractBindingComponent;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
@@ -75,7 +76,7 @@ import io.netty.handler.codec.serialization.ClassResolvers;
  * @author vnoel
  *
  */
-public class JbiGatewayComponent extends AbstractBindingComponent implements ProviderMatcher {
+public class JbiGatewayComponent extends AbstractBindingComponent implements ProviderMatcher, AdminService {
 
     /**
      * We need only one sender per component because it is stateless (for the functionalities we use)
