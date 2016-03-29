@@ -18,17 +18,18 @@
 package org.ow2.petals.bc.gateway;
 
 import java.util.Collection;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.MissingResourceException;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.jbi.JBIException;
+import javax.jbi.messaging.MessageExchange;
 import javax.jbi.messaging.MessagingException;
 import javax.jbi.servicedesc.ServiceEndpoint;
 
@@ -93,17 +94,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     @Nullable
     private EventLoopGroup clientsGroup;
 
-    /**
-     * Only modification from SUs (see {@link #registerTransportListener(String, JbiTransportListener)}) are concurrent
-     */
-    private final ConcurrentMap<String, TransportListener> listeners = new ConcurrentHashMap<>();
-
-    /**
-     * TODO duplicate with {@link JbiGatewaySUManager#getProviderDomains()}??
-     */
-    @SuppressWarnings("null")
-    private final Set<ProviderDomain> providers = Collections
-            .newSetFromMap(new ConcurrentHashMap<ProviderDomain, Boolean>());
+    private final Map<String, TransportListener> listeners = new HashMap<>();
     
     private final ConcurrentMap<ServiceEndpointKey, ServiceData> services = new ConcurrentHashMap<>();
 
@@ -157,18 +148,14 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
         final ProviderDomain pd = new ProviderDomain(this, jpd, provides, getSender(), newClientBootstrap(), logger,
                 newClassResolver());
-        // we need to store it to be able to start and stop with the component
-        providers.add(pd);
         if (started) {
             pd.connect();
         }
         return pd;
     }
 
-    public boolean deregisterProviderDomain(final ProviderDomain domain) {
-        final boolean removed = providers.remove(domain);
+    public void deregisterProviderDomain(final ProviderDomain domain) {
         domain.disconnect();
-        return removed;
     }
 
     public ConsumerDomain createConsumerDomain(final String ownerSU, final JbiConsumerDomain jcd,
@@ -200,6 +187,13 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         return bootstrap;
     }
 
+    /**
+     * This constructs a {@link ClassResolver} from the container {@link ClassLoader}.
+     * 
+     * This is needed because when we receive a {@link MessageExchange} from the other side, its class was coming from
+     * the container on the other side. If we didn't use the container {@link ClassLoader}, then we couldn't unserialize
+     * the {@link MessageExchange}.
+     */
     private ClassResolver newClassResolver() throws PEtALSCDKException {
         final ClassLoader cl;
         try {
@@ -249,21 +243,17 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             tl.bind();
         }
 
-        for (final ProviderDomain pd : providers) {
+        for (final ProviderDomain pd : getServiceUnitManager().getProviderDomains()) {
             pd.connect();
         }
 
         this.started = true;
     }
 
-    private void registerTransportListener(final JbiTransportListener jtl) throws PEtALSCDKException {
-        final TransportListener tl = addTransporterListener(jtl);
-        if (started) {
-            tl.bind();
-        }
-    }
-
     private TransportListener addTransporterListener(final JbiTransportListener jtl) throws PEtALSCDKException {
+        if (listeners.containsKey(jtl.getId())) {
+            throw new PEtALSCDKException(String.format("Duplicate transporter id '%s'", jtl.getId()));
+        }
         final Logger logger;
         try {
             logger = getContext().getLogger(jtl.getId(), null);
@@ -272,9 +262,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             throw new PEtALSCDKException("Can't create logger", e);
         }
         final TransportListener tl = new TransportListener(jtl, newServerBootstrap(), logger, newClassResolver());
-        if (listeners.putIfAbsent(jtl.getId(), tl) != null) {
-            throw new PEtALSCDKException(String.format("Duplicate transporter id '%s'", jtl.getId()));
-        }
+        listeners.put(jtl.getId(), tl);
         if (getLogger().isLoggable(Level.CONFIG)) {
             getLogger().config(String.format("Transporter '%s' added", jtl));
         }
@@ -291,7 +279,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
         final List<Throwable> exceptions = new LinkedList<>();
 
-        for (final ProviderDomain tc : providers) {
+        for (final ProviderDomain tc : getServiceUnitManager().getProviderDomains()) {
             try {
                 tc.disconnect();
             } catch (final Exception e1) {
@@ -300,8 +288,8 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             }
         }
 
-        // TODO are the consumerdomain disconnected in that case?!?!?!
-        for (final TransportListener tl : this.listeners.values()) {
+        // TODO the consumerdomain are not disconnected!
+        for (final TransportListener tl : listeners.values()) {
             try {
                 tl.unbind();
             } catch (final Exception e1) {
@@ -319,7 +307,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
     }
 
-    private boolean deregisterTransportListener(final JbiTransportListener jtl) {
+    private boolean removeTransportListener(final JbiTransportListener jtl) {
         final TransportListener tl = this.listeners.remove(jtl.getId());
         if (tl != null) {
             if (getLogger().isLoggable(Level.CONFIG)) {
@@ -457,6 +445,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     public void reloadPlaceHolders() {
         super.reloadPlaceHolders();
 
+
     }
 
     public void addTransportListener(final String id, final int port) throws PEtALSCDKException {
@@ -469,7 +458,10 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
                 getJbiComponentDescriptor().getComponent());
 
         try {
-            registerTransportListener(jtl);
+            final TransportListener tl = addTransporterListener(jtl);
+            if (started) {
+                tl.bind();
+            }
         } catch (final PEtALSCDKException e) {
             try {
                 JbiGatewayJBIHelper.removeTransportListener(id, getJbiComponentDescriptor().getComponent());
@@ -487,7 +479,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
         if (removed != null) {
             // TODO should I remove it even if removed is null? In case of inconsistency, it would be safer...
-            return deregisterTransportListener(removed);
+            return removeTransportListener(removed);
         } else {
             return false;
         }

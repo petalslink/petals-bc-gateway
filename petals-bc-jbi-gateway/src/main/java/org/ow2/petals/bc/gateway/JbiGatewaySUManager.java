@@ -224,10 +224,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         for (final ProviderDomain pd : data.providerDomains) {
             assert pd != null;
             try {
-                if (!getComponent().deregisterProviderDomain(pd)) {
-                    logger.severe(String.format(
-                            "Expected to deregister provider domain '%s' but it wasn't registered...", pd.getName()));
-                }
+                getComponent().deregisterProviderDomain(pd);
             } catch (final Exception e) {
                 ex.addSuppressed(e);
             }

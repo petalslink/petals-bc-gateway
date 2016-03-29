@@ -133,6 +133,7 @@ public class ConsumerDomain extends AbstractDomain {
         channelsLock.readLock().lock();
         try {
             for (final Channel c : channels) {
+                // this will trigger deregisterChannel btw
                 c.close();
             }
         } finally {
