@@ -26,13 +26,16 @@ public class JbiGatewayConsumeExtFlowStepBeginLogData extends ConsumeExtFlowStep
 
     private static final long serialVersionUID = 5702156947022340494L;
 
+    public static final String CONSUMER_KEY = "consumer-domain";
+
     public JbiGatewayConsumeExtFlowStepBeginLogData(final FlowAttributes fa, final String flowInterfaceName,
             final String flowServiceName, final String flowEndpointName, final String flowOperationName,
-            final String flowPreviousStepId) {
+            final String flowPreviousStepId, final String consumer) {
         super(fa.getFlowInstanceId(), fa.getFlowStepId(), flowInterfaceName, flowServiceName, flowEndpointName,
                 flowOperationName);
         // and we also put the previous one because with the JBI Gateway, there is one!
         putData(FLOW_PREVIOUS_STEP_ID_PROPERTY_NAME, flowPreviousStepId);
+        putData(CONSUMER_KEY, consumer);
     }
 
 }

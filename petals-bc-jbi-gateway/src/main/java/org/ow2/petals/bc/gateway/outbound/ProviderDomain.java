@@ -45,6 +45,7 @@ import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
 import org.ow2.petals.bc.gateway.messages.TransportedTimeout;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
+import org.ow2.petals.bc.gateway.utils.JbiGatewayProvideExtFlowStepBeginLogData;
 import org.ow2.petals.bc.gateway.utils.LastLoggingHandler;
 import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.commons.log.Level;
@@ -52,7 +53,6 @@ import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
-import org.ow2.petals.component.framework.logger.ProvideExtFlowStepBeginLogData;
 import org.ow2.petals.component.framework.logger.StepLogHelper;
 import org.ow2.petals.component.framework.util.EndpointUtil;
 import org.ow2.petals.component.framework.util.ServiceEndpointKey;
@@ -473,8 +473,8 @@ public class ProviderDomain extends AbstractDomain {
             final TransportedMessage tm = (TransportedMessage) m;
             if (tm.step == 1) {
                 final FlowAttributes fa = PetalsExecutionContext.getFlowAttributes();
-                logger.log(Level.MONIT, "", new ProvideExtFlowStepBeginLogData(fa.getFlowInstanceId(),
-                        PetalsExecutionContext.getPreviousFlowStepId(), fa.getFlowStepId()));
+                logger.log(Level.MONIT, "", new JbiGatewayProvideExtFlowStepBeginLogData(fa.getFlowInstanceId(),
+                        PetalsExecutionContext.getPreviousFlowStepId(), fa.getFlowStepId(), jpd.getId()));
             }
         }
     }

@@ -310,7 +310,8 @@ public class ConsumerDomain extends AbstractDomain {
                         StringHelper.nonNullValue(m.service.interfaceName),
                         StringHelper.nonNullValue(tm.service.service),
                         StringHelper.nonNullValue(tm.service.endpointName),
-                        StringHelper.nonNullValue(tm.exchange.getOperation()), m.flowAttributes.getFlowStepId()));
+                        StringHelper.nonNullValue(tm.exchange.getOperation()), m.flowAttributes.getFlowStepId(),
+                        jcd.getId()));
             }
         }
     }
