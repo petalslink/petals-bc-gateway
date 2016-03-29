@@ -61,16 +61,13 @@ public class TransportServer extends SimpleChannelInboundHandler<TransportedToPr
     @Override
     public void handlerAdded(final @Nullable ChannelHandlerContext ctx) throws Exception {
         assert ctx != null;
-        cd.registerChannel(ctx);
+        cd.registerChannel(ctx.channel());
     }
 
-    /**
-     * TODO is that correct?
-     */
     @Override
     public void channelInactive(final @Nullable ChannelHandlerContext ctx) throws Exception {
         assert ctx != null;
-        cd.deregisterChannel(ctx);
+        cd.deregisterChannel(ctx.channel());
     }
 
     @Override

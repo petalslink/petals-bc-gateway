@@ -57,7 +57,7 @@ import org.w3c.dom.Document;
 
 import com.ebmwebsourcing.easycommons.lang.StringHelper;
 
-import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.Channel;
 
 /**
  * There is one instance of this class per consumer domain in an SU configuration (jbi.xml).
@@ -81,8 +81,7 @@ public class ConsumerDomain extends AbstractDomain {
      * The channels from this consumer domain (there can be more than one in case of HA or stuffs like that for example)
      */
     @SuppressWarnings("null")
-    private final Set<ChannelHandlerContext> channels = Collections
-            .newSetFromMap(new ConcurrentHashMap<ChannelHandlerContext, Boolean>());
+    private final Set<Channel> channels = Collections.newSetFromMap(new ConcurrentHashMap<Channel, Boolean>());
 
     private final ComponentContext cc;
 
@@ -133,8 +132,8 @@ public class ConsumerDomain extends AbstractDomain {
     public void destroy() {
         channelsLock.readLock().lock();
         try {
-            for (final ChannelHandlerContext ctx : channels) {
-                ctx.close();
+            for (final Channel c : channels) {
+                c.close();
             }
         } finally {
             channelsLock.readLock().unlock();
@@ -146,8 +145,8 @@ public class ConsumerDomain extends AbstractDomain {
         // note: open and close are never called concurrently
         open = true;
         try {
-            for (final ChannelHandlerContext ctx : channels) {
-                sendPropagatedServices(ctx);
+            for (final Channel c : channels) {
+                sendPropagatedServices(c);
             }
         } finally {
             channelsLock.readLock().unlock();
@@ -159,8 +158,8 @@ public class ConsumerDomain extends AbstractDomain {
         // note: open and close are never called concurrently
         open = false;
         try {
-            for (final ChannelHandlerContext ctx : channels) {
-                ctx.writeAndFlush(
+            for (final Channel c : channels) {
+                c.writeAndFlush(
                         new TransportedPropagatedConsumesList(new ArrayList<TransportedPropagatedConsumes>()));
             }
         } finally {
@@ -168,22 +167,22 @@ public class ConsumerDomain extends AbstractDomain {
         }
     }
 
-    public void registerChannel(final ChannelHandlerContext ctx) {
+    public void registerChannel(final Channel c) {
         channelsLock.writeLock().lock();
         try {
-            channels.add(ctx);
+            channels.add(c);
             if (open) {
-                sendPropagatedServices(ctx);
+                sendPropagatedServices(c);
             }
         } finally {
             channelsLock.writeLock().unlock();
         }
     }
 
-    public void deregisterChannel(final ChannelHandlerContext ctx) {
+    public void deregisterChannel(final Channel c) {
         channelsLock.writeLock().lock();
         try {
-            channels.remove(ctx);
+            channels.remove(c);
         } finally {
             channelsLock.writeLock().unlock();
         }
@@ -195,7 +194,7 @@ public class ConsumerDomain extends AbstractDomain {
         }
     }
 
-    private void sendPropagatedServices(final ChannelHandlerContext ctx) {
+    private void sendPropagatedServices(final Channel c) {
         final List<TransportedPropagatedConsumes> consumes = new ArrayList<>();
         for (final Entry<ServiceKey, Consumes> entry : services.entrySet()) {
             final ServiceEndpoint[] endpoints = getEndpoints(entry.getValue());
@@ -207,7 +206,7 @@ public class ConsumerDomain extends AbstractDomain {
                 consumes.add(new TransportedPropagatedConsumes(entry.getKey(), description));
             }
         }
-        ctx.writeAndFlush(new TransportedPropagatedConsumesList(consumes));
+        c.writeAndFlush(new TransportedPropagatedConsumesList(consumes));
     }
 
     /**
