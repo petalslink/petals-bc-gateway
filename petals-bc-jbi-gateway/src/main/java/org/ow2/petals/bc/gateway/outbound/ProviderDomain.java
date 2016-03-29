@@ -25,8 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 import javax.jbi.messaging.MessageExchange;
@@ -81,38 +81,33 @@ import io.netty.handler.logging.LoggingHandler;
  * {@link #connect()} and {@link #disconnect()} corresponds to components start and stop. {@link #connect()} should
  * trigger {@link #updatePropagatedServices(TransportedPropagatedConsumesList)} by the {@link Channel} normally.
  * 
- * {@link #init()} and {@link #shutdown()} corresponds to SU init and shutdown.
+ * {@link #register()} and {@link #deregister()} corresponds to SU init and shutdown.
  * 
  */
 public class ProviderDomain extends AbstractDomain {
 
-    private final JbiProviderDomain jpd;
+    private JbiProviderDomain jpd;
 
     private final ProviderMatcher matcher;
 
     private final Bootstrap bootstrap;
 
     /**
-     * Updated by {@link #addedProviderService(ServiceKey, Document)} and {@link #removedProviderService(ServiceKey)}.
+     * Updated by {@link #updatePropagatedServices(TransportedPropagatedConsumesList)}.
      * 
      * Contains the services announced by the provider partner as being propagated.
      * 
-     * The content of {@link ServiceData} itself is updated by {@link #init()} and {@link #shutdown()} (to add the
+     * The content of {@link ServiceData} itself is updated by {@link #register()} and {@link #deregister()} (to add the
      * {@link ServiceEndpointKey} that is activated as an endpoint)
      * 
-     * No need for concurrent map because modifications are done by one instance of {@link TransportClient}, so no worry
-     * for thread safety.
      */
     private final Map<ServiceKey, ServiceData> services = new HashMap<>();
 
     /**
-     * writeLock for {@link #init()} and {@link #shutdown()}.
-     * 
-     * readlock for event from the {@link TransportClient}.
-     *
-     * The idea is to give precedences to init/shutdown over events... ?
+     * lock for manipulating the services map to avoid new services not taken into account during {@link #register()}
+     * and {@link #deregister()}.
      */
-    private final ReadWriteLock initLock = new ReentrantReadWriteLock();
+    private final Lock servicesLock = new ReentrantLock();
 
     /**
      * immutable, all the provides for this domain.
@@ -151,8 +146,6 @@ public class ProviderDomain extends AbstractDomain {
         final ChannelHandler errors = new LastLoggingHandler(logger.getName() + ".errors");
         final ObjectEncoder objectEncoder = new ObjectEncoder();
 
-        // it should have been checked already by JbiGatewayJBIHelper
-        final int port = Integer.parseInt(jpd.getPort());
         final Bootstrap _bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
             @Override
             protected void initChannel(final @Nullable Channel ch) throws Exception {
@@ -165,17 +158,26 @@ public class ProviderDomain extends AbstractDomain {
                 p.addLast("init", new TransportInitClient(logger, ProviderDomain.this));
                 p.addLast("log-errors", errors);
             }
-        }).remoteAddress(jpd.getIp(), port);
+        });
         assert _bootstrap != null;
         bootstrap = _bootstrap;
+    }
+
+    public void onPlaceHolderValuesReloaded(final JbiProviderDomain newJPD) {
+        if (!jpd.getAuthName().equals(newJPD.getAuthName()) || !jpd.getIp().equals(newJPD.getIp())
+                || !jpd.getPort().equals(newJPD.getPort())) {
+            jpd = newJPD;
+            disconnect();
+            connect();
+        }
     }
 
     /**
      * Register propagated consumes for the JBI listener, can be called after or before the component has started (i.e.,
      * {@link #connect()} has been called).
      */
-    public void init() throws PEtALSCDKException {
-        initLock.writeLock().lock();
+    public void register() throws PEtALSCDKException {
+        servicesLock.lock();
         try {
             // TODO should we fail if a provide does not corresponds to a propagated Consumes?
             // Because it is actived...
@@ -199,18 +201,18 @@ public class ProviderDomain extends AbstractDomain {
 
             throw e;
         } finally {
-            initLock.writeLock().unlock();
+            servicesLock.unlock();
         }
     }
 
     /**
      * Deregister the propagated consumes for the JBI Listener
      */
-    public void shutdown() throws PEtALSCDKException {
+    public void deregister() throws PEtALSCDKException {
 
         final List<Exception> exceptions = new ArrayList<>();
 
-        initLock.writeLock().lock();
+        servicesLock.lock();
         try {
             init = false;
 
@@ -219,7 +221,7 @@ public class ProviderDomain extends AbstractDomain {
                 deregisterOrStoreOrLog(data, exceptions);
             }
         } finally {
-            initLock.writeLock().unlock();
+            servicesLock.unlock();
         }
 
         if (!exceptions.isEmpty()) {
@@ -242,7 +244,7 @@ public class ProviderDomain extends AbstractDomain {
      * We receive this notification once we are connected to the other side, i.e., just after component start (and of
      * course after SU deploy)
      * 
-     * It can be executed after or before {@link #init()} has been called.
+     * It can be executed after or before {@link #register()} has been called.
      * 
      * In case of reconnection, it can be called again.
      * 
@@ -253,7 +255,7 @@ public class ProviderDomain extends AbstractDomain {
      * 
      */
     private void updatePropagatedServices(final List<TransportedPropagatedConsumes> propagated) {
-        initLock.readLock().lock();
+        servicesLock.lock();
         try {
 
             final Set<ServiceKey> oldKeys = new HashSet<>(services.keySet());
@@ -305,7 +307,7 @@ public class ProviderDomain extends AbstractDomain {
                 deregisterOrStoreOrLog(data, null);
             }
         } finally {
-            initLock.readLock().unlock();
+            servicesLock.unlock();
         }
     }
 
@@ -404,8 +406,11 @@ public class ProviderDomain extends AbstractDomain {
     public void connect() {
         final Channel _channel;
         try {
+            // it should have been checked already by JbiGatewayJBIHelper
+            final int port = Integer.parseInt(jpd.getPort());
+
             // we must use sync so that we know if a problem arises
-            _channel = bootstrap.connect().sync().channel();
+            _channel = bootstrap.remoteAddress(jpd.getIp(), port).connect().sync().channel();
         } catch (final InterruptedException e) {
             throw new UncheckedException(e);
         }
@@ -430,10 +435,8 @@ public class ProviderDomain extends AbstractDomain {
         }
     }
 
-    public String getName() {
-        final String id = jpd.getId();
-        assert id != null;
-        return id;
+    public JbiProviderDomain getJPD() {
+        return jpd;
     }
 
     public String getAuthName() {

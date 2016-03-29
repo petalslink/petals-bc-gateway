@@ -73,7 +73,7 @@ public class TransportDispatcher extends SimpleChannelInboundHandler<Transported
         final ChannelPipeline pipeline = ctx.pipeline();
 
         // getName should contain the transporter name
-        final String logName = logger.getName() + "." + cd.getName();
+        final String logName = logger.getName() + "." + cd.getJCD().getId();
 
         // let's replace the debug logger with something specific to this consumer
         pipeline.replace(TransportListener.LOG_DEBUG_HANDLER, TransportListener.LOG_DEBUG_HANDLER,

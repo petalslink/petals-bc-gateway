@@ -183,16 +183,16 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
             @SuppressWarnings("unchecked")
             final Map<String, Exchange> exchangesInProgress = (Map<String, Exchange>) ReflectionHelper
                     .getFieldValue(AbstractDomain.class, pd, "exchangesInProgress", false);
-            assertTrue(String.format("Exchange in progress is not empty for %s: %s", pd.getName(), exchangesInProgress),
-                    exchangesInProgress.isEmpty());
+            assertTrue(String.format("Exchange in progress is not empty for %s: %s", pd.getJPD().getId(),
+                    exchangesInProgress), exchangesInProgress.isEmpty());
         }
 
         for (final ConsumerDomain pd : comp.getServiceUnitManager().getConsumerDomains()) {
             @SuppressWarnings("unchecked")
             final Map<String, Exchange> exchangesInProgress = (Map<String, Exchange>) ReflectionHelper
                     .getFieldValue(AbstractDomain.class, pd, "exchangesInProgress", false);
-            assertTrue(String.format("Exchange in progress is not empty for %s: %s", pd.getName(), exchangesInProgress),
-                    exchangesInProgress.isEmpty());
+            assertTrue(String.format("Exchange in progress is not empty for %s: %s", pd.getJCD().getId(),
+                    exchangesInProgress), exchangesInProgress.isEmpty());
         }
 
         COMPONENT_UNDER_TEST.undeployAllServices();

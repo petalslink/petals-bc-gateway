@@ -85,7 +85,7 @@ public class ConsumerDomain extends AbstractDomain {
 
     private final ComponentContext cc;
 
-    private final JbiConsumerDomain jcd;
+    private JbiConsumerDomain jcd;
 
     private final TransportListener tl;
 
@@ -106,30 +106,38 @@ public class ConsumerDomain extends AbstractDomain {
         }
     }
 
-    public String getName() {
-        final String id = jcd.getId();
-        assert id != null;
-        return id;
+    public void onPlaceHolderValuesReloaded(final JbiConsumerDomain newJCD) throws PEtALSCDKException {
+        if (!jcd.getAuthName().equals(newJCD.getAuthName())) {
+            tl.register(newJCD.getAuthName(), this);
+            tl.deregistrer(jcd.getAuthName());
+            jcd = newJCD;
+            // this will disconnect clients and they should reconnect by themselves
+            disconnect();
+        }
+    }
+
+    public JbiConsumerDomain getJCD() {
+        return jcd;
     }
 
     /**
      * Consumer partner will be able to connect to us
      */
     public void register() throws PEtALSCDKException {
-        tl.register(jcd, this);
+        tl.register(jcd.getAuthName(), this);
     }
 
     /**
      * No new connection can be created by the consumer partner
      */
     public void deregister() {
-        tl.deregistrer(jcd);
+        tl.deregistrer(jcd.getAuthName());
     }
 
     /**
      * Consumer partner will be disconnected
      */
-    public void destroy() {
+    public void disconnect() {
         channelsLock.readLock().lock();
         try {
             for (final Channel c : channels) {
@@ -142,11 +150,12 @@ public class ConsumerDomain extends AbstractDomain {
     }
 
     public void open() {
+        // note: open and close are never called concurrently so read lock is ok
         channelsLock.readLock().lock();
-        // note: open and close are never called concurrently
-        open = true;
         try {
+            open = true;
             for (final Channel c : channels) {
+                assert c != null;
                 sendPropagatedServices(c);
             }
         } finally {
@@ -155,10 +164,11 @@ public class ConsumerDomain extends AbstractDomain {
     }
 
     public void close() {
+        // note: open and close are never called concurrently so read lock is ok
         channelsLock.readLock().lock();
-        // note: open and close are never called concurrently
-        open = false;
         try {
+            open = false;
+            
             for (final Channel c : channels) {
                 c.writeAndFlush(
                         new TransportedPropagatedConsumesList(new ArrayList<TransportedPropagatedConsumes>()));

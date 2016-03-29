@@ -154,10 +154,6 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         return pd;
     }
 
-    public void deregisterProviderDomain(final ProviderDomain domain) {
-        domain.disconnect();
-    }
-
     public ConsumerDomain createConsumerDomain(final String ownerSU, final JbiConsumerDomain jcd,
             final Collection<Consumes> consumes) throws PEtALSCDKException {
         // TODO support many transports for one consumer domain
@@ -432,28 +428,15 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
         return methods;
     }
-    
+
     @Override
     public void refreshPropagations() {
-        // TODO synchronization?!
         for (final ConsumerDomain cd : getServiceUnitManager().getConsumerDomains()) {
             cd.refreshPropagations();
         }
     }
 
-    @Override
-    public void reloadPlaceHolders() {
-        super.reloadPlaceHolders();
-
-
-    }
-
     public void addTransportListener(final String id, final int port) throws PEtALSCDKException {
-        // TODO synchronization?!
-        if (listeners.containsKey(id)) {
-            throw new PEtALSCDKException("A transport listener with id '" + id + "' already exists");
-        }
-
         final JbiTransportListener jtl = JbiGatewayJBIHelper.addTransportListener(id, port,
                 getJbiComponentDescriptor().getComponent());
 
@@ -473,12 +456,10 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     public boolean removeTransportListener(final String id) throws PEtALSCDKException {
-        // TODO synchronization?!
         final JbiTransportListener removed = JbiGatewayJBIHelper.removeTransportListener(id,
                 getJbiComponentDescriptor().getComponent());
 
         if (removed != null) {
-            // TODO should I remove it even if removed is null? In case of inconsistency, it would be safer...
             return removeTransportListener(removed);
         } else {
             return false;

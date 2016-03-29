@@ -69,7 +69,6 @@ public class TransportInitClient extends ChannelInboundHandlerAdapter {
                 // TODO should we do something else such as marking the SU as disabled or something like that?!
                 ctx.close();
             } else {
-                // TODO is that the correct way?
                 throw new IllegalArgumentException("Impossible");
             }
         } finally {

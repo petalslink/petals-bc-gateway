@@ -22,7 +22,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.bc.gateway.utils.LastLoggingHandler;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
@@ -137,15 +136,14 @@ public class TransportListener implements ConsumerAuthenticator {
         return consumers.get(authName);
     }
 
-    public void register(final JbiConsumerDomain jcd, final ConsumerDomain cd) throws PEtALSCDKException {
-        if (consumers.putIfAbsent(jcd.getAuthName(), cd) != null) {
-            throw new PEtALSCDKException(
-                    "A consumer partner with the auth-name '" + jcd.getAuthName()
-                            + "' is already registered for the transporter '" + jtl.getId() + "'");
+    public void register(final String authName, final ConsumerDomain cd) throws PEtALSCDKException {
+        if (consumers.putIfAbsent(authName, cd) != null) {
+            throw new PEtALSCDKException("A consumer partner with the auth-name '" + authName
+                    + "' is already registered for the transporter '" + jtl.getId() + "'");
         }
     }
 
-    public void deregistrer(final JbiConsumerDomain jcd) {
-        consumers.remove(jcd.getAuthName());
+    public void deregistrer(final String authName) {
+        consumers.remove(authName);
     }
 }

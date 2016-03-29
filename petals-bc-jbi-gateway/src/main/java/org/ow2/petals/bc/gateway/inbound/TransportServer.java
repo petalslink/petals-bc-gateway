@@ -52,7 +52,7 @@ public class TransportServer extends SimpleChannelInboundHandler<TransportedToPr
     @Override
     public void exceptionCaught(final @Nullable ChannelHandlerContext ctx, final @Nullable Throwable cause)
             throws Exception {
-        logger.log(Level.WARNING, "Exception caught (ConsumerDomain: " + cd.getName() + ")", cause);
+        logger.log(Level.WARNING, "Exception caught (ConsumerDomain: " + cd.getJCD().getId() + ")", cause);
     }
 
     /**
