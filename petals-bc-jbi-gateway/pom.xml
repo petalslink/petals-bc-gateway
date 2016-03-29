@@ -23,6 +23,7 @@
       <groupId>org.ow2.petals</groupId>
       <artifactId>petals-cdkbased-components-parent</artifactId>
       <version>1.0.1-SNAPSHOT</version>
+      <relativePath />
    </parent>
 
    <artifactId>petals-bc-jbi-gateway</artifactId>
