@@ -126,12 +126,13 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     protected void doInit() throws JBIException {
         sender = new JbiGatewayJBISender(this);
 
-        // TODO number of thread for the boss (acceptor)?
+        // only one thread for accepting new connections is enough, we don't create connections often
         bossGroup = new NioEventLoopGroup(1);
-        // TODO should we set a specific number of thread? by default it is based on the number of processors...
+        // TODO choose a specific number of threads, knowing that they are only for very small tasks
+        // This represents the number of thread concurrently usable by all the incoming connections
         workerGroup = new NioEventLoopGroup();
-        // TODO should we set a specific number of thread? by default it is based on the number of processors...
-        // TODO could we share it with the workerGroup?! normally yes... but do we want?
+        // TODO choose a specific number of threads, knowing that they are only for very small tasks
+        // This represents the number of thread concurrently usable by all the outgoing connections
         clientsGroup = new NioEventLoopGroup();
 
         for (final JbiTransportListener jtl : JbiGatewayJBIHelper
@@ -450,6 +451,12 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         for (final ConsumerDomain cd : getServiceUnitManager().getConsumerDomains()) {
             cd.refreshPropagations();
         }
+    }
+
+    @Override
+    public void reloadPlaceHolders() {
+        super.reloadPlaceHolders();
+
     }
 
     public void addTransportListener(final String id, final int port) throws PEtALSCDKException {
