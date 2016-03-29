@@ -111,7 +111,9 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
     }
 
-    private boolean started = false;
+    private volatile boolean started = false;
+
+    private volatile boolean init = false;
 
     @Override
     protected void doInit() throws JBIException {
@@ -131,6 +133,8 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             assert jtl != null;
             addTransporterListener(jtl);
         }
+
+        init = true;
     }
 
     /**
@@ -213,6 +217,9 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
     @Override
     protected void doShutdown() throws JBIException {
+
+        init = false;
+
         assert bossGroup != null;
         // TODO is that ok?
         bossGroup.shutdownGracefully();
@@ -227,6 +234,8 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         // TODO is that ok?
         clientsGroup.shutdownGracefully();
         clientsGroup = null;
+
+        sender = null;
 
         listeners.clear();
     }
@@ -437,6 +446,14 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     public void addTransportListener(final String id, final int port) throws PEtALSCDKException {
+
+        if (!init) {
+            // if not the jbi descriptor is null
+            throw new PEtALSCDKException("The component must be initialised");
+        }
+
+        // note: this also ensure that the listeners won't be modified during the method execution
+
         final JbiTransportListener jtl = JbiGatewayJBIHelper.addTransportListener(id, port,
                 getJbiComponentDescriptor().getComponent());
 
@@ -456,6 +473,14 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     public boolean removeTransportListener(final String id) throws PEtALSCDKException {
+
+        if (!init) {
+            // if not the jbi descriptor is null
+            throw new PEtALSCDKException("The component must be initialised");
+        }
+
+        // note: this also ensure that the listeners won't be modified during the method execution
+
         final JbiTransportListener removed = JbiGatewayJBIHelper.removeTransportListener(id,
                 getJbiComponentDescriptor().getComponent());
 
