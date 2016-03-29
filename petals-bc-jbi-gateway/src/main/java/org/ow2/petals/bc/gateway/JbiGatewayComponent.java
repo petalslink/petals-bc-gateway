@@ -444,6 +444,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         return methods;
     }
     
+    @Override
     public void refreshPropagations() {
         // TODO synchronization?!
         for (final ConsumerDomain cd : getServiceUnitManager().getConsumerDomains()) {
