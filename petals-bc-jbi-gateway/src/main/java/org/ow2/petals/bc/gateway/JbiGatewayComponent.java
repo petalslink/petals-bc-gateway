@@ -34,6 +34,7 @@ import javax.jbi.messaging.MessagingException;
 import javax.jbi.servicedesc.ServiceEndpoint;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.basisapi.exception.PetalsException;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.inbound.TransportListener;
 import org.ow2.petals.bc.gateway.inbound.TransportServer;
@@ -46,7 +47,7 @@ import org.ow2.petals.bc.gateway.outbound.ProviderMatcher;
 import org.ow2.petals.bc.gateway.outbound.ProviderService;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
-import org.ow2.petals.binding.gateway.clientserver.api.AdminService;
+import org.ow2.petals.binding.gateway.clientserver.api.AdminRuntimeService;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.bc.AbstractBindingComponent;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
@@ -77,7 +78,7 @@ import io.netty.handler.codec.serialization.ClassResolvers;
  * @author vnoel
  *
  */
-public class JbiGatewayComponent extends AbstractBindingComponent implements ProviderMatcher, AdminService {
+public class JbiGatewayComponent extends AbstractBindingComponent implements ProviderMatcher, AdminRuntimeService {
 
     /**
      * We need only one sender per component because it is stateless (for the functionalities we use)
@@ -128,13 +129,17 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         // This represents the number of thread concurrently usable by all the outgoing connections
         clientsGroup = new NioEventLoopGroup();
 
-        for (final JbiTransportListener jtl : JbiGatewayJBIHelper
-                .getTransportListeners(getJbiComponentDescriptor().getComponent())) {
-            assert jtl != null;
-            addTransporterListener(jtl);
-        }
+        try {
+            for (final JbiTransportListener jtl : JbiGatewayJBIHelper
+                    .getTransportListeners(getJbiComponentDescriptor().getComponent())) {
+                assert jtl != null;
+                addTransporterListener(jtl);
+            }
 
-        init = true;
+            init = true;
+        } catch (final PetalsException e) {
+            throw new PEtALSCDKException(e);
+        }
     }
 
     /**
@@ -445,11 +450,12 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
     }
 
-    public void addTransportListener(final String id, final int port) throws PEtALSCDKException {
+    @Override
+    public void addTransportListener(final String id, final int port) throws PetalsException {
 
         if (!init) {
             // if not the jbi descriptor is null
-            throw new PEtALSCDKException("The component must be initialised");
+            throw new PetalsException("The component must be initialised");
         }
 
         // note: this also ensure that the listeners won't be modified during the method execution
@@ -463,20 +469,22 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
                 tl.bind();
             }
         } catch (final PEtALSCDKException e) {
+            final PetalsException newEx = new PetalsException(e);
             try {
                 JbiGatewayJBIHelper.removeTransportListener(id, getJbiComponentDescriptor().getComponent());
-            } catch (final PEtALSCDKException ex) {
-                e.addSuppressed(ex);
+            } catch (final PetalsException ex) {
+                newEx.addSuppressed(ex);
             }
-            throw e;
+            throw newEx;
         }
     }
 
-    public boolean removeTransportListener(final String id) throws PEtALSCDKException {
+    @Override
+    public Boolean removeTransportListener(final String id) throws PetalsException {
 
         if (!init) {
             // if not the jbi descriptor is null
-            throw new PEtALSCDKException("The component must be initialised");
+            throw new PetalsException("The component must be initialised");
         }
 
         // note: this also ensure that the listeners won't be modified during the method execution

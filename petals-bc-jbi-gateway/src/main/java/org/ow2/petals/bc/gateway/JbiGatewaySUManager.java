@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.basisapi.exception.PetalsException;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
@@ -90,32 +91,37 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
     protected void doDeploy(final @Nullable ServiceUnitDataHandler suDH) throws PEtALSCDKException {
         assert suDH != null;
 
-        final Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> pd2provides = getJPDs(suDH);
-        final Map<JbiConsumerDomain, Collection<Consumes>> cd2consumes = getJCDs(suDH);
+        try {
+            final Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> pd2provides = this
+                    .getJPDs(suDH);
+            final Map<JbiConsumerDomain, Collection<Consumes>> cd2consumes = this.getJCDs(suDH);
 
-        final String ownerSU = suDH.getName();
-        assert ownerSU != null;
+            final String ownerSU = suDH.getName();
+            assert ownerSU != null;
 
-        final SUData data = new SUData();
-        this.suDatas.put(ownerSU, data);
+            final SUData data = new SUData();
+            this.suDatas.put(ownerSU, data);
 
-        for (final Entry<JbiConsumerDomain, Collection<Consumes>> entry : cd2consumes.entrySet()) {
-            final JbiConsumerDomain jcd = entry.getKey();
-            assert jcd != null;
-            final Collection<Consumes> consumes = entry.getValue();
-            assert consumes != null;
-            final ConsumerDomain cd = getComponent().createConsumerDomain(ownerSU, jcd, consumes);
-            data.consumerDomains.put(jcd.getId(), cd);
-        }
+            for (final Entry<JbiConsumerDomain, Collection<Consumes>> entry : cd2consumes.entrySet()) {
+                final JbiConsumerDomain jcd = entry.getKey();
+                assert jcd != null;
+                final Collection<Consumes> consumes = entry.getValue();
+                assert consumes != null;
+                final ConsumerDomain cd = getComponent().createConsumerDomain(ownerSU, jcd, consumes);
+                data.consumerDomains.put(jcd.getId(), cd);
+            }
 
-        for (final Entry<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> entry : pd2provides
-                .entrySet()) {
-            final JbiProviderDomain jpd = entry.getKey();
-            assert jpd != null;
-            final Collection<Pair<Provides, JbiProvidesConfig>> provides = entry.getValue();
-            assert provides != null;
-            final ProviderDomain pd = getComponent().registerProviderDomain(ownerSU, jpd, provides);
-            data.providerDomains.put(jpd.getId(), pd);
+            for (final Entry<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> entry : pd2provides
+                    .entrySet()) {
+                final JbiProviderDomain jpd = entry.getKey();
+                assert jpd != null;
+                final Collection<Pair<Provides, JbiProvidesConfig>> provides = entry.getValue();
+                assert provides != null;
+                final ProviderDomain pd = getComponent().registerProviderDomain(ownerSU, jpd, provides);
+                data.providerDomains.put(jpd.getId(), pd);
+            }
+        } catch (final PetalsException e) {
+            throw new PEtALSCDKException(e);
         }
     }
 
@@ -240,7 +246,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         for (final ServiceUnitDataHandler suDH : getServiceUnitDataHandlers()) {
             assert suDH != null;
             try {
-                // let's first gathar data to ensure it is valid
+                // let's first gather data to ensure it is valid
                 final Set<JbiProviderDomain> jpds = getJPDs(suDH).keySet();
                 final Set<JbiConsumerDomain> jcds = getJCDs(suDH).keySet();
 
@@ -253,6 +259,9 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                 for (final JbiConsumerDomain jcd : jcds) {
                     data.consumerDomains.get(jcd.getId()).onPlaceHolderValuesReloaded(jcd);
                 }
+            } catch (final PetalsException e) {
+                logger.log(Level.WARNING, "Can't retrieve provider doain or consumer domain for SU " + suDH.getName(),
+                        e);
             } catch (final PEtALSCDKException e) {
                 logger.log(Level.WARNING, "Can't reload placeholders for SU " + suDH.getName(), e);
             }
@@ -260,13 +269,13 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
     }
 
     private Map<JbiConsumerDomain, Collection<Consumes>> getJCDs(final ServiceUnitDataHandler suDH)
-            throws PEtALSCDKException {
+            throws PetalsException {
         return JbiGatewayJBIHelper.getConsumesPerDomain(suDH.getDescriptor().getServices(),
                 getComponent().getPlaceHolders(), logger);
     }
 
     private Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> getJPDs(
-            final ServiceUnitDataHandler suDH) throws PEtALSCDKException {
+            final ServiceUnitDataHandler suDH) throws PetalsException {
         return JbiGatewayJBIHelper.getProvidesPerDomain(suDH.getDescriptor().getServices(),
                 getComponent().getPlaceHolders(), logger);
     }

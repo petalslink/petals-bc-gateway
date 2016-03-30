@@ -20,33 +20,19 @@ package org.ow2.petals.binding.gateway.clientserver.api;
 import org.ow2.petals.basisapi.exception.PetalsException;
 
 /**
- * Client/Server interface of the service 'Administration' part dedicated to the BC Gateway
+ * Client/Server interface of the service 'Runtime Administration' part dedicated to the BC Gateway
  * 
  * @author Christophe DENEUX - Linagora
  * 
  */
-public interface AdminService {
+public interface AdminRuntimeService extends AdminService {
 
     /**
-     * Add a new transport listener.
+     * Repropagate endpoints to client domains.
      * 
-     * @param id
-     *            The transport listener identifier
-     * @param port
-     *            The port on which the new transport listener will listen incoming requests
      * @throws PetalsException
-     *             An error occurs adding the new transport listener
+     *             An error occurs during refresh
      */
-    public void addTransportListener(final String id, final int port) throws PetalsException;
-
-    /**
-     * Remove a transport listener.
-     * 
-     * @param id
-     *            The identifier of the transport listener to remove
-     * @throws PetalsException
-     *             An error occurs removing the transport listener
-     */
-    public Boolean removeTransportListener(final String id) throws PetalsException;
+    public void refreshPropagations() throws PetalsException;
 
 }
