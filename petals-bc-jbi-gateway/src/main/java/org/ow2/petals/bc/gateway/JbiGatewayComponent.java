@@ -129,17 +129,13 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         // This represents the number of thread concurrently usable by all the outgoing connections
         clientsGroup = new NioEventLoopGroup();
 
-        try {
-            for (final JbiTransportListener jtl : JbiGatewayJBIHelper
-                    .getTransportListeners(getJbiComponentDescriptor().getComponent())) {
-                assert jtl != null;
-                addTransporterListener(jtl);
-            }
-
-            init = true;
-        } catch (final PetalsException e) {
-            throw new PEtALSCDKException(e);
+        for (final JbiTransportListener jtl : JbiGatewayJBIHelper
+                .getTransportListeners(getJbiComponentDescriptor().getComponent())) {
+            assert jtl != null;
+            addTransporterListener(jtl);
         }
+
+        init = true;
     }
 
     /**
@@ -451,51 +447,63 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     @Override
-    public void addTransportListener(final String id, final int port) throws PetalsException {
+    public void addTransportListener(final @Nullable String id, final int port) throws PetalsException {
+        assert id != null;
 
+        // note: this also ensure that the listeners won't be modified during the method execution
         if (!init) {
             // if not the jbi descriptor is null
             throw new PetalsException("The component must be initialised");
         }
 
-        // note: this also ensure that the listeners won't be modified during the method execution
-
-        final JbiTransportListener jtl = JbiGatewayJBIHelper.addTransportListener(id, port,
-                getJbiComponentDescriptor().getComponent());
 
         try {
-            final TransportListener tl = addTransporterListener(jtl);
-            if (started) {
-                tl.bind();
+            final JbiTransportListener jtl = JbiGatewayJBIHelper.addTransportListener(id, port,
+                    getJbiComponentDescriptor().getComponent());
+
+            try {
+                final TransportListener tl = addTransporterListener(jtl);
+                if (started) {
+                    tl.bind();
+                }
+            } catch (final PEtALSCDKException e) {
+                try {
+                    JbiGatewayJBIHelper.removeTransportListener(id, getJbiComponentDescriptor().getComponent());
+                } catch (final PEtALSCDKException ex) {
+                    e.addSuppressed(ex);
+                }
+                throw e;
             }
         } catch (final PEtALSCDKException e) {
-            final PetalsException newEx = new PetalsException(e);
-            try {
-                JbiGatewayJBIHelper.removeTransportListener(id, getJbiComponentDescriptor().getComponent());
-            } catch (final PetalsException ex) {
-                newEx.addSuppressed(ex);
-            }
-            throw newEx;
+            final PetalsException ex = new PetalsException(e.getMessage());
+            ex.setStackTrace(e.getStackTrace());
+            throw ex;
         }
     }
 
     @Override
-    public Boolean removeTransportListener(final String id) throws PetalsException {
+    public Boolean removeTransportListener(final @Nullable String id) throws PetalsException {
+        assert id != null;
 
+        // note: this also ensure that the listeners won't be modified during the method execution
         if (!init) {
             // if not the jbi descriptor is null
             throw new PetalsException("The component must be initialised");
         }
 
-        // note: this also ensure that the listeners won't be modified during the method execution
+        try {
+            final JbiTransportListener removed = JbiGatewayJBIHelper.removeTransportListener(id,
+                    getJbiComponentDescriptor().getComponent());
 
-        final JbiTransportListener removed = JbiGatewayJBIHelper.removeTransportListener(id,
-                getJbiComponentDescriptor().getComponent());
-
-        if (removed != null) {
-            return removeTransportListener(removed);
-        } else {
-            return false;
+            if (removed != null) {
+                return removeTransportListener(removed);
+            } else {
+                return false;
+            }
+        } catch (final PEtALSCDKException e) {
+            final PetalsException ex = new PetalsException(e.getMessage());
+            ex.setStackTrace(e.getStackTrace());
+            throw ex;
         }
     }
 }

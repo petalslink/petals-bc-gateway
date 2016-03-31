@@ -19,11 +19,13 @@ package org.ow2.petals.bc.gateway;
 
 import java.util.Collection;
 
+import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.basisapi.exception.PetalsException;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.binding.gateway.clientserver.api.AdminService;
 import org.ow2.petals.component.framework.DefaultBootstrap;
+import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 
 /**
  * There is one instance of this class for the whole component. The class is declared in the jbi.xml.
@@ -48,19 +50,31 @@ public class JbiGatewayBootstrap extends DefaultBootstrap implements AdminServic
     }
 
     /**
-     * {@inheritDoc}
-     * 
      * This will automatically be saved in the jbi.xml by the bootstrap before install of the component!
      */
     @Override
-    public void addTransportListener(final String id, final int port) throws PetalsException {
-        JbiGatewayJBIHelper.addTransportListener(id, port, getJbiComponentConfiguration().getComponent());
+    public void addTransportListener(final @Nullable String id, final int port) throws PetalsException {
+        assert id != null;
+        try {
+            JbiGatewayJBIHelper.addTransportListener(id, port, getJbiComponentConfiguration().getComponent());
+        } catch (final PEtALSCDKException e) {
+            final PetalsException ex = new PetalsException(e.getMessage());
+            ex.setStackTrace(e.getStackTrace());
+            throw ex;
+        }
     }
 
     @Override
-    public Boolean removeTransportListener(final String id) throws PetalsException {
-        final JbiTransportListener removed = JbiGatewayJBIHelper.removeTransportListener(id,
-                getJbiComponentConfiguration().getComponent());
+    public Boolean removeTransportListener(final @Nullable String id) throws PetalsException {
+        assert id != null;
+        JbiTransportListener removed;
+        try {
+            removed = JbiGatewayJBIHelper.removeTransportListener(id, getJbiComponentConfiguration().getComponent());
+        } catch (final PEtALSCDKException e) {
+            final PetalsException ex = new PetalsException(e.getMessage());
+            ex.setStackTrace(e.getStackTrace());
+            throw ex;
+        }
         return removed != null;
     }
 

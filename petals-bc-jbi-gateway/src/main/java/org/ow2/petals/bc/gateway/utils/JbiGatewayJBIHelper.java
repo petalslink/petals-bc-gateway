@@ -37,7 +37,6 @@ import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.basisapi.exception.PetalsException;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumesConfig;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
@@ -46,6 +45,7 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.ObjectFactory;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.component.framework.api.configuration.ConfigurationExtensions;
+import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Component;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
@@ -74,7 +74,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
 
     private static @Nullable Unmarshaller unmarshaller;
 
-    private static @Nullable PetalsException exception = null;
+    private static @Nullable PEtALSCDKException exception = null;
 
     static {
         try {
@@ -91,7 +91,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
 
             JbiGatewayJBIHelper.unmarshaller = unmarshaller;
         } catch (final JAXBException | SAXException ex) {
-            exception = new PetalsException(ex);
+            exception = new PEtALSCDKException(ex);
         }
     }
 
@@ -103,7 +103,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
      * descriptor!
      */
     private static @Nullable <T> T asObject(final Node e, final @Nullable QName name, final Class<T> clazz)
-            throws PetalsException {
+            throws PEtALSCDKException {
         final Object o = unmarshal(e);
         if (o instanceof JAXBElement<?> && clazz.isInstance(((JAXBElement<?>) o).getValue())
                 && (name == null || name.equals(((JAXBElement<?>) o).getName()))) {
@@ -119,7 +119,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         }
     }
 
-    private synchronized static @Nullable Object unmarshal(final Node e) throws PetalsException {
+    private synchronized static @Nullable Object unmarshal(final Node e) throws PEtALSCDKException {
         final Unmarshaller unmarshallerl = unmarshaller;
         if (unmarshallerl != null) {
             try {
@@ -127,20 +127,20 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
                 assert o != null;
                 return o;
             } catch (final JAXBException ex) {
-                throw new PetalsException(ex);
+                throw new PEtALSCDKException(ex);
             }
         } else {
-            final PetalsException exceptionl = exception;
+            final PEtALSCDKException exceptionl = exception;
             if (exceptionl != null) {
                 throw exceptionl;
             } else {
-                throw new PetalsException("Impossible case");
+                throw new PEtALSCDKException("Impossible case");
             }
         }
     }
 
     private static <T> Collection<T> getAll(final @Nullable List<Element> elements, final QName name,
-            final Class<T> clazz) throws PetalsException {
+            final Class<T> clazz) throws PEtALSCDKException {
         assert elements != null;
         final List<T> res = new ArrayList<>();
         for (final Element e : elements) {
@@ -154,13 +154,13 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
     }
 
     public static JbiTransportListener addTransportListener(final String id, final int port,
-            final @Nullable Component component) throws PetalsException {
+            final @Nullable Component component) throws PEtALSCDKException {
         assert component != null;
 
         for (final JbiTransportListener jtl : getAll(component.getAny(), EL_TRANSPORT_LISTENER,
                 JbiTransportListener.class)) {
             if (jtl.getId().equals(id)) {
-                throw new PetalsException("A transport listener with id '" + id + "' already exists in the jbi.xml");
+                throw new PEtALSCDKException("A transport listener with id '" + id + "' already exists in the jbi.xml");
             }
         }
 
@@ -184,7 +184,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
     }
 
     public static @Nullable JbiTransportListener removeTransportListener(final String id,
-            final @Nullable Component component) throws PetalsException {
+            final @Nullable Component component) throws PEtALSCDKException {
         assert component != null;
 
         final Iterator<Element> iterator = component.getAny().iterator();
@@ -202,13 +202,13 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
     }
 
     public static Collection<JbiTransportListener> getTransportListeners(final @Nullable Component component)
-            throws PetalsException {
+            throws PEtALSCDKException {
         assert component != null;
         return getAll(component.getAny(), EL_TRANSPORT_LISTENER, JbiTransportListener.class);
     }
 
     public static Collection<JbiConsumerDomain> getConsumerDomains(final @Nullable Services services,
-            final Properties placeholders, final Logger logger) throws PetalsException {
+            final Properties placeholders, final Logger logger) throws PEtALSCDKException {
         assert services != null;
         final Collection<JbiConsumerDomain> jcds = getAll(services.getAnyOrAny(), EL_CONSUMER_DOMAIN,
                 JbiConsumerDomain.class);
@@ -229,7 +229,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
     }
 
     public static Collection<JbiProviderDomain> getProviderDomains(final @Nullable Services services,
-            final Properties placeholders, final Logger logger) throws PetalsException {
+            final Properties placeholders, final Logger logger) throws PEtALSCDKException {
         assert services != null;
         final Collection<JbiProviderDomain> jpds = getAll(services.getAnyOrAny(), EL_PROVIDER_DOMAIN,
                 JbiProviderDomain.class);
@@ -241,11 +241,11 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         return jpds;
     }
 
-    private static void validate(final JbiProviderDomain jpd) throws PetalsException {
+    private static void validate(final JbiProviderDomain jpd) throws PEtALSCDKException {
         try {
             Integer.parseInt(jpd.getPort());
         } catch (final NumberFormatException e) {
-            throw new PetalsException(
+            throw new PEtALSCDKException(
                     "Invalid port (" + jpd.getPort() + ") for provider domain (" + jpd.getId() + ")");
         }
     }
@@ -272,15 +272,15 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         }
     }
 
-    public static JbiProvidesConfig getProviderConfig(final @Nullable Provides provides) throws PetalsException {
+    public static JbiProvidesConfig getProviderConfig(final @Nullable Provides provides) throws PEtALSCDKException {
         assert provides != null;
         final Collection<JbiProvidesConfig> configs = getAll(provides.getAny(), EL_PROVIDER, JbiProvidesConfig.class);
         if (configs.isEmpty()) {
-            throw new PetalsException(String.format("Missing provider in Provides for '%s/%s/%s'",
+            throw new PEtALSCDKException(String.format("Missing provider in Provides for '%s/%s/%s'",
                     provides.getInterfaceName(), provides.getServiceName(), provides.getEndpointName()));
         }
         if (configs.size() > 1) {
-            throw new PetalsException(String.format("Duplicate provider in Provides for '%s/%s/%s'",
+            throw new PEtALSCDKException(String.format("Duplicate provider in Provides for '%s/%s/%s'",
                     provides.getInterfaceName(), provides.getServiceName(), provides.getEndpointName()));
         }
         final JbiProvidesConfig config = configs.iterator().next();
@@ -288,7 +288,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         return config;
     }
 
-    public static String getProviderDomain(final @Nullable Provides provides) throws PetalsException {
+    public static String getProviderDomain(final @Nullable Provides provides) throws PEtALSCDKException {
         final String domain = getProviderConfig(provides).getDomain();
         assert domain != null;
         return domain;
@@ -296,7 +296,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
 
     public static Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> getProvidesPerDomain(
             final @Nullable Services services, final Properties placeholders, final Logger logger)
-            throws PetalsException {
+            throws PEtALSCDKException {
         assert services != null;
 
         final Map<String, JbiProviderDomain> jpds = new HashMap<>();
@@ -312,7 +312,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
             final JbiProvidesConfig config = JbiGatewayJBIHelper.getProviderConfig(provides);
             final JbiProviderDomain jpd = jpds.get(config.getDomain());
             if (jpd == null) {
-                throw new PetalsException(
+                throw new PEtALSCDKException(
                         String.format("No provider domain was defined in the SU for '%s'", config.getDomain()));
             }
             pd2provides.get(jpd).add(new Pair<>(provides, config));
@@ -321,7 +321,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
     }
 
     public static Map<JbiConsumerDomain, Collection<Consumes>> getConsumesPerDomain(final @Nullable Services services,
-            final Properties placeholders, final Logger logger) throws PetalsException {
+            final Properties placeholders, final Logger logger) throws PEtALSCDKException {
         assert services != null;
 
         final Map<String, JbiConsumerDomain> jcds = new HashMap<>();
@@ -337,7 +337,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
             for (final String cd : JbiGatewayJBIHelper.getConsumerDomains(consumes)) {
                 final JbiConsumerDomain jcd = jcds.get(cd);
                 if (jcd == null) {
-                    throw new PetalsException(
+                    throw new PEtALSCDKException(
                             String.format("No consumer domain was defined in the SU for '%s'", cd));
                 }
                 // it is non-null
@@ -347,11 +347,11 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         return cd2consumes;
     }
 
-    public static Collection<String> getConsumerDomains(final @Nullable Consumes consumes) throws PetalsException {
+    public static Collection<String> getConsumerDomains(final @Nullable Consumes consumes) throws PEtALSCDKException {
         assert consumes != null;
         final Collection<JbiConsumesConfig> confs = getAll(consumes.getAny(), EL_CONSUMER, JbiConsumesConfig.class);
         if (confs.isEmpty()) {
-            throw new PetalsException(String.format("Missing consumer in Provides for '%s/%s/%s'",
+            throw new PEtALSCDKException(String.format("Missing consumer in Provides for '%s/%s/%s'",
                     consumes.getInterfaceName(), consumes.getServiceName(), consumes.getEndpointName()));
         }
         final List<String> res = new ArrayList<>();
