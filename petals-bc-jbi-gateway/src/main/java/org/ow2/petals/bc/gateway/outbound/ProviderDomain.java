@@ -383,10 +383,14 @@ public class ProviderDomain extends AbstractDomain {
         final MessageExchange mex = exchange.getMessageExchange();
         assert mex != null;
 
+        // current provide step
+        final FlowAttributes fa = PetalsExecutionContext.getFlowAttributes();
         // step for the external call
         final FlowAttributes extFa = PetalsExecutionContext.nextFlowStepId();
+        // we cheat a bit and come back to the previous one for the following
+        PetalsExecutionContext.putFlowAttributes(fa);
 
-        final TransportedMessage m = TransportedMessage.newMessage(service, extFa, mex);
+        final TransportedMessage m = TransportedMessage.newMessage(service, fa, extFa, mex);
         final Channel channel = this.channel;
         // we can't be disconnected because it would mean that the component is stopped and in that case we don't
         // receive messages!
@@ -452,19 +456,24 @@ public class ProviderDomain extends AbstractDomain {
 
     @Override
     protected void logAfterReceivingFromChannel(final TransportedForService m) {
+        // let's get the flow attribute from the received exchange and put them in context as soon as we get it
+        // TODO add tests!
+        PetalsExecutionContext.putFlowAttributes(m.current);
+
         if (m.step == 2) {
             if (m instanceof TransportedMessage) {
                 final TransportedMessage tm = (TransportedMessage) m;
                 // the message contains the FA we created before sending it as a TransportedNewMessage in send
 
                 // this is the end of provides ext that started in ProviderDomain.send
-                StepLogHelper.addMonitExtEndOrFailureTrace(logger, tm.exchange,
-                        PetalsExecutionContext.getFlowAttributes(), false);
+                StepLogHelper.addMonitExtEndOrFailureTrace(logger, tm.exchange, m.current, false);
             } else if (m instanceof TransportedTimeout) {
-                StepLogHelper.addMonitExtFailureTrace(logger, PetalsExecutionContext.getFlowAttributes(),
+                StepLogHelper.addMonitExtFailureTrace(logger, m.current,
                         "A timeout happened while the JBI Gateway sent an exchange to a JBI service", false);
             }
         }
+
+        PetalsExecutionContext.putFlowAttributes(m.previous);
     }
 
     @Override
@@ -472,9 +481,10 @@ public class ProviderDomain extends AbstractDomain {
         if (m instanceof TransportedMessage) {
             final TransportedMessage tm = (TransportedMessage) m;
             if (tm.step == 1) {
-                final FlowAttributes fa = PetalsExecutionContext.getFlowAttributes();
-                logger.log(Level.MONIT, "", new JbiGatewayProvideExtFlowStepBeginLogData(fa.getFlowInstanceId(),
-                        PetalsExecutionContext.getPreviousFlowStepId(), fa.getFlowStepId(), jpd.getId()));
+                // see sendToChannel above
+                PetalsExecutionContext.putFlowAttributes(m.current);
+                logger.log(Level.MONIT, "", new JbiGatewayProvideExtFlowStepBeginLogData(m.current.getFlowInstanceId(),
+                        m.previous.getFlowStepId(), m.current.getFlowStepId(), jpd.getId()));
             }
         }
     }

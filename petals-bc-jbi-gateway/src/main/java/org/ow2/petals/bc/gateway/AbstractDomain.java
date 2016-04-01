@@ -27,7 +27,6 @@ import org.ow2.petals.bc.gateway.messages.TransportedForService;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedTimeout;
 import org.ow2.petals.commons.log.Level;
-import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.message.Exchange;
 
 import io.netty.channel.ChannelFuture;
@@ -53,10 +52,8 @@ public abstract class AbstractDomain {
     protected abstract void logAfterReceivingFromChannel(TransportedForService m);
 
     public void receiveFromChannel(final ChannelHandlerContext ctx, final TransportedForService m) {
-        // let's get the flow attribute from the received exchange and put them in context as soon as we get it
-        // TODO add tests!
-        PetalsExecutionContext.putFlowAttributes(m.flowAttributes);
 
+        // this will setup flow attributes and do logs
         logAfterReceivingFromChannel(m);
 
         final Exchange exchange;

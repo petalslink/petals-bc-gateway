@@ -24,7 +24,7 @@ public class TransportedException extends TransportedForService {
     public final Throwable cause;
 
     public TransportedException(final TransportedMessage m, final Exception cause) {
-        super(m.service, m.flowAttributes, m.exchangeId, m.step + 1, true);
+        super(m.service, m.previous, m.current, m.exchangeId, m.step + 1, true);
         this.cause = cause;
     }
 }

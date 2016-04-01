@@ -39,7 +39,12 @@ public abstract class TransportedForService implements TransportedToProvider, Tr
     /**
      * The attributes of the step handled by the gateway: the idea is that both side will use following steps!
      */
-    public final FlowAttributes flowAttributes;
+    public final FlowAttributes previous;
+
+    /**
+     * The attributes of the step handled by the gateway: the idea is that both side will use following steps!
+     */
+    public final FlowAttributes current;
 
     /**
      * 
@@ -48,18 +53,19 @@ public abstract class TransportedForService implements TransportedToProvider, Tr
 
     public final boolean last;
 
-    public TransportedForService(final ServiceKey service, final FlowAttributes flowAttributes,
+    public TransportedForService(final ServiceKey service, final FlowAttributes previous, final FlowAttributes current,
             final String exchangeId, final int step, final boolean last) {
         assert step > 0;
         this.service = service;
         this.exchangeId = exchangeId;
-        this.flowAttributes = flowAttributes;
+        this.previous = previous;
+        this.current = current;
         this.step = step;
         this.last = last;
     }
 
     public TransportedForService(final TransportedForService m, final boolean last) {
-        this(m.service, m.flowAttributes, m.exchangeId, m.step + 1, last);
+        this(m.service, m.previous, m.current, m.exchangeId, m.step + 1, last);
         assert !m.last;
         assert m.step > 0;
     }

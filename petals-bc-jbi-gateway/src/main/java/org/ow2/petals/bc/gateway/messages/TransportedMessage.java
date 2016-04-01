@@ -48,9 +48,9 @@ public class TransportedMessage extends TransportedForService {
     @SuppressWarnings("squid:S1948")
     public final MessageExchange exchange;
 
-    protected TransportedMessage(final ServiceKey service, final FlowAttributes flowAttributes, final String exchangeId,
-            final MessageExchange exchange, final int step, final boolean last) {
-        super(service, flowAttributes, exchangeId, step, last);
+    protected TransportedMessage(final ServiceKey service, final FlowAttributes previous, final FlowAttributes current,
+            final String exchangeId, final MessageExchange exchange, final int step, final boolean last) {
+        super(service, previous, current, exchangeId, step, last);
         this.exchange = exchange;
     }
 
@@ -59,9 +59,9 @@ public class TransportedMessage extends TransportedForService {
         this.exchange = exchange;
     }
 
-    public static TransportedMessage newMessage(final ServiceKey service, final FlowAttributes flowAttributes,
-            final MessageExchange exchange) {
-        return new TransportedMessage(service, flowAttributes, exchange.getExchangeId(), exchange, 1, false);
+    public static TransportedMessage newMessage(final ServiceKey service, final FlowAttributes previous,
+            final FlowAttributes current, final MessageExchange exchange) {
+        return new TransportedMessage(service, previous, current, exchange.getExchangeId(), exchange, 1, false);
     }
 
     public static TransportedMessage middleMessage(final TransportedMessage m, final MessageExchange exchange) {

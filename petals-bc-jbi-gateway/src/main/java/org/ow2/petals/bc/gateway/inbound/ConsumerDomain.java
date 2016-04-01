@@ -47,15 +47,12 @@ import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
 import org.ow2.petals.bc.gateway.messages.TransportedTimeout;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayConsumeExtFlowStepBeginLogData;
-import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.logger.StepLogHelper;
 import org.w3c.dom.Document;
-
-import com.ebmwebsourcing.easycommons.lang.StringHelper;
 
 import io.netty.channel.Channel;
 
@@ -298,20 +295,20 @@ public class ConsumerDomain extends AbstractDomain {
 
     @Override
     protected void logAfterReceivingFromChannel(final TransportedForService m) {
+        // let's get the flow attribute from the received exchange and put them in context as soon as we get it
+        // TODO add tests!
+        PetalsExecutionContext.putFlowAttributes(m.current);
+
         if (m instanceof TransportedMessage) {
             final TransportedMessage tm = (TransportedMessage) m;
             if (tm.step == 1) {
                 // acting as a provider partner, a new consumes ext starts here
 
-                // let's start a new step (it will for example be used to create the new exchange later)
-                final FlowAttributes fa = PetalsExecutionContext.nextFlowStepId();
-
-                logger.log(Level.MONIT, "", new JbiGatewayConsumeExtFlowStepBeginLogData(fa,
-                        StringHelper.nonNullValue(m.service.interfaceName),
-                        StringHelper.nonNullValue(tm.service.service),
-                        StringHelper.nonNullValue(tm.service.endpointName),
-                        StringHelper.nonNullValue(tm.exchange.getOperation()), m.flowAttributes.getFlowStepId(),
-                        jcd.getId()));
+                // Note: the previous step is the provide step of the consumer, and the current step
+                // is the SAME one as the provide ext step of the consumer!
+                // TODO do we want to do something else?!
+                logger.log(Level.MONIT, "", new JbiGatewayConsumeExtFlowStepBeginLogData(m.current,
+                        m.previous.getFlowStepId(), jcd.getId()));
             }
         }
     }
@@ -321,11 +318,10 @@ public class ConsumerDomain extends AbstractDomain {
         // the end of the one started in ConsumerDomain.logBeforeSendingToNMR
         if (m.step == 2) {
             if (m instanceof TransportedTimeout) {
-                StepLogHelper.addMonitExtFailureTrace(logger, PetalsExecutionContext.getFlowAttributes(),
+                StepLogHelper.addMonitExtFailureTrace(logger, m.current,
                         "A timeout happened while the JBI Gateway sent an exchange to a JBI service", true);
             } else if (m instanceof TransportedMessage) {
-                StepLogHelper.addMonitExtEndOrFailureTrace(logger, ((TransportedMessage) m).exchange,
-                        PetalsExecutionContext.getFlowAttributes(), true);
+                StepLogHelper.addMonitExtEndOrFailureTrace(logger, ((TransportedMessage) m).exchange, m.current, true);
             }
         }
     }

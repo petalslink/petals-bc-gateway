@@ -22,7 +22,7 @@ public class TransportedTimeout extends TransportedForService {
     private static final long serialVersionUID = -9060178770181538907L;
 
     public TransportedTimeout(final TransportedMessage m) {
-        super(m.service, m.flowAttributes, m.exchangeId, m.step + 1, true);
+        super(m.service, m.previous, m.current, m.exchangeId, m.step + 1, true);
     }
 
 }

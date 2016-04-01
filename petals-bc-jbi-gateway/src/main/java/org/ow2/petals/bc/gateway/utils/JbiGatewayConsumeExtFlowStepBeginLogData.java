@@ -17,8 +17,6 @@
  */
 package org.ow2.petals.bc.gateway.utils;
 
-import static org.ow2.petals.commons.log.PetalsExecutionContext.FLOW_PREVIOUS_STEP_ID_PROPERTY_NAME;
-
 import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.component.framework.logger.ConsumeExtFlowStepBeginLogData;
 
@@ -28,11 +26,9 @@ public class JbiGatewayConsumeExtFlowStepBeginLogData extends ConsumeExtFlowStep
 
     public static final String CONSUMER_KEY = "consumer-domain";
 
-    public JbiGatewayConsumeExtFlowStepBeginLogData(final FlowAttributes fa, final String flowInterfaceName,
-            final String flowServiceName, final String flowEndpointName, final String flowOperationName,
-            final String flowPreviousStepId, final String consumer) {
-        super(fa.getFlowInstanceId(), fa.getFlowStepId(), flowInterfaceName, flowServiceName, flowEndpointName,
-                flowOperationName);
+    public JbiGatewayConsumeExtFlowStepBeginLogData(final FlowAttributes fa, final String flowPreviousStepId,
+            final String consumer) {
+        super(fa.getFlowInstanceId(), fa.getFlowStepId());
         // and we also put the previous one because with the JBI Gateway, there is one!
         putData(FLOW_PREVIOUS_STEP_ID_PROPERTY_NAME, flowPreviousStepId);
         putData(CONSUMER_KEY, consumer);
