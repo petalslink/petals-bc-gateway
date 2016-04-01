@@ -17,7 +17,7 @@
  */
 package org.ow2.petals.bc.gateway.messages;
 
-import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
@@ -29,7 +29,7 @@ public class TransportedPropagatedConsumesList implements TransportedToConsumer 
     public final List<TransportedPropagatedConsumes> consumes;
 
     public TransportedPropagatedConsumesList(final List<TransportedPropagatedConsumes> consumes) {
-        assert consumes instanceof Serializable;
-        this.consumes = consumes;
+        // let's make a defensive copy and ensure it is serializable
+        this.consumes = new ArrayList<>(consumes);
     }
 }
