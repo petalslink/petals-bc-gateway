@@ -43,7 +43,6 @@ import org.ow2.petals.bc.gateway.messages.TransportedForService;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
-import org.ow2.petals.bc.gateway.messages.TransportedTimeout;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayProvideExtFlowStepBeginLogData;
 import org.ow2.petals.bc.gateway.utils.LastLoggingHandler;
@@ -460,17 +459,11 @@ public class ProviderDomain extends AbstractDomain {
         // TODO add tests!
         PetalsExecutionContext.putFlowAttributes(m.current);
 
-        if (m.step == 2) {
-            if (m instanceof TransportedMessage) {
-                final TransportedMessage tm = (TransportedMessage) m;
-                // the message contains the FA we created before sending it as a TransportedNewMessage in send
+        if (m instanceof TransportedMessage && m.step == 2) {
+            // the message contains the FA we created before sending it as a TransportedNewMessage in send
 
-                // this is the end of provides ext that started in ProviderDomain.send
-                StepLogHelper.addMonitExtEndOrFailureTrace(logger, tm.exchange, m.current, false);
-            } else if (m instanceof TransportedTimeout) {
-                StepLogHelper.addMonitExtFailureTrace(logger, m.current,
-                        "A timeout happened while the JBI Gateway sent an exchange to a JBI service", false);
-            }
+            // this is the end of provides ext that started in ProviderDomain.send
+            StepLogHelper.addMonitExtEndOrFailureTrace(logger, ((TransportedMessage) m).exchange, m.current, false);
         }
 
         PetalsExecutionContext.putFlowAttributes(m.previous);
@@ -478,14 +471,11 @@ public class ProviderDomain extends AbstractDomain {
 
     @Override
     protected void logBeforeSendingToChannel(final TransportedForService m) {
-        if (m instanceof TransportedMessage) {
-            final TransportedMessage tm = (TransportedMessage) m;
-            if (tm.step == 1) {
-                // see sendToChannel above
-                PetalsExecutionContext.putFlowAttributes(m.current);
-                logger.log(Level.MONIT, "", new JbiGatewayProvideExtFlowStepBeginLogData(m.current.getFlowInstanceId(),
-                        m.previous.getFlowStepId(), m.current.getFlowStepId(), jpd.getId()));
-            }
+        if (m instanceof TransportedMessage && m.step == 1) {
+            // see sendToChannel above: we do that only for the first step
+            PetalsExecutionContext.putFlowAttributes(m.current);
+            logger.log(Level.MONIT, "", new JbiGatewayProvideExtFlowStepBeginLogData(m.current.getFlowInstanceId(),
+                    m.previous.getFlowStepId(), m.current.getFlowStepId(), jpd.getId()));
         }
     }
 }

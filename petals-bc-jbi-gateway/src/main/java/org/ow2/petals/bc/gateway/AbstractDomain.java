@@ -21,11 +21,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 
+import javax.jbi.messaging.MessagingException;
+
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.messages.TransportedException;
 import org.ow2.petals.bc.gateway.messages.TransportedForService;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
-import org.ow2.petals.bc.gateway.messages.TransportedTimeout;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.component.framework.api.message.Exchange;
 
@@ -34,6 +35,15 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 
 public abstract class AbstractDomain {
+
+    // this is not really used as an exception for knowing where it happened
+    // we can thus reuse it and avoid the overhead of creating the exception
+    public static final MessagingException TIMEOUT_EXCEPTION = new MessagingException(
+            "A timeout happened while the JBI Gateway sent an exchange to a JBI service");
+
+    static {
+        TIMEOUT_EXCEPTION.setStackTrace(new StackTraceElement[0]);
+    }
 
     protected final Logger logger;
 
@@ -73,9 +83,6 @@ public abstract class AbstractDomain {
                     ((TransportedException) m).cause);
         } else if (m instanceof TransportedMessage) {
             sendToNMR(ctx, (TransportedMessage) m, exchange);
-        } else if (m instanceof TransportedTimeout) {
-            logger.log(Level.FINE,
-                    "Received a timeout from the other side, this is purely informative, we can't do anything about it");
         } else {
             throw new IllegalArgumentException("Impossible case");
         }
@@ -145,7 +152,8 @@ public abstract class AbstractDomain {
 
 
     private void sendTimeoutFromNMRToChannel(final ChannelHandlerContext ctx, final TransportedMessage m) {
-        sendToChannel(ctx, new TransportedTimeout(m));
+        m.exchange.setError(TIMEOUT_EXCEPTION);
+        sendToChannel(ctx, TransportedMessage.lastMessage(m, m.exchange));
     }
 
     protected void sendToChannel(final ChannelHandlerContext ctx, final TransportedMessage m, final Exchange exchange) {

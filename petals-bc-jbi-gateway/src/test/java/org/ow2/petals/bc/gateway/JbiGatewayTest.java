@@ -95,8 +95,7 @@ public class JbiGatewayTest extends AbstractComponentTest {
         final StatusMessage response = COMPONENT
                 .sendAndGetStatus(helloRequest(endpoint, MEPPatternConstants.IN_OUT.value()), provider);
 
-        // TODO would we want to receive an error in case of timeout on the other side?
-        assertNull(response);
+        assertEquals(AbstractDomain.TIMEOUT_EXCEPTION.getMessage(), response.getError().getMessage());
     }
 
     @Test

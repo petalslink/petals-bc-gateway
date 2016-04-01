@@ -65,7 +65,7 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
 
     protected static final String IN = "<a/>";
 
-    protected static final Exception ERROR = new Exception();
+    protected static final Exception ERROR = new Exception("exchange arriving too late");
     static {
         // we don't really care about the stacktrace
         ERROR.setStackTrace(new StackTraceElement[0]);
