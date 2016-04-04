@@ -47,7 +47,6 @@ import org.ow2.petals.component.framework.junit.impl.ComponentConfiguration;
 import org.ow2.petals.component.framework.junit.impl.ConsumesServiceConfiguration;
 import org.ow2.petals.component.framework.junit.impl.ServiceConfiguration;
 import org.ow2.petals.component.framework.junit.impl.message.RequestToProviderMessage;
-import org.ow2.petals.component.framework.junit.impl.mock.MockComponentContext;
 import org.ow2.petals.component.framework.junit.rule.ComponentUnderTest;
 import org.ow2.petals.junit.rules.log.handler.InMemoryLogHandler;
 import org.w3c.dom.Document;
@@ -302,7 +301,7 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
     }
 
     protected RequestMessage helloRequest(final ServiceEndpoint endpoint, final URI pattern) {
-        return new RequestToProviderMessage(endpoint.getEndpointName(),
+        return new RequestToProviderMessage(COMPONENT_UNDER_TEST, endpoint.getEndpointName(),
                 endpoint.getServiceName(), null, HELLO_OPERATION, pattern, IN);
     }
 
@@ -315,7 +314,8 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
             service = new QName(HELLO_INTERFACE.getNamespaceURI(), HELLO_INTERFACE.getLocalPart() + "GeneratedService");
         }
 
-        for (final ServiceEndpoint endpoint : MockComponentContext.resolveEndpointsForService(service)) {
+        for (final ServiceEndpoint endpoint : COMPONENT_UNDER_TEST.getEndpointDirectory()
+                .resolveEndpointsForService(service)) {
             if (!endpoint.getEndpointName().equals(EXTERNAL_HELLO_ENDPOINT)) {
                 return endpoint;
             }
