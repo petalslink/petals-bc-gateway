@@ -17,6 +17,8 @@
  */
 package org.ow2.petals.binding.gateway.clientserver.api;
 
+import java.util.Map;
+
 import org.ow2.petals.basisapi.exception.PetalsException;
 
 /**
@@ -48,5 +50,12 @@ public interface AdminService {
      *             An error occurs removing the transport listener
      */
     public Boolean removeTransportListener(final String id) throws PetalsException;
+
+    /**
+     * @return The transport listeners declared on the current Petals BC Gateway
+     * @throws PetalsException
+     *             An error occurs getting the transport listeners
+     */
+    public Map<String, Integer> getTransportListeners() throws PetalsException;
 
 }

@@ -18,6 +18,8 @@
 package org.ow2.petals.bc.gateway;
 
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.basisapi.exception.PetalsException;
@@ -39,12 +41,15 @@ public class JbiGatewayBootstrap extends DefaultBootstrap implements AdminServic
 
     public static final String METHOD_REMOVE_TRANSPORT = "removeTransportListener";
 
+    public static final String METHOD_GET_TRANSPORT = "getTransportListeners";
+
     @Override
     public Collection<String> getMBeanOperationsNames() {
         final Collection<String> methods = super.getMBeanOperationsNames();
 
         methods.add(METHOD_ADD_TRANSPORT);
         methods.add(METHOD_REMOVE_TRANSPORT);
+        methods.add(METHOD_GET_TRANSPORT);
 
         return methods;
     }
@@ -56,7 +61,7 @@ public class JbiGatewayBootstrap extends DefaultBootstrap implements AdminServic
     public void addTransportListener(final @Nullable String id, final int port) throws PetalsException {
         assert id != null;
         try {
-            JbiGatewayJBIHelper.addTransportListener(id, port, getJbiComponentConfiguration().getComponent());
+            JbiGatewayJBIHelper.addTransportListener(id, port, this.getJbiComponentConfiguration().getComponent());
         } catch (final PEtALSCDKException e) {
             final PetalsException ex = new PetalsException(e.getMessage());
             ex.setStackTrace(e.getStackTrace());
@@ -67,15 +72,31 @@ public class JbiGatewayBootstrap extends DefaultBootstrap implements AdminServic
     @Override
     public Boolean removeTransportListener(final @Nullable String id) throws PetalsException {
         assert id != null;
-        JbiTransportListener removed;
         try {
-            removed = JbiGatewayJBIHelper.removeTransportListener(id, getJbiComponentConfiguration().getComponent());
+            return JbiGatewayJBIHelper.removeTransportListener(id,
+                    this.getJbiComponentConfiguration().getComponent()) != null;
         } catch (final PEtALSCDKException e) {
             final PetalsException ex = new PetalsException(e.getMessage());
             ex.setStackTrace(e.getStackTrace());
             throw ex;
         }
-        return removed != null;
+    }
+
+    @Override
+    public Map<String, Integer> getTransportListeners() throws PetalsException {
+        try {
+            final Collection<JbiTransportListener> transportListeners = JbiGatewayJBIHelper
+                    .getTransportListeners(this.getJbiComponentConfiguration().getComponent());
+            final Map<String, Integer> results = new HashMap<>();
+            for (final JbiTransportListener transportListener : transportListeners) {
+                results.put(transportListener.getId(), Integer.valueOf(transportListener.getPort()));
+            }
+            return results;
+        } catch (final PEtALSCDKException e) {
+            final PetalsException ex = new PetalsException(e.getMessage());
+            ex.setStackTrace(e.getStackTrace());
+            throw ex;
+        }
     }
 
 }

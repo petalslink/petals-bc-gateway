@@ -96,7 +96,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     private EventLoopGroup clientsGroup;
 
     private final Map<String, TransportListener> listeners = new HashMap<>();
-    
+
     private final ConcurrentMap<ServiceEndpointKey, ServiceData> services = new ConcurrentHashMap<>();
 
     private static class ServiceData {
@@ -434,6 +434,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
         methods.add(JbiGatewayBootstrap.METHOD_ADD_TRANSPORT);
         methods.add(JbiGatewayBootstrap.METHOD_REMOVE_TRANSPORT);
+        methods.add(JbiGatewayBootstrap.METHOD_GET_TRANSPORT);
         methods.add("refreshPropagations");
 
         return methods;
@@ -456,19 +457,18 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             throw new PetalsException("The component must be initialised");
         }
 
-
         try {
             final JbiTransportListener jtl = JbiGatewayJBIHelper.addTransportListener(id, port,
-                    getJbiComponentDescriptor().getComponent());
+                    this.getJbiComponentDescriptor().getComponent());
 
             try {
-                final TransportListener tl = addTransporterListener(jtl);
+                final TransportListener tl = this.addTransporterListener(jtl);
                 if (started) {
                     tl.bind();
                 }
             } catch (final PEtALSCDKException e) {
                 try {
-                    JbiGatewayJBIHelper.removeTransportListener(id, getJbiComponentDescriptor().getComponent());
+                    JbiGatewayJBIHelper.removeTransportListener(id, this.getJbiComponentDescriptor().getComponent());
                 } catch (final PEtALSCDKException ex) {
                     e.addSuppressed(ex);
                 }
@@ -493,13 +493,36 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
         try {
             final JbiTransportListener removed = JbiGatewayJBIHelper.removeTransportListener(id,
-                    getJbiComponentDescriptor().getComponent());
+                    this.getJbiComponentDescriptor().getComponent());
 
             if (removed != null) {
                 return removeTransportListener(removed);
             } else {
                 return false;
             }
+        } catch (final PEtALSCDKException e) {
+            final PetalsException ex = new PetalsException(e.getMessage());
+            ex.setStackTrace(e.getStackTrace());
+            throw ex;
+        }
+    }
+
+    @Override
+    public Map<String, Integer> getTransportListeners() throws PetalsException {
+
+        // note: this also ensure that the listeners won't be modified during the method execution
+        if (!init) {
+            // if not the jbi descriptor is null
+            throw new PetalsException("The component must be initialised");
+        }
+        try {
+            final Collection<JbiTransportListener> transportListeners = JbiGatewayJBIHelper
+                    .getTransportListeners(this.getJbiComponentDescriptor().getComponent());
+            final Map<String, Integer> results = new HashMap<>();
+            for (final JbiTransportListener transportListener : transportListeners) {
+                results.put(transportListener.getId(), Integer.valueOf(transportListener.getPort()));
+            }
+            return results;
         } catch (final PEtALSCDKException e) {
             final PetalsException ex = new PetalsException(e.getMessage());
             ex.setStackTrace(e.getStackTrace());
