@@ -18,7 +18,6 @@
 package org.ow2.petals.bc.gateway.inbound;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -32,13 +31,12 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Logger;
 
 import javax.jbi.JBIException;
-import javax.jbi.component.ComponentContext;
 import javax.jbi.servicedesc.ServiceEndpoint;
-import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.AbstractDomain;
 import org.ow2.petals.bc.gateway.JBISender;
+import org.ow2.petals.bc.gateway.JbiGatewaySUManager;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
@@ -77,7 +75,7 @@ public class ConsumerDomain extends AbstractDomain {
     @SuppressWarnings("null")
     private final Set<Channel> channels = Collections.newSetFromMap(new ConcurrentHashMap<Channel, Boolean>());
 
-    private final ComponentContext cc;
+    private final JbiGatewaySUManager sum;
 
     private JbiConsumerDomain jcd;
 
@@ -87,12 +85,12 @@ public class ConsumerDomain extends AbstractDomain {
 
     private final ReadWriteLock channelsLock = new ReentrantReadWriteLock();
 
-    public ConsumerDomain(final TransportListener tl, final ComponentContext cc, final JbiConsumerDomain jcd,
+    public ConsumerDomain(final TransportListener tl, final JbiGatewaySUManager sum, final JbiConsumerDomain jcd,
             final Collection<Consumes> consumes,
             final JBISender sender, final Logger logger) {
         super(sender, logger);
         this.tl = tl;
-        this.cc = cc;
+        this.sum = sum;
         this.jcd = jcd;
         for (final Consumes c : consumes) {
             assert c != null;
@@ -203,11 +201,11 @@ public class ConsumerDomain extends AbstractDomain {
     private void sendPropagatedServices(final Channel c) {
         final List<TransportedPropagatedConsumes> consumes = new ArrayList<>();
         for (final Entry<ServiceKey, Consumes> entry : services.entrySet()) {
-            final ServiceEndpoint[] endpoints = getEndpoints(entry.getValue());
+            final Collection<ServiceEndpoint> endpoints = sum.getEndpointsForConsumes(entry.getValue());
             // only add the consumes if there is an activated endpoint for it!
             // TODO poll for newly added endpoints, removed ones and updated descriptions (who knows if the endpoint has
             // been deactivated then reactivated with an updated description!)
-            if (endpoints.length > 0) {
+            if (!endpoints.isEmpty()) {
                 final Document description = getFirstDescription(endpoints);
                 consumes.add(new TransportedPropagatedConsumes(entry.getKey(), description));
             }
@@ -215,61 +213,10 @@ public class ConsumerDomain extends AbstractDomain {
         c.writeAndFlush(new TransportedPropagatedConsumesList(consumes));
     }
 
-    /**
-     * This will return the first {@link Document} that is non-null on a {@link ServiceEndpoint} that matches the
-     * {@link Consumes}.
-     * 
-     * TODO maybe factor that into CDK?
-     */
-    private ServiceEndpoint[] getEndpoints(final Consumes consumes) {
-        final String endpointName = consumes.getEndpointName();
-        final QName serviceName = consumes.getServiceName();
-        final QName interfaceName = consumes.getInterfaceName();
-        final ServiceEndpoint[] endpoints;
-        if (endpointName != null && serviceName != null) {
-            final ServiceEndpoint endpoint = cc.getEndpoint(serviceName, endpointName);
-            if (endpoint != null) {
-                if (interfaceName == null || matches(endpoint, interfaceName)) {
-                    endpoints = new ServiceEndpoint[] { endpoint };
-                } else {
-                    logger.warning(String.format(
-                            "Endpoint found for Consumes %s/%s/%s but interface does not match (was %s)", endpointName,
-                            serviceName, interfaceName, Arrays.deepToString(endpoint.getInterfaces())));
-                    endpoints = new ServiceEndpoint[0];
-                }
-            } else {
-                endpoints = new ServiceEndpoint[0];
-            }
-        } else if (serviceName != null) {
-            final ServiceEndpoint[] preMatch = cc.getEndpointsForService(serviceName);
-            if (interfaceName != null) {
-                final List<ServiceEndpoint> matched = new ArrayList<>();
-                for (final ServiceEndpoint endpoint : preMatch) {
-                    assert endpoint != null;
-                    if (matches(endpoint, interfaceName)) {
-                        matched.add(endpoint);
-                    } else {
-                        logger.warning(
-                                String.format("Endpoint found for Consumes %s/%s but interface does not match (was %s)",
-                                        serviceName, interfaceName, Arrays.deepToString(endpoint.getInterfaces())));
-                    }
-                }
-                endpoints = matched.toArray(new ServiceEndpoint[matched.size()]);
-            } else {
-                endpoints = preMatch;
-            }
-        } else {
-            endpoints = cc.getEndpoints(interfaceName);
-        }
-        assert endpoints != null;
-
-        return endpoints;
-    }
-
-    private @Nullable Document getFirstDescription(final ServiceEndpoint[] endpoints) {
+    private @Nullable Document getFirstDescription(final Collection<ServiceEndpoint> endpoints) {
         for (final ServiceEndpoint endpoint : endpoints) {
             try {
-                Document desc = cc.getEndpointDescriptor(endpoint);
+                Document desc = sum.getComponent().getContext().getEndpointDescriptor(endpoint);
                 if (desc != null) {
                     return desc;
                 }
@@ -279,15 +226,6 @@ public class ConsumerDomain extends AbstractDomain {
         }
 
         return null;
-    }
-
-    private static boolean matches(final ServiceEndpoint endpoint, final QName interfaceName) {
-        for (final QName itf : endpoint.getInterfaces()) {
-            if (interfaceName.equals(itf)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     @Override

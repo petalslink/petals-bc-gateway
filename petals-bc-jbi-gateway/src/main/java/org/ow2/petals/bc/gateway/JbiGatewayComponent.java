@@ -169,7 +169,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             throw new PEtALSCDKException("Can't create logger", e);
         }
         final TransportListener tl = getTransportListener(jcd.getTransport());
-        return new ConsumerDomain(tl, getContext(), jcd, consumes, getSender(), logger);
+        return new ConsumerDomain(tl, getServiceUnitManager(), jcd, consumes, getSender(), logger);
     }
 
     private Bootstrap newClientBootstrap() {
