@@ -142,7 +142,6 @@ public class ProviderDomain extends AbstractDomain {
                 throw new PEtALSCDKException(
                         "The provides " + pair.getA().getServiceName() + " must have a WSDL defined");
             }
-            // TODO handle case where there is no service rewriting information in it!
             this.provides.put(new ServiceKey(pair.getB()), pair.getA());
         }
 
@@ -315,7 +314,6 @@ public class ProviderDomain extends AbstractDomain {
     }
 
     private void registerProviderService(final ServiceKey sk, final ServiceData data) throws PEtALSCDKException {
-        final Provides p = provides.get(sk);
 
         final ProviderService ps = new ProviderService() {
             @Override
@@ -324,6 +322,8 @@ public class ProviderDomain extends AbstractDomain {
             }
         };
 
+        // the service key was built from the provides config: it must match exactly for rewriting work
+        final Provides p = provides.get(sk);
         if (p != null) {
             final ServiceEndpointKey key = new ServiceEndpointKey(p);
             data.key = key;
