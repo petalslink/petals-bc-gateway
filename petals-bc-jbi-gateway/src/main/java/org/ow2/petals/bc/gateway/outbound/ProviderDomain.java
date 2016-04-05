@@ -39,7 +39,6 @@ import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
-import org.ow2.petals.bc.gateway.messages.TransportedForService;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
@@ -463,26 +462,24 @@ public class ProviderDomain extends AbstractDomain {
     }
 
     @Override
-    protected void logAfterReceivingFromChannel(final TransportedForService m) {
-        // let's get the flow attribute from the received exchange and put them in context as soon as we get it
-        // TODO add tests!
-        PetalsExecutionContext.putFlowAttributes(m.current);
-
-        if (m instanceof TransportedMessage && m.step == 2) {
+    protected void logAfterReceivingFromChannel(final TransportedMessage m) {
+        if (m.step == 2) {
             // the message contains the FA we created before sending it as a TransportedNewMessage in send
 
             // this is the end of provides ext that started in ProviderDomain.send
-            StepLogHelper.addMonitExtEndOrFailureTrace(logger, ((TransportedMessage) m).exchange, m.current, false);
+            StepLogHelper.addMonitExtEndOrFailureTrace(logger, m.exchange, m.current, false);
         }
 
+        // this is the step of the provide
         PetalsExecutionContext.putFlowAttributes(m.previous);
     }
 
     @Override
-    protected void logBeforeSendingToChannel(final TransportedForService m) {
-        if (m instanceof TransportedMessage && m.step == 1) {
-            // see sendToChannel above: we do that only for the first step
-            PetalsExecutionContext.putFlowAttributes(m.current);
+    protected void logBeforeSendingToChannel(final TransportedMessage m) {
+        // this is the step of the provide ext
+        PetalsExecutionContext.putFlowAttributes(m.current);
+
+        if (m.step == 1) {
             logger.log(Level.MONIT, "", new JbiGatewayProvideExtFlowStepBeginLogData(m.current.getFlowInstanceId(),
                     m.previous.getFlowStepId(), m.current.getFlowStepId(), jpd.getId()));
         }

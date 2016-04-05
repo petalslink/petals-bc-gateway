@@ -35,9 +35,24 @@ import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
  * @author vnoel
  *
  */
-public class TransportedMessage extends TransportedForService {
+public class TransportedMessage extends TransportedForExchange {
 
     private static final long serialVersionUID = 7102614527427146536L;
+
+    /**
+     * this identify the consumes that is targeted by the consumer partner
+     */
+    public final ServiceKey service;
+
+    /**
+     * the step of the exchange (starts with 1)
+     */
+    public final int step;
+
+    /**
+     * marker to denote that this message is the last one
+     */
+    public final boolean last;
 
     /**
      * This contains the exchange that one side received via the NMR and that the other side must use to fill its own
@@ -50,13 +65,18 @@ public class TransportedMessage extends TransportedForService {
 
     protected TransportedMessage(final ServiceKey service, final FlowAttributes previous, final FlowAttributes current,
             final String exchangeId, final MessageExchange exchange, final int step, final boolean last) {
-        super(service, previous, current, exchangeId, step, last);
+        super(previous, current, exchangeId);
+        assert step > 0;
+        this.service = service;
+        this.step = step;
+        this.last = last;
         this.exchange = exchange;
     }
 
     protected TransportedMessage(final TransportedMessage m, final boolean last, final MessageExchange exchange) {
-        super(m, last);
-        this.exchange = exchange;
+        this(m.service, m.previous, m.current, m.exchangeId, exchange, m.step + 1, last);
+        assert !m.last;
+        assert m.step > 0;
     }
 
     public static TransportedMessage newMessage(final ServiceKey service, final FlowAttributes previous,

@@ -25,9 +25,10 @@ import javax.jbi.messaging.MessagingException;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.messages.TransportedException;
-import org.ow2.petals.bc.gateway.messages.TransportedForService;
+import org.ow2.petals.bc.gateway.messages.TransportedForExchange;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.commons.log.Level;
+import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.message.Exchange;
 
 import io.netty.channel.ChannelFuture;
@@ -59,30 +60,34 @@ public abstract class AbstractDomain {
         this.logger = logger;
     }
 
-    protected abstract void logAfterReceivingFromChannel(TransportedForService m);
+    protected abstract void logAfterReceivingFromChannel(TransportedMessage m);
 
-    public void receiveFromChannel(final ChannelHandlerContext ctx, final TransportedForService m) {
+    public void receiveFromChannel(final ChannelHandlerContext ctx, final TransportedForExchange m) {
 
-        // this will setup flow attributes and do logs
-        logAfterReceivingFromChannel(m);
+        // let's get the flow attribute from the received exchange and put them in context as soon as we get it
+        // TODO add tests!
+        // this is the step of the provide ext / consume ext
+        PetalsExecutionContext.putFlowAttributes(m.current);
 
-        final Exchange exchange;
         // in all case where I receive something, I remove the exchange I stored before!
         // if it has to come back (e.g., for InOptOut fault after out) it will be put back
-        if (m.step > 1) {
-            exchange = exchangesInProgress.remove(m.exchangeId);
-            assert exchange != null;
-        } else {
-            // in that case, it is the first one, so there is no exchange stored!
-            exchange = null;
-        }
+        final Exchange exchange = exchangesInProgress.remove(m.exchangeId);
 
         if (m instanceof TransportedException) {
+            assert exchange != null;
             logger.log(Level.WARNING,
                     "Received an exception from the other side, this is purely informative, we can't do anything about it",
                     ((TransportedException) m).cause);
+            exchangesInProgress.remove(m.exchangeId);
         } else if (m instanceof TransportedMessage) {
-            sendToNMR(ctx, (TransportedMessage) m, exchange);
+            final TransportedMessage tm = (TransportedMessage) m;
+
+            // this will do logs
+            logAfterReceivingFromChannel(tm);
+
+            assert tm.step == 1 || exchange != null;
+
+            sendToNMR(ctx, tm, exchange);
         } else {
             throw new IllegalArgumentException("Impossible case");
         }
@@ -124,7 +129,7 @@ public abstract class AbstractDomain {
 
         logger.log(Level.FINE, "Exception caught", e);
 
-        final TransportedForService msg;
+        final TransportedForExchange msg;
         if (m.last) {
             msg = new TransportedException(m, e);
         } else {
@@ -150,7 +155,6 @@ public abstract class AbstractDomain {
         sendToChannel(ctx, msg, exchange);
     }
 
-
     private void sendTimeoutFromNMRToChannel(final ChannelHandlerContext ctx, final TransportedMessage m) {
         m.exchange.setError(TIMEOUT_EXCEPTION);
         sendToChannel(ctx, TransportedMessage.lastMessage(m, m.exchange));
@@ -165,11 +169,13 @@ public abstract class AbstractDomain {
         sendToChannel(ctx, m);
     }
 
-    protected abstract void logBeforeSendingToChannel(TransportedForService m);
+    protected abstract void logBeforeSendingToChannel(TransportedMessage m);
 
-    private void sendToChannel(final ChannelHandlerContext ctx, final TransportedForService m) {
+    private void sendToChannel(final ChannelHandlerContext ctx, final TransportedForExchange m) {
 
-        logBeforeSendingToChannel(m);
+        if (m instanceof TransportedMessage) {
+            logBeforeSendingToChannel((TransportedMessage) m);
+        }
 
         ctx.writeAndFlush(m).addListener(new ChannelFutureListener() {
             @Override
@@ -179,7 +185,8 @@ public abstract class AbstractDomain {
                 if (!future.isSuccess()) {
                     final Throwable cause = future.cause();
                     // TODO is the channel notified of the error too?
-                    if (!m.last && cause instanceof Exception) {
+                    if (m instanceof TransportedMessage && !((TransportedMessage) m).last
+                            && cause instanceof Exception) {
                         final TransportedMessage tm = (TransportedMessage) m;
                         tm.exchange.setError((Exception) cause);
                         // TODO what about the other side waiting for this exchange?! it should be removed there...

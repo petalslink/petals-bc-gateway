@@ -21,7 +21,7 @@ import java.util.logging.Logger;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
-import org.ow2.petals.bc.gateway.messages.TransportedForService;
+import org.ow2.petals.bc.gateway.messages.TransportedForExchange;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
 import org.ow2.petals.commons.log.Level;
 
@@ -58,10 +58,8 @@ public class TransportClient extends SimpleChannelInboundHandler<TransportedToCo
         assert ctx != null;
         assert msg != null;
 
-        if (msg instanceof TransportedForService) {
-            // this can't happen, we are the one sending new exchanges!
-            assert ((TransportedForService) msg).step > 1;
-            pd.receiveFromChannel(ctx, (TransportedForService) msg);
+        if (msg instanceof TransportedForExchange) {
+            pd.receiveFromChannel(ctx, (TransportedForExchange) msg);
         } else if (msg instanceof TransportedPropagatedConsumesList) {
             pd.updatePropagatedServices((TransportedPropagatedConsumesList) msg);
         } else {

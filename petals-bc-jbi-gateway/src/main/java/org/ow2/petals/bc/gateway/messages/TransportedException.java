@@ -17,14 +17,14 @@
  */
 package org.ow2.petals.bc.gateway.messages;
 
-public class TransportedException extends TransportedForService {
+public class TransportedException extends TransportedForExchange {
 
     private static final long serialVersionUID = -6316196934605106284L;
 
     public final Throwable cause;
 
     public TransportedException(final TransportedMessage m, final Exception cause) {
-        super(m.service, m.previous, m.current, m.exchangeId, m.step + 1, true);
+        super(m.previous, m.current, m.exchangeId);
         this.cause = cause;
     }
 }

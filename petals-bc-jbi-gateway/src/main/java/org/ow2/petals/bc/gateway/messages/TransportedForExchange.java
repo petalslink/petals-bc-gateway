@@ -21,14 +21,9 @@ import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
 import org.ow2.petals.bc.gateway.messages.Transported.TransportedToProvider;
 import org.ow2.petals.commons.log.FlowAttributes;
 
-public abstract class TransportedForService implements TransportedToProvider, TransportedToConsumer {
+public abstract class TransportedForExchange implements TransportedToProvider, TransportedToConsumer {
 
     private static final long serialVersionUID = 1884695104410740307L;
-
-    /**
-     * this identify the consumes that is targeted by the consumer partner
-     */
-    public final ServiceKey service;
 
     /**
      * This identifies the exchanges between provider and consumer partners, but not the exchange id of the transported
@@ -37,36 +32,19 @@ public abstract class TransportedForService implements TransportedToProvider, Tr
     public final String exchangeId;
 
     /**
-     * The attributes of the step handled by the gateway: the idea is that both side will use following steps!
-     */
-    public final FlowAttributes previous;
-
-    /**
-     * The attributes of the step handled by the gateway: the idea is that both side will use following steps!
+     * The attributes of the step handled by the gateway, both for the provide ext and the consume ext.
      */
     public final FlowAttributes current;
 
     /**
-     * 
+     * The attributes of the step handled by the gateway as a consumer (acting as a provider in his domain).
      */
-    public final int step;
+    public final FlowAttributes previous;
 
-    public final boolean last;
-
-    public TransportedForService(final ServiceKey service, final FlowAttributes previous, final FlowAttributes current,
-            final String exchangeId, final int step, final boolean last) {
-        assert step > 0;
-        this.service = service;
+    public TransportedForExchange(final FlowAttributes previous, final FlowAttributes current,
+            final String exchangeId) {
         this.exchangeId = exchangeId;
         this.previous = previous;
         this.current = current;
-        this.step = step;
-        this.last = last;
-    }
-
-    public TransportedForService(final TransportedForService m, final boolean last) {
-        this(m.service, m.previous, m.current, m.exchangeId, m.step + 1, last);
-        assert !m.last;
-        assert m.step > 0;
     }
 }
