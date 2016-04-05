@@ -74,6 +74,7 @@
          <xs:element name="auth-name" type="xs:string" />
       </xs:all>
       <xs:attribute name="id" type="xs:string" use="required" />
+      <xs:attribute name="propagate-all" type="xs:boolean" default="true" />
    </xs:complexType>
    
    <!-- To be used in services -->

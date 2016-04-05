@@ -249,13 +249,7 @@ public class ProviderDomain extends AbstractDomain {
      * 
      * It can be executed after or before {@link #register()} has been called.
      * 
-     * In case of reconnection, it can be called again.
-     * 
-     * TODO we should be able to disable the activation of consumes (i.e., only use the provides then!)
-     * 
-     * TODO should we register endpoint for unexisting service on the other side????
-     * 
-     * 
+     * In case of reconnection, it can be called again or if there is an update from the other side.
      */
     private void updatePropagatedServices(final List<TransportedPropagatedConsumes> propagated) {
         servicesLock.lock();
@@ -264,6 +258,12 @@ public class ProviderDomain extends AbstractDomain {
             final Set<ServiceKey> oldKeys = new HashSet<>(services.keySet());
 
             for (final TransportedPropagatedConsumes service : propagated) {
+
+                // let's skip those we are not concerned with
+                if (!jpd.isPropagateAll() && !provides.containsKey(service.service)) {
+                    continue;
+                }
+
                 final boolean register;
                 final ServiceData data;
                 if (oldKeys.remove(service.service)) {
