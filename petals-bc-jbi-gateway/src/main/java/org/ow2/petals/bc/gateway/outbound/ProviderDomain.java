@@ -58,6 +58,7 @@ import org.ow2.petals.component.framework.util.ServiceEndpointKey;
 import org.ow2.petals.component.framework.util.WSDLUtilImpl;
 import org.w3c.dom.Document;
 
+import com.ebmwebsourcing.easycommons.lang.StringHelper;
 import com.ebmwebsourcing.easycommons.lang.UncheckedException;
 
 import io.netty.bootstrap.Bootstrap;
@@ -138,6 +139,11 @@ public class ProviderDomain extends AbstractDomain {
 
         this.provides = new HashMap<>();
         for (final Pair<Provides, JbiProvidesConfig> pair : provides) {
+            if (StringHelper.isNullOrEmpty(pair.getA().getWsdl())) {
+                throw new PEtALSCDKException(
+                        "The provides " + pair.getA().getServiceName() + " must have a WSDL defined");
+            }
+            // TODO handle case where there is no service rewriting information in it!
             this.provides.put(new ServiceKey(pair.getB()), pair.getA());
         }
 
@@ -178,8 +184,7 @@ public class ProviderDomain extends AbstractDomain {
     public void register() throws PEtALSCDKException {
         servicesLock.lock();
         try {
-            // TODO should we fail if a provide does not corresponds to a propagated Consumes?
-            // Because it is actived...
+            // TODO log warning if there is a provides in the SU that is not propagated
             for (final Entry<ServiceKey, ServiceData> e : services.entrySet()) {
                 final ServiceKey sk = e.getKey();
                 final ServiceData data = e.getValue();
@@ -321,25 +326,29 @@ public class ProviderDomain extends AbstractDomain {
         };
 
         if (p != null) {
-            // TODO what about WSDL rewriting for these??
             final ServiceEndpointKey key = new ServiceEndpointKey(p);
             data.key = key;
+            // the description is managed by the ServiceUnitManager, the component will retrieve it
+            // see also the constructor that verify that the description is present
             matcher.register(key, ps);
         } else {
+            final Document description;
             final ServiceEndpointKey key = generateSEK(sk);
             data.key = key;
             if (data.description == null) {
                 // let's generate a minimal one for now
+                // but we won't store it, in case we get one from the other side later
                 try {
-                    data.description = WSDLUtilImpl
-                            .convertDescriptionToDocument(WSDLUtilImpl.createLightWSDL20Description(sk.interfaceName,
-                                    key.getServiceName(), key.getEndpointName()));
+                    description = WSDLUtilImpl.convertDescriptionToDocument(WSDLUtilImpl.createLightWSDL20Description(
+                            sk.interfaceName, key.getServiceName(), key.getEndpointName()));
                 } catch (final WSDLException e) {
                     throw new PEtALSCDKException(e);
                 }
+            } else {
+                description = data.description;
             }
-            assert data.description != null;
-            matcher.register(key, ps, data.description);
+            assert description != null;
+            matcher.register(key, ps, description);
         }
     }
 

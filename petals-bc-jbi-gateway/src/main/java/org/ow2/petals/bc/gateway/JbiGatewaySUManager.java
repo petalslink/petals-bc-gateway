@@ -54,7 +54,8 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
     private final ConcurrentMap<String, SUData> suDatas = new ConcurrentHashMap<>();
 
     public JbiGatewaySUManager(final JbiGatewayComponent component) {
-        super(component);
+        // let's disable endpoint activation, we will do it ourselves!
+        super(component, false);
     }
 
     /**

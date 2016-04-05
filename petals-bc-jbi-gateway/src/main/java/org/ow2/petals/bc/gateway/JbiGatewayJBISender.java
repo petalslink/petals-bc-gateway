@@ -143,6 +143,7 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
 
         try {
             // this is a Consumes I propagated on the other side
+            // TODO should I rely on information sent by the other side or should I keep a map somewhere?
             final ServiceKey service = m.service;
 
             final Exchange exchange = createExchange(service.interfaceName, service.service, service.endpointName,

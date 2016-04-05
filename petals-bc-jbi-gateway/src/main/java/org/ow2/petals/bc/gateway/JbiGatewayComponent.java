@@ -53,7 +53,6 @@ import org.ow2.petals.component.framework.bc.AbstractBindingComponent;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.su.AbstractServiceUnitManager;
-import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.ow2.petals.component.framework.util.ServiceEndpointKey;
 import org.w3c.dom.Document;
 
@@ -343,12 +342,12 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     @Override
     public void register(final ServiceEndpointKey key, final ProviderService ps, final Document description)
             throws PEtALSCDKException {
-        this.register(key, ps, description, true);
+        register_(key, ps, description);
     }
 
     @Override
     public void register(final ServiceEndpointKey key, final ProviderService ps) throws PEtALSCDKException {
-        this.register(key, ps, null, false);
+        register_(key, ps, null);
     }
 
     @Override
@@ -361,37 +360,27 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         return desc;
     }
 
-    private void register(final ServiceEndpointKey key, final ProviderService ps, final @Nullable Document description,
-            final boolean activate) throws PEtALSCDKException {
+    private void register_(final ServiceEndpointKey key, final ProviderService ps, final @Nullable Document description)
+            throws PEtALSCDKException {
 
-        final ServiceData data = new ServiceData(ps, description);
+        final ServiceData data = new ServiceData(ps,
+                description == null ? getServiceUnitManager().getServiceDescription(key) : description);
+
         if (services.putIfAbsent(key, data) != null) {
             throw new PEtALSCDKException("Duplicate service " + key);
         }
 
-        final ServiceEndpoint endpoint;
-        if (activate) {
-            assert description != null;
-            try {
-                endpoint = getContext().activateEndpoint(key.getServiceName(), key.getEndpointName());
-                getLogger().log(Level.INFO, "New Service Endpoint deployed: " + endpoint);
-            } catch (final JBIException e) {
-                services.remove(key);
-                throw new PEtALSCDKException(e);
-            }
-        } else {
-            assert description == null;
-            final ServiceUnitDataHandler suDH = getServiceUnitManager().getSUDataHandler(key);
-            endpoint = suDH.getEndpoint(key);
+        try {
+            data.endpoint = getContext().activateEndpoint(key.getServiceName(), key.getEndpointName());
+            getLogger().log(Level.INFO, "New Service Endpoint deployed: " + data.endpoint);
+        } catch (final JBIException e) {
+            services.remove(key);
+            throw new PEtALSCDKException(e);
         }
-        assert endpoint != null;
-
-        data.endpoint = endpoint;
     }
 
     @Override
     public boolean deregister(final ServiceEndpointKey key) throws PEtALSCDKException {
-        // TODO this is not correct (why?!!)
         final ServiceData removed = services.remove(key);
 
         if (removed != null) {
