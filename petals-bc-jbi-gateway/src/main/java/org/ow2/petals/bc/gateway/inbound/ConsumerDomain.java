@@ -197,6 +197,7 @@ public class ConsumerDomain extends AbstractDomain {
 
     public void refreshPropagations() {
         if (open) {
+            logger.info("Refreshing propagations");
             open();
         }
     }
@@ -239,8 +240,6 @@ public class ConsumerDomain extends AbstractDomain {
                     endpoints = new ServiceEndpoint[0];
                 }
             } else {
-                logger.warning(String.format("No endpoint found for Consumes %s/%s/%s ", endpointName, serviceName,
-                        interfaceName));
                 endpoints = new ServiceEndpoint[0];
             }
         } else if (serviceName != null) {
@@ -264,6 +263,7 @@ public class ConsumerDomain extends AbstractDomain {
         } else {
             endpoints = cc.getEndpoints(interfaceName);
         }
+        assert endpoints != null;
 
         return endpoints;
     }
