@@ -67,11 +67,20 @@
       <!-- the elements are the parameters that could be transport specific in the future... 
             Also they are all replaced with the placeholders at runtime! -->
       <xs:all>
-         <xs:element name="ip" type="xs:string" />
+         <xs:element name="remote-ip" type="xs:string" />
          <!-- it must be string because it supports placeholders -->
-         <xs:element name="port" type="xs:string" default="7500" />
+         <xs:element name="remote-port" type="xs:string" default="7500" />
+         <!-- the certificate to authenticate the provider -->
+         <xs:element name="remote-certificate" type="xs:string" minOccurs="0" />
          <!-- Shared identifier with consumer domain -->
-         <xs:element name="auth-name" type="xs:string" />
+         <xs:element name="remote-auth-name" type="xs:string" />
+         <!-- my certificate and key to let the provider authenticate me
+               (using the certificate defined in the consumer-domain) -->
+         <xs:element name="certificate" type="xs:string" minOccurs="0" />
+         <xs:element name="key" type="xs:string" minOccurs="0" />
+         <!-- TODO Maybe introduce a command to start the SUs with keys that needs a password?
+               having them in clear here is the same as using no key -->
+         <xs:element name="passphrase" type="xs:string" minOccurs="0" />
       </xs:all>
       <xs:attribute name="id" type="xs:string" use="required" />
       <xs:attribute name="propagate-all" type="xs:boolean" default="true" />
@@ -87,6 +96,15 @@
       <!-- the elements are the parameters that could be transport specific in the future... 
             Also they are all replaced with the placeholders at runtime! -->
       <xs:all>
+         <!-- the certificate to authenticate the consumer -->
+         <xs:element name="remote-certificate" type="xs:string" minOccurs="0" />
+         <!-- my certificate and key to let the consumer authenticate me
+               (using the certificate defined in the provider-domain) -->
+         <xs:element name="certificate" type="xs:string" minOccurs="0" />
+         <xs:element name="key" type="xs:string" minOccurs="0" />
+         <!-- TODO Maybe introduce a command to start the SUs with keys that needs a password?
+               having them in clear here is the same as using no key -->
+         <xs:element name="passphrase" type="xs:string" minOccurs="0" />
          <!-- Shared identifier with provider domain -->
          <xs:element name="auth-name" type="xs:string" />
       </xs:all>

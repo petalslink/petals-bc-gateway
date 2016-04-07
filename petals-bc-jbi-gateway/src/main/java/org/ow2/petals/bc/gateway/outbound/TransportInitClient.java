@@ -20,12 +20,17 @@ package org.ow2.petals.bc.gateway.outbound;
 import java.util.logging.Logger;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.messages.TransportedAuthentication;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
+import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.commons.log.Level;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.handler.ssl.IdentityCipherSuiteFilter;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.SslProvider;
 import io.netty.util.ReferenceCountUtil;
 
 public class TransportInitClient extends ChannelInboundHandlerAdapter {
@@ -48,7 +53,31 @@ public class TransportInitClient extends ChannelInboundHandlerAdapter {
     @Override
     public void channelActive(final @Nullable ChannelHandlerContext ctx) throws Exception {
         assert ctx != null;
-        ctx.writeAndFlush(new TransportedAuthentication(pd.getAuthName()));
+
+        final JbiProviderDomain jpd = pd.getJPD();
+
+        ctx.writeAndFlush(new TransportedAuthentication(jpd.getRemoteAuthName()));
+
+        // TODO is that enough to do that here to ensure that anything arriving after I sent the authentication will be
+        // treated by SSL?
+        final String remoteCertificate = jpd.getRemoteCertificate();
+        if (remoteCertificate != null) {
+            final SslContextBuilder builder = SslContextBuilder.forClient().sslProvider(SslProvider.JDK)
+                    .ciphers(null, IdentityCipherSuiteFilter.INSTANCE).sessionCacheSize(0).sessionTimeout(0);
+            if (remoteCertificate != null) {
+                builder.trustManager(JbiGatewayJBIHelper.getFile(remoteCertificate));
+            }
+
+            final String certificate = jpd.getCertificate();
+            final String key = jpd.getKey();
+            if (certificate != null && key != null) {
+                builder.keyManager(JbiGatewayJBIHelper.getFile(certificate), JbiGatewayJBIHelper.getFile(key),
+                        jpd.getPassphrase());
+            }
+
+            ctx.pipeline().addAfter(ProviderDomain.LOG_DEBUG_HANDLER, ProviderDomain.SSL_HANDLER,
+                    builder.build().newHandler(ctx.alloc()));
+        }
     }
 
     @Override

@@ -69,7 +69,7 @@ public class JbiGatewayTest extends AbstractComponentTest {
             @Override
             public Boolean call() throws Exception {
                 for (final LogRecord lr : IN_MEMORY_LOG_HANDLER.getAllRecords(Level.SEVERE)) {
-                    if (lr.getMessage().contains("Authentication failed: Unauthorised auth-name '" + authName + "'")) {
+                    if (lr.getMessage().contains("Authentication failed: unknown auth-name '" + authName + "'")) {
                         return true;
                     }
                 }

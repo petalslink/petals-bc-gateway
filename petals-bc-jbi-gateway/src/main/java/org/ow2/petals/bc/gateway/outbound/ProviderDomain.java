@@ -62,7 +62,6 @@ import com.ebmwebsourcing.easycommons.lang.UncheckedException;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
@@ -84,6 +83,12 @@ import io.netty.handler.logging.LoggingHandler;
  * 
  */
 public class ProviderDomain extends AbstractDomain {
+
+    public static final String LOG_ERRORS_HANDLER = "log-errors";
+
+    public static final String LOG_DEBUG_HANDLER = "log-debug";
+
+    public static final String SSL_HANDLER = "ssl";
 
     private JbiProviderDomain jpd;
 
@@ -146,7 +151,7 @@ public class ProviderDomain extends AbstractDomain {
         }
 
         final LoggingHandler debugs = new LoggingHandler(logger.getName() + ".client", LogLevel.TRACE);
-        final ChannelHandler errors = new LastLoggingHandler(logger.getName() + ".errors");
+        final LastLoggingHandler errors = new LastLoggingHandler(logger.getName() + ".errors");
         final ObjectEncoder objectEncoder = new ObjectEncoder();
 
         final Bootstrap _bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
@@ -155,11 +160,11 @@ public class ProviderDomain extends AbstractDomain {
                 assert ch != null;
                 // This mirror the protocol used in TransporterListener
                 final ChannelPipeline p = ch.pipeline();
-                p.addFirst("log-debug", debugs);
+                p.addFirst(LOG_DEBUG_HANDLER, debugs);
                 p.addLast(objectEncoder);
                 p.addLast(new ObjectDecoder(cr));
                 p.addLast("init", new TransportInitClient(logger, ProviderDomain.this));
-                p.addLast("log-errors", errors);
+                p.addLast(LOG_ERRORS_HANDLER, errors);
             }
         });
         assert _bootstrap != null;
@@ -167,8 +172,12 @@ public class ProviderDomain extends AbstractDomain {
     }
 
     public void onPlaceHolderValuesReloaded(final JbiProviderDomain newJPD) {
-        if (!jpd.getAuthName().equals(newJPD.getAuthName()) || !jpd.getIp().equals(newJPD.getIp())
-                || !jpd.getPort().equals(newJPD.getPort())) {
+        if (!jpd.getRemoteAuthName().equals(newJPD.getRemoteAuthName())
+                || !jpd.getRemoteIp().equals(newJPD.getRemoteIp())
+                || !jpd.getRemotePort().equals(newJPD.getRemotePort())
+                || !jpd.getCertificate().equals(newJPD.getCertificate())
+                || !jpd.getRemoteCertificate().equals(newJPD.getRemoteCertificate())
+                || !jpd.getKey().equals(newJPD.getKey())) {
             jpd = newJPD;
             disconnect();
             connect();
@@ -418,12 +427,13 @@ public class ProviderDomain extends AbstractDomain {
         final Channel _channel;
         try {
             // it should have been checked already by JbiGatewayJBIHelper
-            final int port = Integer.parseInt(jpd.getPort());
+            final int port = Integer.parseInt(jpd.getRemotePort());
 
             // we must use sync so that we know if a problem arises
-            _channel = bootstrap.remoteAddress(jpd.getIp(), port).connect().sync().channel();
+            _channel = bootstrap.remoteAddress(jpd.getRemoteIp(), port).connect().sync().channel();
         } catch (final InterruptedException e) {
-            throw new UncheckedException(e);
+            // TODO maybe I should just let it go, it must mean the component is being stopped
+            throw new UncheckedException("Connect was interrupted...", e);
         }
         assert _channel != null;
         channel = _channel;
@@ -448,12 +458,6 @@ public class ProviderDomain extends AbstractDomain {
 
     public JbiProviderDomain getJPD() {
         return jpd;
-    }
-
-    public String getAuthName() {
-        final String authName = jpd.getAuthName();
-        assert authName != null;
-        return authName;
     }
 
     public void close() {

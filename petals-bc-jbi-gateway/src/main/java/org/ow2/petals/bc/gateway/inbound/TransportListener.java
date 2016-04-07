@@ -57,6 +57,8 @@ public class TransportListener implements ConsumerAuthenticator {
 
     public static final String LOG_DEBUG_HANDLER = "log-debug";
 
+    public static final String SSL_HANDLER = "ssl";
+
     private final ServerBootstrap bootstrap;
 
     private final JbiTransportListener jtl;

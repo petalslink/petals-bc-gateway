@@ -209,6 +209,11 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
     }
 
     protected static ServiceConfiguration createHelloProvider(final String authName) {
+        return createHelloProvider(authName, null, null, null);
+    }
+
+    protected static ServiceConfiguration createHelloProvider(final String authName, final @Nullable String certificate,
+            final @Nullable String key, final @Nullable String remoteCertificate) {
         final ServiceConfiguration provides = new ServiceConfiguration() {
             @Override
             protected void extraJBIConfiguration(final @Nullable Document jbiDocument) {
@@ -222,6 +227,16 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
                 addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_PORT)
                         .setTextContent("" + TEST_TRANSPORT_PORT);
                 addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_AUTH_NAME).setTextContent(authName);
+                if (certificate != null) {
+                    addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_CRT).setTextContent(certificate);
+                }
+                if (key != null) {
+                    addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_KEY).setTextContent(key);
+                }
+                if (remoteCertificate != null) {
+                    addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_REMOTE_CRT)
+                            .setTextContent(remoteCertificate);
+                }
             }
         };
 
@@ -230,6 +245,12 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
 
     protected static ConsumesServiceConfiguration createHelloConsumes(final boolean specifyService,
             final boolean specifyEndpoint) {
+        return createHelloConsumes(specifyService, specifyEndpoint, null, null, null);
+    }
+
+    protected static ConsumesServiceConfiguration createHelloConsumes(final boolean specifyService,
+            final boolean specifyEndpoint, final @Nullable String certificate, final @Nullable String key,
+            final @Nullable String remoteCertificate) {
 
         // can't have endpoint specified without service
         assert !specifyEndpoint || specifyService;
@@ -257,6 +278,16 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
                 cDomain.setAttribute(ATTR_SERVICES_CONSUMER_DOMAIN_ID, TEST_CONSUMER_DOMAIN);
                 cDomain.setAttribute(ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT, TEST_TRANSPORT_NAME);
                 addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME, TEST_AUTH_NAME);
+                if (certificate != null) {
+                    addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_CRT).setTextContent(certificate);
+                }
+                if (key != null) {
+                    addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_KEY).setTextContent(key);
+                }
+                if (remoteCertificate != null) {
+                    addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_REMOTE_CRT)
+                            .setTextContent(remoteCertificate);
+                }
             }
         };
 
@@ -278,15 +309,24 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         return deployTwoDomains(true, true);
     }
 
+    protected ServiceEndpoint deployTwoDomains(final boolean specifyService, final boolean specifyEndpoint)
+            throws Exception {
+        return deployTwoDomains(true, true, null, null, null, null, null, null);
+    }
 
     /**
      * TODO it would be relevant to check for all domain deployed that everything has been cleaned as desired
      */
-    protected ServiceEndpoint deployTwoDomains(final boolean specifyService, final boolean specifyEndpoint)
-            throws Exception {
-        COMPONENT_UNDER_TEST.deployService(SU_CONSUMER_NAME, createHelloConsumes(specifyService, specifyEndpoint));
+    protected ServiceEndpoint deployTwoDomains(final boolean specifyService, final boolean specifyEndpoint,
+            final @Nullable String clientCertificate, final @Nullable String clientKey,
+            final @Nullable String clientRemoteCertificate, final @Nullable String serverCertificate,
+            final @Nullable String serverKey, final @Nullable String serverRemoteCertificate) throws Exception {
 
-        COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createHelloProvider());
+        COMPONENT_UNDER_TEST.deployService(SU_CONSUMER_NAME, createHelloConsumes(specifyService, specifyEndpoint,
+                serverCertificate, serverKey, serverRemoteCertificate));
+
+        COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME,
+                createHelloProvider(TEST_AUTH_NAME, clientCertificate, clientKey, clientRemoteCertificate));
 
         Awaitility.await().atMost(Duration.TWO_SECONDS).until(new Callable<Boolean>() {
             @Override

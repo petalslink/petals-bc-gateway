@@ -30,17 +30,29 @@ public interface JbiGatewayTestConstants extends JbiGatewayConstants, JbiConstan
 
     public static final String ATTR_SERVICES_PROVIDER_DOMAIN_ID = "id";
 
-    public static final QName EL_SERVICES_PROVIDER_DOMAIN_IP = new QName(JG_NS_URI, "ip");
+    public static final QName EL_SERVICES_PROVIDER_DOMAIN_IP = new QName(JG_NS_URI, "remote-ip");
 
-    public static final QName EL_SERVICES_PROVIDER_DOMAIN_PORT = new QName(JG_NS_URI, "port");
+    public static final QName EL_SERVICES_PROVIDER_DOMAIN_PORT = new QName(JG_NS_URI, "remote-port");
 
-    public static final QName EL_SERVICES_PROVIDER_DOMAIN_AUTH_NAME = new QName(JG_NS_URI, "auth-name");
+    public static final QName EL_SERVICES_PROVIDER_DOMAIN_AUTH_NAME = new QName(JG_NS_URI, "remote-auth-name");
+
+    public static final QName EL_SERVICES_PROVIDER_DOMAIN_REMOTE_CRT = new QName(JG_NS_URI, "remote-certificate");
+
+    public static final QName EL_SERVICES_PROVIDER_DOMAIN_CRT = new QName(JG_NS_URI, "certificate");
+
+    public static final QName EL_SERVICES_PROVIDER_DOMAIN_KEY = new QName(JG_NS_URI, "key");
 
     public static final String ATTR_SERVICES_CONSUMER_DOMAIN_ID = "id";
 
     public static final String ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT = "transport";
 
     public static final QName EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME = new QName(JG_NS_URI, "auth-name");
+
+    public static final QName EL_SERVICES_CONSUMER_DOMAIN_REMOTE_CRT = new QName(JG_NS_URI, "remote-certificate");
+
+    public static final QName EL_SERVICES_CONSUMER_DOMAIN_CRT = new QName(JG_NS_URI, "certificate");
+
+    public static final QName EL_SERVICES_CONSUMER_DOMAIN_KEY = new QName(JG_NS_URI, "key");
 
     public static final String ATTR_PROVIDES_PROVIDER_DOMAIN = "domain";
 

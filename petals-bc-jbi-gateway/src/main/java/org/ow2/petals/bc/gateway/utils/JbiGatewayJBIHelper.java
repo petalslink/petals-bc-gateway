@@ -17,6 +17,7 @@
  */
 package org.ow2.petals.bc.gateway.utils;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -55,6 +56,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
+import com.ebmwebsourcing.easycommons.lang.StringHelper;
 import com.ebmwebsourcing.easycommons.properties.PropertiesException;
 import com.ebmwebsourcing.easycommons.properties.PropertiesHelper;
 import com.ebmwebsourcing.easycommons.xml.DocumentBuilders;
@@ -62,7 +64,7 @@ import com.ebmwebsourcing.easycommons.xml.DocumentBuilders;
 /**
  * Helper class to manipulate the jbi.xml according to the schema in the resources directory.
  * 
- * TODO one day we should actually exploit in an automatised way this schema in the CDK directly.
+ * TODO one day we should actually exploit in an automated way this schema in the CDK directly.
  * 
  * TODO also we should support generic handling of placeholders directly in the jbi descriptor instead of the
  * {@link ConfigurationExtensions} if possible
@@ -215,16 +217,106 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         for (final JbiConsumerDomain jcd : jcds) {
             assert jcd != null;
             replace(jcd, placeholders, logger);
+            validate(jcd);
         }
         return jcds;
     }
 
+    private static void validate(final JbiConsumerDomain jcd) throws PEtALSCDKException {
+
+        final String certificate = jcd.getCertificate();
+        final String key = jcd.getKey();
+
+        if (certificate != null ^ key != null) {
+            throw new PEtALSCDKException(
+                    "Either both or neither of certificate and key must be present for consumer domain (" + jcd.getId()
+                            + ")");
+        }
+
+        final String remoteCertificate = jcd.getRemoteCertificate();
+
+        if ((certificate == null && key == null) && remoteCertificate != null) {
+            throw new PEtALSCDKException(
+                    "Certificate and key must be present for remote certificate to be used for consumer domain ("
+                            + jcd.getId() + ")");
+        }
+
+        if (certificate != null) {
+            if (!getFile(certificate).exists()) {
+                throw new PEtALSCDKException(
+                        "Missing certificate (" + certificate + ") for consumer domain (" + jcd.getId() + ")");
+            }
+        }
+
+        if (key != null) {
+            if (!getFile(key).exists()) {
+                throw new PEtALSCDKException("Missing key (" + key + ") for consumer domain (" + jcd.getId() + ")");
+            }
+        }
+
+        if (remoteCertificate != null) {
+            if (!getFile(remoteCertificate).exists()) {
+                throw new PEtALSCDKException("Missing remote certificate (" + remoteCertificate
+                        + ") for consumer domain (" + jcd.getId() + ")");
+            }
+        }
+    }
+
     private static void replace(final JbiConsumerDomain jcd, final Properties placeholders, final Logger logger) {
+        final String authName = jcd.getAuthName();
         try {
-            jcd.setAuthName(PropertiesHelper.resolveString(jcd.getAuthName(), placeholders));
+            jcd.setAuthName(PropertiesHelper.resolveString(authName, placeholders));
         } catch (final PropertiesException e) {
             logger.log(Level.WARNING, "Error while resolving consumer domain ('" + jcd.getId() + "') auth name ('"
-                    + jcd.getAuthName() + "') with placeholders", e);
+                    + authName + "') with placeholders", e);
+        }
+
+        final String remoteCertificate = jcd.getRemoteCertificate();
+        if (!StringHelper.isNullOrEmpty(remoteCertificate)) {
+            try {
+                jcd.setRemoteCertificate(PropertiesHelper.resolveString(remoteCertificate, placeholders));
+            } catch (final PropertiesException e) {
+                logger.log(Level.WARNING, "Error while resolving consumer domain ('" + jcd.getId()
+                        + "') remote certificate ('" + remoteCertificate + "') with placeholders", e);
+            }
+        } else {
+            jcd.setRemoteCertificate(null);
+        }
+
+        final String certificate = jcd.getCertificate();
+        if (!StringHelper.isNullOrEmpty(certificate)) {
+            try {
+                jcd.setCertificate(PropertiesHelper.resolveString(certificate, placeholders));
+            } catch (final PropertiesException e) {
+                logger.log(Level.WARNING, "Error while resolving consumer domain ('" + jcd.getId() + "') certificate ('"
+                        + certificate + "') with placeholders", e);
+            }
+        } else {
+            jcd.setCertificate(null);
+        }
+
+        final String key = jcd.getKey();
+        if (!StringHelper.isNullOrEmpty(key)) {
+            try {
+                jcd.setKey(PropertiesHelper.resolveString(key, placeholders));
+            } catch (final PropertiesException e) {
+                logger.log(Level.WARNING, "Error while resolving consumer domain ('" + jcd.getId() + "') key ('" + key
+                        + "') with placeholders", e);
+            }
+        } else {
+            jcd.setKey(null);
+        }
+
+        final String passphrase = jcd.getPassphrase();
+        if (!StringHelper.isNullOrEmpty(passphrase)) {
+            try {
+                jcd.setPassphrase(PropertiesHelper.resolveString(passphrase, placeholders));
+            } catch (final PropertiesException e) {
+                logger.log(Level.WARNING, "Error while resolving consumer domain ('" + jcd.getId() + "') passphrase ('"
+                        + passphrase + "') with placeholders", e);
+            }
+        } else {
+            jcd.setPassphrase(null);
         }
     }
 
@@ -243,32 +335,121 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
 
     private static void validate(final JbiProviderDomain jpd) throws PEtALSCDKException {
         try {
-            Integer.parseInt(jpd.getPort());
+            Integer.parseInt(jpd.getRemotePort());
         } catch (final NumberFormatException e) {
             throw new PEtALSCDKException(
-                    "Invalid port (" + jpd.getPort() + ") for provider domain (" + jpd.getId() + ")");
+                    "Invalid port (" + jpd.getRemotePort() + ") for provider domain (" + jpd.getId() + ")");
+        }
+
+        final String certificate = jpd.getCertificate();
+        final String key = jpd.getKey();
+
+        if (certificate != null ^ key != null) {
+            throw new PEtALSCDKException(
+                    "Either both or neither of certificate and key must be present for provider domain (" + jpd.getId()
+                            + ")");
+        }
+
+        final String remoteCertificate = jpd.getRemoteCertificate();
+
+        if ((certificate != null && key != null) && remoteCertificate == null) {
+            throw new PEtALSCDKException(
+                    "Remote certificate must be present for certificate and key to be used for provider domain ("
+                            + jpd.getId() + ")");
+        }
+
+        if (certificate != null) {
+            if (!getFile(certificate).exists()) {
+                throw new PEtALSCDKException(
+                        "Missing certificate (" + certificate + ") for provider domain (" + jpd.getId() + ")");
+            }
+        }
+
+        if (key != null) {
+            if (!getFile(key).exists()) {
+                throw new PEtALSCDKException("Missing key (" + key + ") for provider domain (" + jpd.getId() + ")");
+            }
+        }
+
+        if (remoteCertificate != null) {
+            if (!getFile(remoteCertificate).exists()) {
+                throw new PEtALSCDKException("Missing remote certificate (" + remoteCertificate
+                        + ") for provider domain (" + jpd.getId() + ")");
+            }
         }
     }
 
     private static void replace(final JbiProviderDomain jpd, final Properties placeholders, final Logger logger) {
+        final String remoteAuthName = jpd.getRemoteAuthName();
         try {
-            jpd.setAuthName(PropertiesHelper.resolveString(jpd.getAuthName(), placeholders));
+            jpd.setRemoteAuthName(PropertiesHelper.resolveString(remoteAuthName, placeholders));
         } catch (final PropertiesException e) {
             logger.log(Level.WARNING, "Error while resolving provider domain ('" + jpd.getId() + "') auth name ('"
-                    + jpd.getAuthName() + "') with placeholders", e);
-        }
-        try {
-            jpd.setIp(PropertiesHelper.resolveString(jpd.getIp(), placeholders));
-        } catch (final PropertiesException e) {
-            logger.log(Level.WARNING, "Error while resolving provider domain ('" + jpd.getId() + "') ip ('"
-                    + jpd.getIp() + "') with placeholders", e);
+                    + remoteAuthName + "') with placeholders", e);
         }
 
+        final String remoteIp = jpd.getRemoteIp();
         try {
-            jpd.setPort(PropertiesHelper.resolveString(jpd.getPort(), placeholders));
+            jpd.setRemoteIp(PropertiesHelper.resolveString(remoteIp, placeholders));
+        } catch (final PropertiesException e) {
+            logger.log(Level.WARNING, "Error while resolving provider domain ('" + jpd.getId() + "') ip ('" + remoteIp
+                    + "') with placeholders", e);
+        }
+
+        final String remotePort = jpd.getRemotePort();
+        try {
+            jpd.setRemotePort(PropertiesHelper.resolveString(remotePort, placeholders));
         } catch (final PropertiesException e) {
             logger.log(Level.WARNING, "Error while resolving provider domain ('" + jpd.getId() + "') port ('"
-                    + jpd.getPort() + "') with placeholders", e);
+                    + remotePort + "') with placeholders", e);
+        }
+
+        final String remoteCertificate = jpd.getRemoteCertificate();
+        if (!StringHelper.isNullOrEmpty(remoteCertificate)) {
+            try {
+                jpd.setRemoteCertificate(PropertiesHelper.resolveString(remoteCertificate, placeholders));
+            } catch (final PropertiesException e) {
+                logger.log(Level.WARNING, "Error while resolving provider domain ('" + jpd.getId()
+                        + "') remote certificate ('" + remoteCertificate + "') with placeholders", e);
+            }
+        } else {
+            jpd.setRemoteCertificate(null);
+        }
+
+        final String certificate = jpd.getCertificate();
+        if (!StringHelper.isNullOrEmpty(certificate)) {
+            try {
+                jpd.setCertificate(PropertiesHelper.resolveString(certificate, placeholders));
+            } catch (final PropertiesException e) {
+                logger.log(Level.WARNING, "Error while resolving provider domain ('" + jpd.getId() + "') certificate ('"
+                        + certificate + "') with placeholders", e);
+            }
+        } else {
+            jpd.setCertificate(null);
+        }
+
+        final String key = jpd.getKey();
+        if (!StringHelper.isNullOrEmpty(key)) {
+            try {
+                jpd.setKey(PropertiesHelper.resolveString(key, placeholders));
+            } catch (final PropertiesException e) {
+                logger.log(Level.WARNING, "Error while resolving provider domain ('" + jpd.getId() + "') key ('" + key
+                        + "') with placeholders", e);
+            }
+        } else {
+            jpd.setKey(null);
+        }
+
+        final String passphrase = jpd.getPassphrase();
+        if (!StringHelper.isNullOrEmpty(passphrase)) {
+            try {
+                jpd.setPassphrase(PropertiesHelper.resolveString(passphrase, placeholders));
+            } catch (final PropertiesException e) {
+                logger.log(Level.WARNING, "Error while resolving provider domain ('" + jpd.getId() + "') passphrase ('"
+                        + passphrase + "') with placeholders", e);
+            }
+        } else {
+            jpd.setPassphrase(null);
         }
     }
 
@@ -380,5 +561,10 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         public B getB() {
             return b;
         }
+    }
+
+    public static File getFile(final String path) {
+        // TODO is that correct?!
+        return new File(JbiGatewayJBIHelper.class.getResource(path).getFile());
     }
 }

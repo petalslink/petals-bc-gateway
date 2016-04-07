@@ -20,7 +20,9 @@ package org.ow2.petals.bc.gateway.inbound;
 import java.util.logging.Logger;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.messages.TransportedAuthentication;
+import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.bc.gateway.utils.LastLoggingHandler;
 import org.ow2.petals.commons.log.Level;
 
@@ -30,6 +32,10 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import io.netty.handler.ssl.ClientAuth;
+import io.netty.handler.ssl.IdentityCipherSuiteFilter;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.SslProvider;
 
 /**
  * Dispatch a connection (from {@link TransportListener}) to the correct {@link ConsumerDomain}.
@@ -65,15 +71,34 @@ public class TransportDispatcher extends SimpleChannelInboundHandler<Transported
 
         // accept corresponds to validate that the current transport can be used for this consumer partner
         if (cd == null) {
-            ctx.writeAndFlush(String.format("Unauthorised auth-name '%s'", msg.authName));
+            ctx.writeAndFlush(String.format("unknown auth-name '%s'", msg.authName));
             ctx.close();
             return;
         }
 
         final ChannelPipeline pipeline = ctx.pipeline();
 
+        final JbiConsumerDomain jcd = cd.getJCD();
+        final String certificate = jcd.getCertificate();
+        final String key = jcd.getKey();
+        if ((certificate != null && key != null)) {
+            final SslContextBuilder builder = SslContextBuilder
+                    .forServer(JbiGatewayJBIHelper.getFile(certificate),
+                            JbiGatewayJBIHelper.getFile(key), jcd.getPassphrase())
+                    .sslProvider(SslProvider.JDK).ciphers(null, IdentityCipherSuiteFilter.INSTANCE).sessionCacheSize(0)
+                    .sessionTimeout(0);
+
+            final String remoteCertificate = jcd.getRemoteCertificate();
+            if (remoteCertificate != null) {
+                builder.trustManager(JbiGatewayJBIHelper.getFile(remoteCertificate)).clientAuth(ClientAuth.REQUIRE);
+            }
+
+            pipeline.addAfter(TransportListener.LOG_DEBUG_HANDLER, TransportListener.SSL_HANDLER,
+                    builder.build().newHandler(ctx.alloc()));
+        }
+
         // getName should contain the transporter name
-        final String logName = logger.getName() + "." + cd.getJCD().getId();
+        final String logName = logger.getName() + "." + jcd.getId();
 
         // let's replace the debug logger with something specific to this consumer
         pipeline.replace(TransportListener.LOG_DEBUG_HANDLER, TransportListener.LOG_DEBUG_HANDLER,
