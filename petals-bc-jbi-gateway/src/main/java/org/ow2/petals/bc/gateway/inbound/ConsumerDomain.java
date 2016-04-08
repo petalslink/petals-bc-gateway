@@ -99,11 +99,17 @@ public class ConsumerDomain extends AbstractDomain {
     }
 
     public void onPlaceHolderValuesReloaded(final JbiConsumerDomain newJCD) throws PEtALSCDKException {
-        if (!jcd.getAuthName().equals(newJCD.getAuthName())) {
-            tl.register(newJCD.getAuthName(), this);
-            tl.deregistrer(jcd.getAuthName());
+        if (!jcd.getAuthName().equals(newJCD.getAuthName())
+                || !jcd.getCertificate().equals(newJCD.getCertificate())
+                || !jcd.getRemoteCertificate().equals(newJCD.getRemoteCertificate())
+                || !jcd.getKey().equals(newJCD.getKey())
+                || !jcd.getPassphrase().equals(newJCD.getPassphrase())) {
+            if (!jcd.getAuthName().equals(newJCD.getAuthName())) {
+                tl.register(newJCD.getAuthName(), this);
+                tl.deregistrer(jcd.getAuthName());
+            }
             jcd = newJCD;
-            // this will disconnect clients and they should reconnect by themselves
+            // this will disconnect clients and they should reconnect by themselves and use the new jcd and authname!
             disconnect();
         }
     }

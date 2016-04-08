@@ -177,7 +177,8 @@ public class ProviderDomain extends AbstractDomain {
                 || !jpd.getRemotePort().equals(newJPD.getRemotePort())
                 || !jpd.getCertificate().equals(newJPD.getCertificate())
                 || !jpd.getRemoteCertificate().equals(newJPD.getRemoteCertificate())
-                || !jpd.getKey().equals(newJPD.getKey())) {
+                || !jpd.getKey().equals(newJPD.getKey())
+                || !jpd.getPassphrase().equals(newJPD.getPassphrase())) {
             jpd = newJPD;
             disconnect();
             connect();
