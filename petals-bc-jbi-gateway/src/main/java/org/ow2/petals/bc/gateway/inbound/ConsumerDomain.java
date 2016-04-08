@@ -47,6 +47,7 @@ import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.logger.StepLogHelper;
+import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.w3c.dom.Document;
 
 import io.netty.channel.Channel;
@@ -85,10 +86,13 @@ public class ConsumerDomain extends AbstractDomain {
 
     private final ReadWriteLock channelsLock = new ReentrantReadWriteLock();
 
-    public ConsumerDomain(final TransportListener tl, final JbiGatewaySUManager sum, final JbiConsumerDomain jcd,
-            final Collection<Consumes> consumes,
+    private final ServiceUnitDataHandler handler;
+
+    public ConsumerDomain(final ServiceUnitDataHandler handler, final TransportListener tl,
+            final JbiGatewaySUManager sum, final JbiConsumerDomain jcd, final Collection<Consumes> consumes,
             final JBISender sender, final Logger logger) {
         super(sender, logger);
+        this.handler = handler;
         this.tl = tl;
         this.sum = sum;
         this.jcd = jcd;
@@ -98,12 +102,14 @@ public class ConsumerDomain extends AbstractDomain {
         }
     }
 
+    public ServiceUnitDataHandler getSUHandler() {
+        return handler;
+    }
+
     public void onPlaceHolderValuesReloaded(final JbiConsumerDomain newJCD) throws PEtALSCDKException {
-        if (!jcd.getAuthName().equals(newJCD.getAuthName())
-                || !jcd.getCertificate().equals(newJCD.getCertificate())
+        if (!jcd.getAuthName().equals(newJCD.getAuthName()) || !jcd.getCertificate().equals(newJCD.getCertificate())
                 || !jcd.getRemoteCertificate().equals(newJCD.getRemoteCertificate())
-                || !jcd.getKey().equals(newJCD.getKey())
-                || !jcd.getPassphrase().equals(newJCD.getPassphrase())) {
+                || !jcd.getKey().equals(newJCD.getKey()) || !jcd.getPassphrase().equals(newJCD.getPassphrase())) {
             if (!jcd.getAuthName().equals(newJCD.getAuthName())) {
                 tl.register(newJCD.getAuthName(), this);
                 tl.deregistrer(jcd.getAuthName());
@@ -166,10 +172,9 @@ public class ConsumerDomain extends AbstractDomain {
         channelsLock.readLock().lock();
         try {
             open = false;
-            
+
             for (final Channel c : channels) {
-                c.writeAndFlush(
-                        new TransportedPropagatedConsumesList(new ArrayList<TransportedPropagatedConsumes>()));
+                c.writeAndFlush(new TransportedPropagatedConsumesList(new ArrayList<TransportedPropagatedConsumes>()));
             }
         } finally {
             channelsLock.readLock().unlock();

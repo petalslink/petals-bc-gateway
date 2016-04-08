@@ -23,8 +23,9 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.messages.TransportedAuthentication;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
-import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.commons.log.Level;
+import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
+import org.ow2.petals.component.framework.util.ServiceUnitUtil;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -39,7 +40,10 @@ public class TransportInitClient extends ChannelInboundHandlerAdapter {
 
     private final Logger logger;
 
-    public TransportInitClient(final Logger logger, final ProviderDomain pd) {
+    private final ServiceUnitDataHandler handler;
+
+    public TransportInitClient(final ServiceUnitDataHandler handler, final Logger logger, final ProviderDomain pd) {
+        this.handler = handler;
         this.logger = logger;
         this.pd = pd;
     }
@@ -63,13 +67,14 @@ public class TransportInitClient extends ChannelInboundHandlerAdapter {
         final String remoteCertificate = jpd.getRemoteCertificate();
         if (remoteCertificate != null) {
             final SslContextBuilder builder = SslContextBuilder.forClient().sslProvider(SslProvider.JDK)
-                    .trustManager(JbiGatewayJBIHelper.getFile(remoteCertificate))
+                    .trustManager(ServiceUnitUtil.getFile(handler.getInstallRoot(), remoteCertificate))
                     .ciphers(null, IdentityCipherSuiteFilter.INSTANCE).sessionCacheSize(0).sessionTimeout(0);
 
             final String certificate = jpd.getCertificate();
             final String key = jpd.getKey();
             if (certificate != null && key != null) {
-                builder.keyManager(JbiGatewayJBIHelper.getFile(certificate), JbiGatewayJBIHelper.getFile(key),
+                builder.keyManager(ServiceUnitUtil.getFile(handler.getInstallRoot(), certificate),
+                        ServiceUnitUtil.getFile(handler.getInstallRoot(), key),
                         jpd.getPassphrase());
             }
 

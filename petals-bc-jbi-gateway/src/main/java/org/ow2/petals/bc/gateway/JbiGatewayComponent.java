@@ -53,6 +53,7 @@ import org.ow2.petals.component.framework.bc.AbstractBindingComponent;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.su.AbstractServiceUnitManager;
+import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.ow2.petals.component.framework.util.ServiceEndpointKey;
 import org.w3c.dom.Document;
 
@@ -140,36 +141,36 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     /**
      * This will create, register and start if needed a provider domain
      */
-    public ProviderDomain registerProviderDomain(final String ownerSU, final JbiProviderDomain jpd,
+    public ProviderDomain registerProviderDomain(final ServiceUnitDataHandler handler, final JbiProviderDomain jpd,
             final Collection<Pair<Provides, JbiProvidesConfig>> provides) throws PEtALSCDKException {
         // TODO should provider domain share their connections if they point to the same ip/port?
         final Logger logger;
         try {
-            logger = getContext().getLogger("provider." + ownerSU + "." + jpd.getId(), null);
+            logger = getContext().getLogger("provider." + handler.getName() + "." + jpd.getId(), null);
             assert logger != null;
         } catch (final MissingResourceException | JBIException e) {
             throw new PEtALSCDKException("Can't create logger", e);
         }
-        final ProviderDomain pd = new ProviderDomain(this, jpd, provides, getSender(), newClientBootstrap(), logger,
-                newClassResolver());
+        final ProviderDomain pd = new ProviderDomain(this, handler, jpd, provides, getSender(), newClientBootstrap(),
+                logger, newClassResolver());
         if (started) {
             pd.connect();
         }
         return pd;
     }
 
-    public ConsumerDomain createConsumerDomain(final String ownerSU, final JbiConsumerDomain jcd,
+    public ConsumerDomain createConsumerDomain(final ServiceUnitDataHandler handler, final JbiConsumerDomain jcd,
             final Collection<Consumes> consumes) throws PEtALSCDKException {
         // TODO support many transports for one consumer domain
         final Logger logger;
         try {
-            logger = getContext().getLogger("consumer." + ownerSU + "." + jcd.getId(), null);
+            logger = getContext().getLogger("consumer." + handler.getName() + "." + jcd.getId(), null);
             assert logger != null;
         } catch (final MissingResourceException | JBIException e) {
             throw new PEtALSCDKException("Can't create logger", e);
         }
         final TransportListener tl = getTransportListener(jcd.getTransport());
-        return new ConsumerDomain(tl, getServiceUnitManager(), jcd, consumes, getSender(), logger);
+        return new ConsumerDomain(handler, tl, getServiceUnitManager(), jcd, consumes, getSender(), logger);
     }
 
     private Bootstrap newClientBootstrap() {

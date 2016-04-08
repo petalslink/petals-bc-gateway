@@ -105,7 +105,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
             assert jcd != null;
             final Collection<Consumes> consumes = entry.getValue();
             assert consumes != null;
-            final ConsumerDomain cd = getComponent().createConsumerDomain(ownerSU, jcd, consumes);
+            final ConsumerDomain cd = getComponent().createConsumerDomain(suDH, jcd, consumes);
             data.consumerDomains.put(jcd.getId(), cd);
         }
 
@@ -115,7 +115,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
             assert jpd != null;
             final Collection<Pair<Provides, JbiProvidesConfig>> provides = entry.getValue();
             assert provides != null;
-            final ProviderDomain pd = getComponent().registerProviderDomain(ownerSU, jpd, provides);
+            final ProviderDomain pd = getComponent().registerProviderDomain(suDH, jpd, provides);
             data.providerDomains.put(jpd.getId(), pd);
         }
     }
@@ -262,14 +262,12 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
     private Map<JbiConsumerDomain, Collection<Consumes>> getJCDs(final ServiceUnitDataHandler suDH)
             throws PEtALSCDKException {
-        return JbiGatewayJBIHelper.getConsumesPerDomain(suDH.getDescriptor().getServices(),
-                getComponent().getPlaceHolders(), logger);
+        return JbiGatewayJBIHelper.getConsumesPerDomain(suDH, getComponent().getPlaceHolders(), logger);
     }
 
     private Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> getJPDs(
             final ServiceUnitDataHandler suDH) throws PEtALSCDKException {
-        return JbiGatewayJBIHelper.getProvidesPerDomain(suDH.getDescriptor().getServices(),
-                getComponent().getPlaceHolders(), logger);
+        return JbiGatewayJBIHelper.getProvidesPerDomain(suDH, getComponent().getPlaceHolders(), logger);
     }
 
     @Override

@@ -17,6 +17,7 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.URI;
@@ -228,17 +229,29 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
                         .setTextContent("" + TEST_TRANSPORT_PORT);
                 addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_AUTH_NAME).setTextContent(authName);
                 if (certificate != null) {
-                    addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_CRT).setTextContent(certificate);
+                    addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_CRT)
+                            .setTextContent(new File(certificate).getName());
                 }
                 if (key != null) {
-                    addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_KEY).setTextContent(key);
+                    addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_KEY)
+                            .setTextContent(new File(key).getName());
                 }
                 if (remoteCertificate != null) {
                     addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_REMOTE_CRT)
-                            .setTextContent(remoteCertificate);
+                            .setTextContent(new File(remoteCertificate).getName());
                 }
             }
         };
+
+        if (certificate != null) {
+            provides.addResource(AbstractComponentTest.class.getResource(certificate));
+        }
+        if (key != null) {
+            provides.addResource(AbstractComponentTest.class.getResource(key));
+        }
+        if (remoteCertificate != null) {
+            provides.addResource(AbstractComponentTest.class.getResource(remoteCertificate));
+        }
 
         return provides;
     }
@@ -279,17 +292,29 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
                 cDomain.setAttribute(ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT, TEST_TRANSPORT_NAME);
                 addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME, TEST_AUTH_NAME);
                 if (certificate != null) {
-                    addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_CRT).setTextContent(certificate);
+                    addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_CRT)
+                            .setTextContent(new File(certificate).getName());
                 }
                 if (key != null) {
-                    addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_KEY).setTextContent(key);
+                    addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_KEY)
+                            .setTextContent(new File(key).getName());
                 }
                 if (remoteCertificate != null) {
                     addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_REMOTE_CRT)
-                            .setTextContent(remoteCertificate);
+                            .setTextContent(new File(remoteCertificate).getName());
                 }
             }
         };
+
+        if (certificate != null) {
+            consumes.addResource(AbstractComponentTest.class.getResource(certificate));
+        }
+        if (key != null) {
+            consumes.addResource(AbstractComponentTest.class.getResource(key));
+        }
+        if (remoteCertificate != null) {
+            consumes.addResource(AbstractComponentTest.class.getResource(remoteCertificate));
+        }
 
         // let's use a smaller timeout time by default
         consumes.setTimeout(DEFAULT_TIMEOUT_FOR_COMPONENT_SEND);

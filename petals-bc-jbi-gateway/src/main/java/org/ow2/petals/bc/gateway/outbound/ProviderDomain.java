@@ -52,6 +52,7 @@ import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.logger.StepLogHelper;
+import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.ow2.petals.component.framework.util.EndpointUtil;
 import org.ow2.petals.component.framework.util.ServiceEndpointKey;
 import org.ow2.petals.component.framework.util.WSDLUtilImpl;
@@ -134,10 +135,12 @@ public class ProviderDomain extends AbstractDomain {
         }
     }
 
-    public ProviderDomain(final ProviderMatcher matcher, final JbiProviderDomain jpd,
-            final Collection<Pair<Provides, JbiProvidesConfig>> provides, final JBISender sender,
-            final Bootstrap partialBootstrap, final Logger logger, final ClassResolver cr) throws PEtALSCDKException {
+    public ProviderDomain(final ProviderMatcher matcher, final ServiceUnitDataHandler handler,
+            final JbiProviderDomain jpd, final Collection<Pair<Provides, JbiProvidesConfig>> provides,
+            final JBISender sender, final Bootstrap partialBootstrap, final Logger logger, final ClassResolver cr)
+            throws PEtALSCDKException {
         super(sender, logger);
+
         this.matcher = matcher;
         this.jpd = jpd;
 
@@ -163,7 +166,7 @@ public class ProviderDomain extends AbstractDomain {
                 p.addFirst(LOG_DEBUG_HANDLER, debugs);
                 p.addLast(objectEncoder);
                 p.addLast(new ObjectDecoder(cr));
-                p.addLast("init", new TransportInitClient(logger, ProviderDomain.this));
+                p.addLast("init", new TransportInitClient(handler, logger, ProviderDomain.this));
                 p.addLast(LOG_ERRORS_HANDLER, errors);
             }
         });
@@ -177,8 +180,7 @@ public class ProviderDomain extends AbstractDomain {
                 || !jpd.getRemotePort().equals(newJPD.getRemotePort())
                 || !jpd.getCertificate().equals(newJPD.getCertificate())
                 || !jpd.getRemoteCertificate().equals(newJPD.getRemoteCertificate())
-                || !jpd.getKey().equals(newJPD.getKey())
-                || !jpd.getPassphrase().equals(newJPD.getPassphrase())) {
+                || !jpd.getKey().equals(newJPD.getKey()) || !jpd.getPassphrase().equals(newJPD.getPassphrase())) {
             jpd = newJPD;
             disconnect();
             connect();

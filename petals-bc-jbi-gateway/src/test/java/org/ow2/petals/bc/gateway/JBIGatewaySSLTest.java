@@ -21,10 +21,8 @@ import javax.jbi.messaging.ExchangeStatus;
 import javax.jbi.servicedesc.ServiceEndpoint;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
-import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.component.framework.junit.helpers.MessageChecks;
 import org.ow2.petals.component.framework.junit.helpers.ServiceProviderImplementation;
 
@@ -39,14 +37,6 @@ public class JBIGatewaySSLTest extends AbstractComponentTest {
     private static final String CLIENT_KEY = "/ssl/test_unencrypted.pem";
 
     private static final String SERVER_KEY = "/ssl/test2_unencrypted.pem";
-
-    @BeforeClass
-    public static void checkFiles() {
-        assertTrue(JbiGatewayJBIHelper.getFile(CLIENT_CRT).exists());
-        assertTrue(JbiGatewayJBIHelper.getFile(CLIENT_KEY).exists());
-        assertTrue(JbiGatewayJBIHelper.getFile(SERVER_CRT).exists());
-        assertTrue(JbiGatewayJBIHelper.getFile(SERVER_KEY).exists());
-    }
 
     @Test
     public void testOk() throws Exception {

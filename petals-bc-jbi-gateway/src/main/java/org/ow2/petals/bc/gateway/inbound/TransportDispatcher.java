@@ -22,9 +22,10 @@ import java.util.logging.Logger;
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.messages.TransportedAuthentication;
-import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.bc.gateway.utils.LastLoggingHandler;
 import org.ow2.petals.commons.log.Level;
+import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
+import org.ow2.petals.component.framework.util.ServiceUnitUtil;
 
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
@@ -82,15 +83,17 @@ public class TransportDispatcher extends SimpleChannelInboundHandler<Transported
         final String certificate = jcd.getCertificate();
         final String key = jcd.getKey();
         if ((certificate != null && key != null)) {
+            final ServiceUnitDataHandler handler = cd.getSUHandler();
             final SslContextBuilder builder = SslContextBuilder
-                    .forServer(JbiGatewayJBIHelper.getFile(certificate),
-                            JbiGatewayJBIHelper.getFile(key), jcd.getPassphrase())
+                    .forServer(ServiceUnitUtil.getFile(handler.getInstallRoot(), certificate),
+                            ServiceUnitUtil.getFile(handler.getInstallRoot(), key), jcd.getPassphrase())
                     .sslProvider(SslProvider.JDK).ciphers(null, IdentityCipherSuiteFilter.INSTANCE).sessionCacheSize(0)
                     .sessionTimeout(0);
 
             final String remoteCertificate = jcd.getRemoteCertificate();
             if (remoteCertificate != null) {
-                builder.trustManager(JbiGatewayJBIHelper.getFile(remoteCertificate)).clientAuth(ClientAuth.REQUIRE);
+                builder.trustManager(ServiceUnitUtil.getFile(handler.getInstallRoot(), remoteCertificate))
+                        .clientAuth(ClientAuth.REQUIRE);
             }
 
             pipeline.addAfter(TransportListener.LOG_DEBUG_HANDLER, TransportListener.SSL_HANDLER,

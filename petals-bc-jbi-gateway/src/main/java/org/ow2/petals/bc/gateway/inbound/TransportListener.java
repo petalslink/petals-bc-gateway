@@ -74,8 +74,8 @@ public class TransportListener implements ConsumerAuthenticator {
      */
     private final ConcurrentMap<String, ConsumerDomain> consumers = new ConcurrentHashMap<>();
 
-    public TransportListener(final JbiTransportListener jtl,
-            final ServerBootstrap partialBootstrap, final Logger logger, final ClassResolver cr) {
+    public TransportListener(final JbiTransportListener jtl, final ServerBootstrap partialBootstrap,
+            final Logger logger, final ClassResolver cr) {
         this.jtl = jtl;
 
         // shared between all the connections of this listener

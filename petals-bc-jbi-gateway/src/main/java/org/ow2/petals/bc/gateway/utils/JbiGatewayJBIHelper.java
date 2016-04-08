@@ -17,7 +17,6 @@
  */
 package org.ow2.petals.bc.gateway.utils;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -51,6 +50,8 @@ import org.ow2.petals.component.framework.jbidescriptor.generated.Component;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Services;
+import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
+import org.ow2.petals.component.framework.util.ServiceUnitUtil;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -209,20 +210,22 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         return getAll(component.getAny(), EL_TRANSPORT_LISTENER, JbiTransportListener.class);
     }
 
-    public static Collection<JbiConsumerDomain> getConsumerDomains(final @Nullable Services services,
-            final Properties placeholders, final Logger logger) throws PEtALSCDKException {
+    public static Collection<JbiConsumerDomain> getConsumerDomains(final ServiceUnitDataHandler handler,
+            final @Nullable Services services, final Properties placeholders, final Logger logger)
+            throws PEtALSCDKException {
         assert services != null;
         final Collection<JbiConsumerDomain> jcds = getAll(services.getAnyOrAny(), EL_CONSUMER_DOMAIN,
                 JbiConsumerDomain.class);
         for (final JbiConsumerDomain jcd : jcds) {
             assert jcd != null;
             replace(jcd, placeholders, logger);
-            validate(jcd);
+            validate(handler, jcd);
         }
         return jcds;
     }
 
-    private static void validate(final JbiConsumerDomain jcd) throws PEtALSCDKException {
+    private static void validate(final ServiceUnitDataHandler handler, final JbiConsumerDomain jcd)
+            throws PEtALSCDKException {
 
         final String certificate = jcd.getCertificate();
         final String key = jcd.getKey();
@@ -242,20 +245,20 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         }
 
         if (certificate != null) {
-            if (!getFile(certificate).exists()) {
+            if (!ServiceUnitUtil.getFile(handler.getInstallRoot(), certificate).exists()) {
                 throw new PEtALSCDKException(
                         "Missing certificate (" + certificate + ") for consumer domain (" + jcd.getId() + ")");
             }
         }
 
         if (key != null) {
-            if (!getFile(key).exists()) {
+            if (!ServiceUnitUtil.getFile(handler.getInstallRoot(), key).exists()) {
                 throw new PEtALSCDKException("Missing key (" + key + ") for consumer domain (" + jcd.getId() + ")");
             }
         }
 
         if (remoteCertificate != null) {
-            if (!getFile(remoteCertificate).exists()) {
+            if (!ServiceUnitUtil.getFile(handler.getInstallRoot(), remoteCertificate).exists()) {
                 throw new PEtALSCDKException("Missing remote certificate (" + remoteCertificate
                         + ") for consumer domain (" + jcd.getId() + ")");
             }
@@ -320,20 +323,22 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         }
     }
 
-    public static Collection<JbiProviderDomain> getProviderDomains(final @Nullable Services services,
-            final Properties placeholders, final Logger logger) throws PEtALSCDKException {
+    public static Collection<JbiProviderDomain> getProviderDomains(final ServiceUnitDataHandler handler,
+            final @Nullable Services services, final Properties placeholders, final Logger logger)
+            throws PEtALSCDKException {
         assert services != null;
         final Collection<JbiProviderDomain> jpds = getAll(services.getAnyOrAny(), EL_PROVIDER_DOMAIN,
                 JbiProviderDomain.class);
         for (final JbiProviderDomain jpd : jpds) {
             assert jpd != null;
             replace(jpd, placeholders, logger);
-            validate(jpd);
+            validate(handler, jpd);
         }
         return jpds;
     }
 
-    private static void validate(final JbiProviderDomain jpd) throws PEtALSCDKException {
+    private static void validate(final ServiceUnitDataHandler handler, final JbiProviderDomain jpd)
+            throws PEtALSCDKException {
         try {
             Integer.parseInt(jpd.getRemotePort());
         } catch (final NumberFormatException e) {
@@ -359,20 +364,20 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         }
 
         if (certificate != null) {
-            if (!getFile(certificate).exists()) {
+            if (!ServiceUnitUtil.getFile(handler.getInstallRoot(), certificate).exists()) {
                 throw new PEtALSCDKException(
                         "Missing certificate (" + certificate + ") for provider domain (" + jpd.getId() + ")");
             }
         }
 
         if (key != null) {
-            if (!getFile(key).exists()) {
+            if (!ServiceUnitUtil.getFile(handler.getInstallRoot(), key).exists()) {
                 throw new PEtALSCDKException("Missing key (" + key + ") for provider domain (" + jpd.getId() + ")");
             }
         }
 
         if (remoteCertificate != null) {
-            if (!getFile(remoteCertificate).exists()) {
+            if (!ServiceUnitUtil.getFile(handler.getInstallRoot(), remoteCertificate).exists()) {
                 throw new PEtALSCDKException("Missing remote certificate (" + remoteCertificate
                         + ") for provider domain (" + jpd.getId() + ")");
             }
@@ -476,14 +481,15 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
     }
 
     public static Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> getProvidesPerDomain(
-            final @Nullable Services services, final Properties placeholders, final Logger logger)
-            throws PEtALSCDKException {
+            final ServiceUnitDataHandler handler, final Properties placeholders,
+            final Logger logger) throws PEtALSCDKException {
+        final Services services = handler.getDescriptor().getServices();
         assert services != null;
 
         final Map<String, JbiProviderDomain> jpds = new HashMap<>();
         final Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> pd2provides = new HashMap<>();
 
-        for (final JbiProviderDomain jpd : getProviderDomains(services, placeholders, logger)) {
+        for (final JbiProviderDomain jpd : getProviderDomains(handler, services, placeholders, logger)) {
             jpds.put(jpd.getId(), jpd);
             pd2provides.put(jpd, new ArrayList<Pair<Provides, JbiProvidesConfig>>());
         }
@@ -501,14 +507,17 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         return pd2provides;
     }
 
-    public static Map<JbiConsumerDomain, Collection<Consumes>> getConsumesPerDomain(final @Nullable Services services,
-            final Properties placeholders, final Logger logger) throws PEtALSCDKException {
+    public static Map<JbiConsumerDomain, Collection<Consumes>> getConsumesPerDomain(
+            final ServiceUnitDataHandler handler, final Properties placeholders,
+            final Logger logger) throws PEtALSCDKException {
+        final Services services = handler.getDescriptor().getServices();
         assert services != null;
 
         final Map<String, JbiConsumerDomain> jcds = new HashMap<>();
         final Map<JbiConsumerDomain, Collection<Consumes>> cd2consumes = new HashMap<>();
 
-        for (final JbiConsumerDomain jcd : JbiGatewayJBIHelper.getConsumerDomains(services, placeholders, logger)) {
+        for (final JbiConsumerDomain jcd : JbiGatewayJBIHelper.getConsumerDomains(handler, services, placeholders,
+                logger)) {
             jcds.put(jcd.getId(), jcd);
             cd2consumes.put(jcd, new ArrayList<Consumes>());
         }
@@ -561,10 +570,5 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         public B getB() {
             return b;
         }
-    }
-
-    public static File getFile(final String path) {
-        // TODO is that correct?!
-        return new File(JbiGatewayJBIHelper.class.getResource(path).getFile());
     }
 }
