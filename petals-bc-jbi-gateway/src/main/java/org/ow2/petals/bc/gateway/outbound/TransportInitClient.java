@@ -63,10 +63,8 @@ public class TransportInitClient extends ChannelInboundHandlerAdapter {
         final String remoteCertificate = jpd.getRemoteCertificate();
         if (remoteCertificate != null) {
             final SslContextBuilder builder = SslContextBuilder.forClient().sslProvider(SslProvider.JDK)
+                    .trustManager(JbiGatewayJBIHelper.getFile(remoteCertificate))
                     .ciphers(null, IdentityCipherSuiteFilter.INSTANCE).sessionCacheSize(0).sessionTimeout(0);
-            if (remoteCertificate != null) {
-                builder.trustManager(JbiGatewayJBIHelper.getFile(remoteCertificate));
-            }
 
             final String certificate = jpd.getCertificate();
             final String key = jpd.getKey();
