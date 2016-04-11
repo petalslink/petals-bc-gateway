@@ -32,19 +32,13 @@ public abstract class TransportedForExchange implements TransportedToProvider, T
     public final String exchangeId;
 
     /**
-     * The attributes of the step handled by the gateway, both for the provide ext and the consume ext.
+     * The attributes of the flow step handled by the gateway as consumer partner and used as a correlated flow by the
+     * provider partner
      */
-    public final FlowAttributes current;
+    public final FlowAttributes provideExtStep;
 
-    /**
-     * The attributes of the step handled by the gateway as a consumer (acting as a provider in his domain).
-     */
-    public final FlowAttributes previous;
-
-    public TransportedForExchange(final FlowAttributes previous, final FlowAttributes current,
-            final String exchangeId) {
+    public TransportedForExchange(final FlowAttributes provideExtStep, final String exchangeId) {
         this.exchangeId = exchangeId;
-        this.previous = previous;
-        this.current = current;
+        this.provideExtStep = provideExtStep;
     }
 }

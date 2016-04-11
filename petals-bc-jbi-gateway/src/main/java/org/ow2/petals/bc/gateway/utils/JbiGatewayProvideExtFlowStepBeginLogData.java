@@ -17,6 +17,7 @@
  */
 package org.ow2.petals.bc.gateway.utils;
 
+import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.component.framework.logger.ProvideExtFlowStepBeginLogData;
 
 public class JbiGatewayProvideExtFlowStepBeginLogData extends ProvideExtFlowStepBeginLogData {
@@ -25,9 +26,10 @@ public class JbiGatewayProvideExtFlowStepBeginLogData extends ProvideExtFlowStep
 
     public static final String PROVIDER_KEY = "provider-domain";
 
-    public JbiGatewayProvideExtFlowStepBeginLogData(final String flowInstanceId, final String flowPreviousStepId,
-            final String flowStepId, final String provider) {
-        super(flowInstanceId, flowPreviousStepId, flowStepId);
+    public JbiGatewayProvideExtFlowStepBeginLogData(final FlowAttributes current, final FlowAttributes previous,
+            final String provider) {
+        super(current.getFlowInstanceId(), previous.getFlowStepId(), current.getFlowStepId());
+        assert current.getFlowInstanceId().equals(previous.getFlowInstanceId());
         putData(PROVIDER_KEY, provider);
 
     }

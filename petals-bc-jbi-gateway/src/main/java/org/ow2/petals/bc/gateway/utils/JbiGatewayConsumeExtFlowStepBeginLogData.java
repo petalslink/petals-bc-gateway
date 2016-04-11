@@ -26,11 +26,23 @@ public class JbiGatewayConsumeExtFlowStepBeginLogData extends ConsumeExtFlowStep
 
     public static final String CONSUMER_KEY = "consumer-domain";
 
-    public JbiGatewayConsumeExtFlowStepBeginLogData(final FlowAttributes fa, final String flowPreviousStepId,
+    /**
+     * Name of the MONIT trace attribute containing the instance identifier of the flow on the other domain initiating
+     * the request.
+     */
+    public static final String CORRELATED_FLOW_INSTANCE_ID_KEY = "correlatedFlowInstanceId";
+
+    /**
+     * Name of the MONIT trace attribute containing the step identifier of the flow on the other domain initiating the
+     * request.
+     */
+    public static final String CORRELATED_FLOW_STEP_ID_KEY = "correlatedFlowStepId";
+
+    public JbiGatewayConsumeExtFlowStepBeginLogData(final FlowAttributes fa, final FlowAttributes correlated,
             final String consumer) {
         super(fa.getFlowInstanceId(), fa.getFlowStepId());
-        // and we also put the previous one because with the JBI Gateway, there is one!
-        putData(FLOW_PREVIOUS_STEP_ID_PROPERTY_NAME, flowPreviousStepId);
+        putData(CORRELATED_FLOW_INSTANCE_ID_KEY, correlated.getFlowInstanceId());
+        putData(CORRELATED_FLOW_STEP_ID_KEY, correlated.getFlowStepId());
         putData(CONSUMER_KEY, consumer);
     }
 

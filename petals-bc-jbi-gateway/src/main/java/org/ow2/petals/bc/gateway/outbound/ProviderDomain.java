@@ -403,13 +403,17 @@ public class ProviderDomain extends AbstractDomain {
         assert mex != null;
 
         // current provide step
-        final FlowAttributes fa = PetalsExecutionContext.getFlowAttributes();
+        final FlowAttributes provideStep = PetalsExecutionContext.getFlowAttributes();
         // step for the external call
-        final FlowAttributes extFa = PetalsExecutionContext.nextFlowStepId();
-        // we cheat a bit and come back to the previous one for the following
-        PetalsExecutionContext.putFlowAttributes(fa);
+        final FlowAttributes provideExtStep = PetalsExecutionContext.nextFlowStepId();
 
-        final TransportedMessage m = TransportedMessage.newMessage(service, fa, extFa, mex);
+        // we cheat a bit and come back to the previous one for the following
+        // and will switch to the ext one just before sending over the channel
+        PetalsExecutionContext.putFlowAttributes(provideStep);
+
+        assert provideExtStep != null;
+        final TransportedMessage m = TransportedMessage.newMessage(service, provideExtStep, mex);
+
         final Channel channel = this.channel;
         // we can't be disconnected because it would mean that the component is stopped and in that case we don't
         // receive messages!
@@ -474,21 +478,27 @@ public class ProviderDomain extends AbstractDomain {
             // the message contains the FA we created before sending it as a TransportedNewMessage in send
 
             // this is the end of provides ext that started in ProviderDomain.send
-            StepLogHelper.addMonitExtEndOrFailureTrace(logger, m.exchange, m.current, false);
+            StepLogHelper.addMonitExtEndOrFailureTrace(logger, m.exchange, m.provideExtStep, false);
         }
 
-        // this is the step of the provide
-        PetalsExecutionContext.putFlowAttributes(m.previous);
+        // TODO for now, when the exchange is received from the channel, we set the flow attributes in the context to
+        // the one of the provide and not the one of the provide ext, but the TRACE is done using the provide ext flow
+        // attribute: this is ok because only the instance is really important when logging, but who knows if in the
+        // future things won't be different?!
+
     }
 
     @Override
     protected void logBeforeSendingToChannel(final TransportedMessage m) {
+
+        final FlowAttributes provideStep = PetalsExecutionContext.getFlowAttributes();
+
         // this is the step of the provide ext
-        PetalsExecutionContext.putFlowAttributes(m.current);
+        PetalsExecutionContext.putFlowAttributes(m.provideExtStep);
 
         if (m.step == 1) {
-            logger.log(Level.MONIT, "", new JbiGatewayProvideExtFlowStepBeginLogData(m.current.getFlowInstanceId(),
-                    m.previous.getFlowStepId(), m.current.getFlowStepId(), jpd.getId()));
+            logger.log(Level.MONIT, "",
+                    new JbiGatewayProvideExtFlowStepBeginLogData(m.provideExtStep, provideStep, jpd.getId()));
         }
     }
 }

@@ -558,7 +558,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
 
         private final B b;
 
-        public Pair(final A a, final B b) {
+        private Pair(final A a, final B b) {
             this.a = a;
             this.b = b;
         }
@@ -569,6 +569,10 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
 
         public B getB() {
             return b;
+        }
+
+        public static <A, B> Pair<A, B> of(final A a, final B b) {
+            return new Pair<>(a, b);
         }
     }
 }

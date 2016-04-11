@@ -43,7 +43,9 @@ import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayConsumeExtFlowStepBeginLogData;
+import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.commons.log.Level;
+import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.logger.StepLogHelper;
@@ -243,11 +245,10 @@ public class ConsumerDomain extends AbstractDomain {
     protected void logAfterReceivingFromChannel(final TransportedMessage m) {
         // acting as a provider partner, a new consumes ext starts here
         if (m.step == 1) {
-            // Note: the previous step is the provide step of the consumer, and the current step
-            // is the SAME one as the provide ext step of the consumer!
-            // TODO do we want to do something else?!
+            // we remember the step of the consumer partner through the correlated flow attributes
             logger.log(Level.MONIT, "",
-                    new JbiGatewayConsumeExtFlowStepBeginLogData(m.current, m.previous.getFlowStepId(), jcd.getId()));
+                    new JbiGatewayConsumeExtFlowStepBeginLogData(PetalsExecutionContext.getFlowAttributes(),
+                            m.provideExtStep, jcd.getId()));
         }
     }
 
@@ -255,7 +256,10 @@ public class ConsumerDomain extends AbstractDomain {
     protected void logBeforeSendingToChannel(final TransportedMessage m) {
         // the end of the one started in ConsumerDomain.logBeforeSendingToNMR
         if (m.step == 2) {
-            StepLogHelper.addMonitExtEndOrFailureTrace(logger, m.exchange, m.current, true);
+            final FlowAttributes consumeExtStep = PetalsExecutionContext.getFlowAttributes();
+            // it was set by the CDK
+            assert consumeExtStep != null;
+            StepLogHelper.addMonitExtEndOrFailureTrace(logger, m.exchange, consumeExtStep, true);
         }
     }
 }

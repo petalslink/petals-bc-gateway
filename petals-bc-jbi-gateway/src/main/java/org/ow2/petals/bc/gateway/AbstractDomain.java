@@ -21,12 +21,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 
+import javax.jbi.messaging.MessageExchange;
 import javax.jbi.messaging.MessagingException;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.messages.TransportedException;
 import org.ow2.petals.bc.gateway.messages.TransportedForExchange;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
+import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
+import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.message.Exchange;
@@ -53,7 +56,7 @@ public abstract class AbstractDomain {
     /**
      * Exchange is added
      */
-    private final ConcurrentMap<String, Exchange> exchangesInProgress = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Pair<Exchange, FlowAttributes>> exchangesInProgress = new ConcurrentHashMap<>();
 
     public AbstractDomain(final JBISender sender, final Logger logger) {
         this.sender = sender;
@@ -63,31 +66,32 @@ public abstract class AbstractDomain {
     protected abstract void logAfterReceivingFromChannel(TransportedMessage m);
 
     public void receiveFromChannel(final ChannelHandlerContext ctx, final TransportedForExchange m) {
+        // in all case where I receive something, I remove the exchange I stored before!
+        // if it has to come back (e.g., for InOptOut fault after out) it will be put back
+        final Pair<Exchange, FlowAttributes> stored = exchangesInProgress.remove(m.exchangeId);
 
         // let's get the flow attribute from the received exchange and put them in context as soon as we get it
         // TODO add tests!
-        // this is the step of the provide ext / consume ext
-        PetalsExecutionContext.putFlowAttributes(m.current);
-
-        // in all case where I receive something, I remove the exchange I stored before!
-        // if it has to come back (e.g., for InOptOut fault after out) it will be put back
-        final Exchange exchange = exchangesInProgress.remove(m.exchangeId);
+        if (stored != null) {
+            PetalsExecutionContext.putFlowAttributes(stored.getB());
+        } else {
+            PetalsExecutionContext.initFlowAttributes();
+        }
 
         if (m instanceof TransportedException) {
-            assert exchange != null;
+            assert stored != null;
             logger.log(Level.WARNING,
                     "Received an exception from the other side, this is purely informative, we can't do anything about it",
                     ((TransportedException) m).cause);
-            exchangesInProgress.remove(m.exchangeId);
         } else if (m instanceof TransportedMessage) {
             final TransportedMessage tm = (TransportedMessage) m;
+
+            assert tm.step == 1 ^ stored != null;
 
             // this will do logs
             logAfterReceivingFromChannel(tm);
 
-            assert tm.step == 1 || exchange != null;
-
-            sendToNMR(ctx, tm, exchange);
+            sendToNMR(ctx, tm, stored != null ? stored.getA() : null);
         } else {
             throw new IllegalArgumentException("Impossible case");
         }
@@ -145,11 +149,14 @@ public abstract class AbstractDomain {
         assert !m.last;
 
         final TransportedMessage msg;
+        final MessageExchange mex = exchange.getMessageExchange();
+        assert mex != null;
+
         if (exchange.isActiveStatus()) {
-            msg = TransportedMessage.middleMessage(m, exchange.getMessageExchange());
             // we will be expecting an answer
+            msg = TransportedMessage.middleMessage(m, mex);
         } else {
-            msg = TransportedMessage.lastMessage(m, exchange.getMessageExchange());
+            msg = TransportedMessage.lastMessage(m, mex);
         }
 
         sendToChannel(ctx, msg, exchange);
@@ -162,7 +169,12 @@ public abstract class AbstractDomain {
 
     protected void sendToChannel(final ChannelHandlerContext ctx, final TransportedMessage m, final Exchange exchange) {
         if (!m.last) {
-            final Exchange prev = exchangesInProgress.putIfAbsent(m.exchangeId, exchange);
+            // the current flow is either the provide step or the consume ext step
+            final FlowAttributes fa = PetalsExecutionContext.getFlowAttributes();
+            // it was set by the CDK (or us if it didn't have the time to go through the NMR)
+            assert fa != null;
+            final Pair<Exchange, FlowAttributes> prev = exchangesInProgress.putIfAbsent(m.exchangeId,
+                    Pair.of(exchange, fa));
             assert prev == null;
         }
 
