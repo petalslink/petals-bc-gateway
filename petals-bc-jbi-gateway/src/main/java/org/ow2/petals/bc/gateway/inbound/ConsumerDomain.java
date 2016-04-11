@@ -92,7 +92,7 @@ public class ConsumerDomain extends AbstractDomain {
 
     public ConsumerDomain(final ServiceUnitDataHandler handler, final TransportListener tl,
             final JbiGatewaySUManager sum, final JbiConsumerDomain jcd, final Collection<Consumes> consumes,
-            final JBISender sender, final Logger logger) {
+            final JBISender sender, final Logger logger) throws PEtALSCDKException {
         super(sender, logger);
         this.handler = handler;
         this.tl = tl;
@@ -102,6 +102,8 @@ public class ConsumerDomain extends AbstractDomain {
             assert c != null;
             services.put(new ServiceKey(c), c);
         }
+        // Consumer partner will be able to connect to us (but no consumes will be propagated until open() is called)
+        tl.register(jcd.getAuthName(), this);
     }
 
     public ServiceUnitDataHandler getSUHandler() {
@@ -127,25 +129,12 @@ public class ConsumerDomain extends AbstractDomain {
     }
 
     /**
-     * Consumer partner will be able to connect to us
-     */
-    public void register() throws PEtALSCDKException {
-        tl.register(jcd.getAuthName(), this);
-    }
-
-    /**
-     * No new connection can be created by the consumer partner
-     */
-    public void deregister() {
-        tl.deregistrer(jcd.getAuthName());
-    }
-
-    /**
      * Consumer partner will be disconnected
      */
     public void disconnect() {
         channelsLock.readLock().lock();
         try {
+            tl.deregistrer(jcd.getAuthName());
             for (final Channel c : channels) {
                 // this will trigger deregisterChannel btw
                 c.close();

@@ -141,7 +141,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     /**
      * This will create, register and start if needed a provider domain
      */
-    public ProviderDomain registerProviderDomain(final ServiceUnitDataHandler handler, final JbiProviderDomain jpd,
+    public ProviderDomain createProviderDomain(final ServiceUnitDataHandler handler, final JbiProviderDomain jpd,
             final Collection<Pair<Provides, JbiProvidesConfig>> provides) throws PEtALSCDKException {
         // TODO should provider domain share their connections if they point to the same ip/port?
         final Logger logger;
@@ -285,9 +285,9 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
         final List<Throwable> exceptions = new LinkedList<>();
 
-        for (final ProviderDomain tc : getServiceUnitManager().getProviderDomains()) {
+        for (final ProviderDomain pd : getServiceUnitManager().getProviderDomains()) {
             try {
-                tc.disconnect();
+                pd.disconnect();
             } catch (final Exception e1) {
                 // normally this shouldn't really happen, but well...
                 exceptions.add(e1);

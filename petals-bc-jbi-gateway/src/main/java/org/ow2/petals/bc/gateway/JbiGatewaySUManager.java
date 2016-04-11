@@ -115,7 +115,7 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
             assert jpd != null;
             final Collection<Pair<Provides, JbiProvidesConfig>> provides = entry.getValue();
             assert provides != null;
-            final ProviderDomain pd = getComponent().registerProviderDomain(suDH, jpd, provides);
+            final ProviderDomain pd = getComponent().createProviderDomain(suDH, jpd, provides);
             data.providerDomains.put(jpd.getId(), pd);
         }
     }
@@ -128,10 +128,6 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
         for (final ProviderDomain pd : data.providerDomains.values()) {
             pd.register();
-        }
-
-        for (final ConsumerDomain cd : data.consumerDomains.values()) {
-            cd.register();
         }
     }
 
@@ -183,14 +179,6 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
             try {
                 // connection will stay open until undeploy so that previous exchanges are finished
                 pd.deregister();
-            } catch (final Exception e) {
-                ex.addSuppressed(e);
-            }
-        }
-
-        for (final ConsumerDomain cd : data.consumerDomains.values()) {
-            try {
-                cd.deregister();
             } catch (final Exception e) {
                 ex.addSuppressed(e);
             }
