@@ -110,7 +110,7 @@ public class ConsumerDomain extends AbstractDomain {
         return handler;
     }
 
-    public void onPlaceHolderValuesReloaded(final JbiConsumerDomain newJCD) throws PEtALSCDKException {
+    public void reload(final JbiConsumerDomain newJCD) throws PEtALSCDKException {
         if (!jcd.getAuthName().equals(newJCD.getAuthName()) || !jcd.getCertificate().equals(newJCD.getCertificate())
                 || !jcd.getRemoteCertificate().equals(newJCD.getRemoteCertificate())
                 || !jcd.getKey().equals(newJCD.getKey()) || !jcd.getPassphrase().equals(newJCD.getPassphrase())) {

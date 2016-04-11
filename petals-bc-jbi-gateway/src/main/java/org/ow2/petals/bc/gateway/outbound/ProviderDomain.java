@@ -174,7 +174,7 @@ public class ProviderDomain extends AbstractDomain {
         bootstrap = _bootstrap;
     }
 
-    public void onPlaceHolderValuesReloaded(final JbiProviderDomain newJPD) {
+    public void reload(final JbiProviderDomain newJPD) {
         if (!jpd.getRemoteAuthName().equals(newJPD.getRemoteAuthName())
                 || !jpd.getRemoteIp().equals(newJPD.getRemoteIp())
                 || !jpd.getRemotePort().equals(newJPD.getRemotePort())

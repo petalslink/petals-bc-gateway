@@ -236,11 +236,11 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
                 final SUData data = suDatas.get(suDH.getName());
 
                 for (final JbiProviderDomain jpd : jpds) {
-                    data.providerDomains.get(jpd.getId()).onPlaceHolderValuesReloaded(jpd);
+                    data.providerDomains.get(jpd.getId()).reload(jpd);
                 }
 
                 for (final JbiConsumerDomain jcd : jcds) {
-                    data.consumerDomains.get(jcd.getId()).onPlaceHolderValuesReloaded(jcd);
+                    data.consumerDomains.get(jcd.getId()).reload(jcd);
                 }
             } catch (final PEtALSCDKException e) {
                 logger.log(Level.WARNING, "Can't reload placeholders for SU " + suDH.getName(), e);
