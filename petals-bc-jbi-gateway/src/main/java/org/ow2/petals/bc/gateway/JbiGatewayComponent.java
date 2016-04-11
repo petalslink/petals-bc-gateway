@@ -298,6 +298,9 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         for (final TransportListener tl : listeners.values()) {
             try {
                 tl.unbind();
+                if (getLogger().isLoggable(Level.CONFIG)) {
+                    getLogger().config(String.format("Transporter '%s' removed", tl.getJTL().getId()));
+                }
             } catch (final Exception e1) {
                 // normally this shouldn't really happen, but well...
                 exceptions.add(e1);
@@ -310,19 +313,6 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
                 ex.addSuppressed(e);
             }
             throw ex;
-        }
-    }
-
-    private boolean removeTransportListener(final JbiTransportListener jtl) {
-        final TransportListener tl = this.listeners.remove(jtl.getId());
-        if (tl != null) {
-            if (getLogger().isLoggable(Level.CONFIG)) {
-                getLogger().config(String.format("Transporter '%s' removed", jtl));
-            }
-            tl.unbind();
-            return true;
-        } else {
-            return false;
         }
     }
 
@@ -447,22 +437,18 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             throw new PetalsException("The component must be initialised");
         }
 
+        if (this.listeners.containsKey(id)) {
+            throw new PetalsException("A transport listener with id '" + id + "' already exists");
+        }
+
         try {
             final JbiTransportListener jtl = JbiGatewayJBIHelper.addTransportListener(id, port,
                     this.getJbiComponentDescriptor().getComponent());
 
-            try {
-                final TransportListener tl = this.addTransporterListener(jtl);
-                if (started) {
-                    tl.bind();
-                }
-            } catch (final PEtALSCDKException e) {
-                try {
-                    JbiGatewayJBIHelper.removeTransportListener(id, this.getJbiComponentDescriptor().getComponent());
-                } catch (final PEtALSCDKException ex) {
-                    e.addSuppressed(ex);
-                }
-                throw e;
+            final TransportListener tl = addTransporterListener(jtl);
+
+            if (started) {
+                tl.bind();
             }
         } catch (final PEtALSCDKException e) {
             final PetalsException ex = new PetalsException(e.getMessage());
@@ -481,7 +467,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             throw new PetalsException("The component must be initialised");
         }
 
-        final TransportListener tl = this.listeners.get(id);
+        final TransportListener tl = this.listeners.remove(id);
         if (tl == null) {
             return false;
         } else if (tl.hasConsumers()) {
@@ -489,14 +475,14 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
 
         try {
-            final JbiTransportListener removed = JbiGatewayJBIHelper.removeTransportListener(id,
-                    this.getJbiComponentDescriptor().getComponent());
+            tl.unbind();
 
-            if (removed != null) {
-                return removeTransportListener(removed);
-            } else {
-                return false;
+            if (getLogger().isLoggable(Level.CONFIG)) {
+                getLogger().config(String.format("Transporter '%s' removed", id));
             }
+
+            return JbiGatewayJBIHelper.removeTransportListener(id,
+                    this.getJbiComponentDescriptor().getComponent()) != null;
         } catch (final PEtALSCDKException e) {
             final PetalsException ex = new PetalsException(e.getMessage());
             ex.setStackTrace(e.getStackTrace());
