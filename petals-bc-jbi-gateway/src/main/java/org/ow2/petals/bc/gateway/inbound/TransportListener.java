@@ -148,4 +148,8 @@ public class TransportListener implements ConsumerAuthenticator {
     public void deregistrer(final String authName) {
         consumers.remove(authName);
     }
+
+    public boolean hasConsumers() {
+        return !consumers.isEmpty();
+    }
 }

@@ -481,6 +481,13 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             throw new PetalsException("The component must be initialised");
         }
 
+        final TransportListener tl = this.listeners.get(id);
+        if (tl == null) {
+            return false;
+        } else if (tl.hasConsumers()) {
+            throw new PetalsException("Can't remove a transport listener with SUs using it");
+        }
+
         try {
             final JbiTransportListener removed = JbiGatewayJBIHelper.removeTransportListener(id,
                     this.getJbiComponentDescriptor().getComponent());
