@@ -39,6 +39,8 @@ public class JbiGatewayBootstrap extends DefaultBootstrap implements AdminServic
 
     public static final String METHOD_ADD_TRANSPORT = "addTransportListener";
 
+    public static final String METHOD_SET_TRANSPORT = "setTransportListenerPort";
+
     public static final String METHOD_REMOVE_TRANSPORT = "removeTransportListener";
 
     public static final String METHOD_GET_TRANSPORT = "getTransportListeners";
@@ -48,6 +50,7 @@ public class JbiGatewayBootstrap extends DefaultBootstrap implements AdminServic
         final Collection<String> methods = super.getMBeanOperationsNames();
 
         methods.add(METHOD_ADD_TRANSPORT);
+        methods.add(METHOD_SET_TRANSPORT);
         methods.add(METHOD_REMOVE_TRANSPORT);
         methods.add(METHOD_GET_TRANSPORT);
 
@@ -62,6 +65,18 @@ public class JbiGatewayBootstrap extends DefaultBootstrap implements AdminServic
         assert id != null;
         try {
             JbiGatewayJBIHelper.addTransportListener(id, port, this.getJbiComponentConfiguration().getComponent());
+        } catch (final PEtALSCDKException e) {
+            final PetalsException ex = new PetalsException(e.getMessage());
+            ex.setStackTrace(e.getStackTrace());
+            throw ex;
+        }
+    }
+
+    @Override
+    public void setTransportListenerPort(final @Nullable String id, final int port) throws PetalsException {
+        assert id != null;
+        try {
+            JbiGatewayJBIHelper.setTransportListenerPort(id, port, this.getJbiComponentConfiguration().getComponent());
         } catch (final PEtALSCDKException e) {
             final PetalsException ex = new PetalsException(e.getMessage());
             ex.setStackTrace(e.getStackTrace());

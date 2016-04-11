@@ -185,6 +185,33 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         return jtl;
     }
 
+    public static JbiTransportListener setTransportListenerPort(final String id, final int port,
+            final @Nullable Component component) throws PEtALSCDKException {
+        assert component != null;
+
+        final Iterator<Element> iterator = component.getAny().iterator();
+        while (iterator.hasNext()) {
+            final Element e = iterator.next();
+            assert e != null;
+            final JbiTransportListener jtl = asObject(e, EL_TRANSPORT_LISTENER, JbiTransportListener.class);
+            if (jtl != null && jtl.getId().equals(id)) {
+                
+                // let's update the underlying element
+                e.getElementsByTagNameNS(JG_NS_URI, "port").item(0).setTextContent("" + port);
+                
+                // and get the new object
+                final JbiTransportListener newJtl = asObject(e, EL_TRANSPORT_LISTENER, JbiTransportListener.class);
+                if (newJtl == null) {
+                    throw new PEtALSCDKException("Can't set port (" + port + ") for transport listener '" + id + "'");
+                }
+
+                return newJtl;
+            }
+        }
+
+        throw new PEtALSCDKException("No transport listener with id '" + id + "' exists in the jbi.xml");
+    }
+
     public static @Nullable JbiTransportListener removeTransportListener(final String id,
             final @Nullable Component component) throws PEtALSCDKException {
         assert component != null;

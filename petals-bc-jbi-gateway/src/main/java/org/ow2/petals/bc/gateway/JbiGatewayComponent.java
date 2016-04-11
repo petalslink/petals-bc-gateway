@@ -413,6 +413,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         final Collection<String> methods = super.getMBeanOperationsNames();
 
         methods.add(JbiGatewayBootstrap.METHOD_ADD_TRANSPORT);
+        methods.add(JbiGatewayBootstrap.METHOD_SET_TRANSPORT);
         methods.add(JbiGatewayBootstrap.METHOD_REMOVE_TRANSPORT);
         methods.add(JbiGatewayBootstrap.METHOD_GET_TRANSPORT);
         methods.add("refreshPropagations");
@@ -450,6 +451,33 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             if (started) {
                 tl.bind();
             }
+        } catch (final PEtALSCDKException e) {
+            final PetalsException ex = new PetalsException(e.getMessage());
+            ex.setStackTrace(e.getStackTrace());
+            throw ex;
+        }
+    }
+
+    @Override
+    public void setTransportListenerPort(final @Nullable String id, final int port) throws PetalsException {
+        assert id != null;
+        
+        // note: this also ensure that the listeners won't be modified during the method execution
+        if (!init) {
+            // if not the jbi descriptor is null
+            throw new PetalsException("The component must be initialised");
+        }
+        
+        final TransportListener tl = this.listeners.get(id);
+        if (tl == null) {
+            throw new PetalsException("No transport listener with id '" + id + "' exists");
+        }
+
+        try {
+            final JbiTransportListener jtl = JbiGatewayJBIHelper.setTransportListenerPort(id, port,
+                    this.getJbiComponentDescriptor().getComponent());
+
+            tl.reload(jtl);
         } catch (final PEtALSCDKException e) {
             final PetalsException ex = new PetalsException(e.getMessage());
             ex.setStackTrace(e.getStackTrace());

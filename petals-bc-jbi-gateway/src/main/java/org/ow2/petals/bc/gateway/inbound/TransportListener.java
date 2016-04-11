@@ -61,7 +61,7 @@ public class TransportListener implements ConsumerAuthenticator {
 
     private final ServerBootstrap bootstrap;
 
-    private final JbiTransportListener jtl;
+    private JbiTransportListener jtl;
 
     @Nullable
     private Channel channel;
@@ -97,9 +97,23 @@ public class TransportListener implements ConsumerAuthenticator {
                         p.addLast("dispatcher", dispatcher);
                         p.addLast(LOG_ERRORS_HANDLER, errors);
                     }
-                }).localAddress(jtl.getPort());
+                });
         assert _bootstrap != null;
         bootstrap = _bootstrap;
+    }
+
+    public JbiTransportListener getJTL() {
+        return jtl;
+    }
+
+    public void reload(final JbiTransportListener newJTL) {
+        if (jtl.getPort() != newJTL.getPort()) {
+            jtl = newJTL;
+            if (channel != null) {
+                unbind();
+                bind();
+            }
+        }
     }
 
     /**
@@ -109,7 +123,7 @@ public class TransportListener implements ConsumerAuthenticator {
         final Channel _channel;
         try {
             // we must use sync so that we know if a problem arises
-            _channel = bootstrap.bind().sync().channel();
+            _channel = bootstrap.localAddress(jtl.getPort()).bind().sync().channel();
         } catch (final InterruptedException e) {
             throw new UncheckedException(e);
         }

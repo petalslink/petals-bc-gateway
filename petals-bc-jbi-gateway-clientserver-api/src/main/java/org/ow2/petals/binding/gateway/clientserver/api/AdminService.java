@@ -35,11 +35,23 @@ public interface AdminService {
      * @param id
      *            The transport listener identifier
      * @param port
-     *            The port on which the new transport listener will listen incoming requests
+     *            The port the new transport listener will listen to for incoming requests
      * @throws PetalsException
      *             An error occurs adding the new transport listener
      */
     public void addTransportListener(final String id, final int port) throws PetalsException;
+
+    /**
+     * Set the port of a transport listener.
+     * 
+     * @param id
+     *            The transport listener identifier
+     * @param port
+     *            The port the transport listener should listen to for incoming requests
+     * @throws PetalsException
+     *             An error occurs setting the port of the transport listener
+     */
+    public void setTransportListenerPort(final String id, final int port) throws PetalsException;
 
     /**
      * Remove a transport listener.
