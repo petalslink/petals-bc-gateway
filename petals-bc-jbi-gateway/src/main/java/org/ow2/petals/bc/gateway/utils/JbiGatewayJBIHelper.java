@@ -169,11 +169,10 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
 
         final Document doc = DocumentBuilders.newDocument();
 
-        final Element e = doc.createElementNS(EL_TRANSPORT_LISTENER.getNamespaceURI(),
-                EL_TRANSPORT_LISTENER.getLocalPart());
+        final Element e = doc.createElementNS(JG_NS_URI, EL_TRANSPORT_LISTENER.getLocalPart());
         e.setAttribute("id", id);
 
-        final Element eP = doc.createElementNS(EL_TRANSPORT_LISTENER.getNamespaceURI(), "port");
+        final Element eP = doc.createElementNS(JG_NS_URI, "port");
         eP.setTextContent("" + port);
         e.appendChild(eP);
 
