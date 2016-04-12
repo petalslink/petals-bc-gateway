@@ -32,9 +32,11 @@ import org.ow2.petals.bc.gateway.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.bc.gateway.outbound.TransportClient;
+import org.ow2.petals.commons.log.FlowAttributesExchangeHelper;
 import org.ow2.petals.component.framework.AbstractComponent;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.listener.AbstractListener;
+import org.ow2.petals.component.framework.process.MessageExchangeProcessor;
 import org.ow2.petals.component.framework.process.async.AsyncContext;
 import org.ow2.petals.component.framework.process.async.AsyncMessageManager;
 
@@ -101,6 +103,8 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
     private static boolean ignoreProperty(final String prop) {
         return prop.startsWith("org.ow2.petals.microkernel.jbi.messaging.exchange.DeliveryChannelImpl.")
                 || prop.startsWith(AsyncMessageManager.ASYNC_MESSAGE_PROPERTY_PREFIX)
+                || prop.startsWith(MessageExchangeProcessor.PROVIDER_FLOWATTRIBUTES_PREFIX)
+                || prop.startsWith(FlowAttributesExchangeHelper.DEFAULT_PREFIX)
                 || prop.equals("javax.jbi.messaging.sendSync");
     }
 
