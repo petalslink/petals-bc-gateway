@@ -285,15 +285,11 @@ public class ProviderDomain extends AbstractDomain {
                     // we already knew this service from a previous event
                     data = services.get(service);
                     assert data != null;
-                    if (document != null) {
-                        if (data.description == null) {
-                            // let's re-register it then!
-                            deregisterOrStoreOrLog(data, null);
-                            register = true;
-                        } else {
-                            register = false;
-                        }
+                    if (document != null && data.description == null) {
                         data.description = document;
+                        // let's re-register it then!
+                        deregisterOrStoreOrLog(data, null);
+                        register = true;
                     } else {
                         register = false;
                     }
