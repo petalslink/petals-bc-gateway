@@ -17,11 +17,9 @@
  */
 package org.ow2.petals.bc.gateway.inbound;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -39,9 +37,9 @@ import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.JbiGatewaySUManager;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
+import org.ow2.petals.bc.gateway.messages.TransportedDocument;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
-import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayConsumeExtFlowStepBeginLogData;
 import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.commons.log.Level;
@@ -165,7 +163,7 @@ public class ConsumerDomain extends AbstractDomain {
             open = false;
 
             for (final Channel c : channels) {
-                c.writeAndFlush(new TransportedPropagatedConsumesList(new ArrayList<TransportedPropagatedConsumes>()));
+                c.writeAndFlush(TransportedPropagatedConsumes.EMPTY);
             }
         } finally {
             channelsLock.readLock().unlock();
@@ -201,26 +199,26 @@ public class ConsumerDomain extends AbstractDomain {
     }
 
     private void sendPropagatedServices(final Channel c) {
-        final List<TransportedPropagatedConsumes> consumes = new ArrayList<>();
+        final Map<ServiceKey, TransportedDocument> consumes = new HashMap<>();
         for (final Entry<ServiceKey, Consumes> entry : services.entrySet()) {
             final Collection<ServiceEndpoint> endpoints = sum.getEndpointsForConsumes(entry.getValue());
             // only add the consumes if there is an activated endpoint for it!
             // TODO poll for newly added endpoints, removed ones and updated descriptions (who knows if the endpoint has
             // been deactivated then reactivated with an updated description!)
             if (!endpoints.isEmpty()) {
-                final Document description = getFirstDescription(endpoints);
-                consumes.add(new TransportedPropagatedConsumes(entry.getKey(), description));
+                final TransportedDocument description = getFirstDescription(endpoints);
+                consumes.put(entry.getKey(), description);
             }
         }
-        c.writeAndFlush(new TransportedPropagatedConsumesList(consumes));
+        c.writeAndFlush(new TransportedPropagatedConsumes(consumes));
     }
 
-    private @Nullable Document getFirstDescription(final Collection<ServiceEndpoint> endpoints) {
+    private @Nullable TransportedDocument getFirstDescription(final Collection<ServiceEndpoint> endpoints) {
         for (final ServiceEndpoint endpoint : endpoints) {
             try {
                 Document desc = sum.getComponent().getContext().getEndpointDescriptor(endpoint);
                 if (desc != null) {
-                    return desc;
+                    return new TransportedDocument(desc);
                 }
             } catch (final JBIException e) {
                 logger.log(Level.WARNING, "Failed to retrieve endpoint descriptor of " + endpoint, e);

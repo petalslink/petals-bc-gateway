@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016 Linagora
+ * Copyright (c) 2015-2016 Linagora
  * 
  * This program/library is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -17,57 +17,26 @@
  */
 package org.ow2.petals.bc.gateway.messages;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
+import java.util.Collections;
+import java.util.Map;
 
-import javax.xml.transform.TransformerException;
+import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
 
-import org.eclipse.jdt.annotation.Nullable;
-import org.w3c.dom.Document;
-import org.xml.sax.SAXException;
+public class TransportedPropagatedConsumes implements TransportedToConsumer {
 
-import com.ebmwebsourcing.easycommons.xml.XMLHelper;
+    @SuppressWarnings("null")
+    public static final TransportedPropagatedConsumes EMPTY = new TransportedPropagatedConsumes(
+            Collections.<ServiceKey, TransportedDocument> emptyMap());
 
-public class TransportedPropagatedConsumes implements Serializable {
+    private static final long serialVersionUID = -2818905233890110391L;
 
-    private static final long serialVersionUID = -5787838058168540231L;
+    private final Map<ServiceKey, TransportedDocument> consumes;
 
-    public final ServiceKey service;
-
-    public transient @Nullable Document description;
-
-    public TransportedPropagatedConsumes(final ServiceKey service, final @Nullable Document description) {
-        this.service = service;
-        this.description = description;
+    public TransportedPropagatedConsumes(final Map<ServiceKey, TransportedDocument> consumes) {
+        this.consumes = consumes;
     }
 
-    private void readObject(final ObjectInputStream s) throws IOException {
-        try {
-            s.defaultReadObject();
-
-            if (s.readBoolean()) {
-                this.description = XMLHelper.createDocumentFromString((String) s.readObject());
-            }
-        } catch (final ClassNotFoundException | SAXException e) {
-            throw new IOException(e);
-        }
-    }
-
-    private void writeObject(final ObjectOutputStream s) throws IOException {
-        s.defaultWriteObject();
-
-        final Document _description = this.description;
-        if (_description != null) {
-            s.writeBoolean(true);
-            try {
-                s.writeObject(XMLHelper.createStringFromDOMNode(_description));
-            } catch (final TransformerException e) {
-                throw new IOException(e);
-            }
-        } else {
-            s.writeBoolean(false);
-        }
+    public Map<ServiceKey, TransportedDocument> getConsumes() {
+        return consumes;
     }
 }

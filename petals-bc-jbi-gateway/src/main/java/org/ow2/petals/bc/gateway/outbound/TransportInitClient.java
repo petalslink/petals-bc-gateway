@@ -22,7 +22,7 @@ import java.util.logging.Logger;
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.messages.TransportedAuthentication;
-import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
+import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.ow2.petals.component.framework.util.ServiceUnitUtil;
@@ -90,7 +90,7 @@ public class TransportInitClient extends ChannelInboundHandlerAdapter {
 
         boolean release = true;
         try {
-            if (msg instanceof TransportedPropagatedConsumesList) {
+            if (msg instanceof TransportedPropagatedConsumes) {
                 // use replace because we want the logger to be last
                 ctx.pipeline().replace(this, "client", new TransportClient(logger, pd));
                 release = false;

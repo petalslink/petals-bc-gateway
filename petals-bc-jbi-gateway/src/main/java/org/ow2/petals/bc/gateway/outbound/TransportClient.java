@@ -22,7 +22,7 @@ import java.util.logging.Logger;
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
 import org.ow2.petals.bc.gateway.messages.TransportedForExchange;
-import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
+import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.commons.log.Level;
 
 import io.netty.channel.ChannelHandlerContext;
@@ -60,8 +60,8 @@ public class TransportClient extends SimpleChannelInboundHandler<TransportedToCo
 
         if (msg instanceof TransportedForExchange) {
             pd.receiveFromChannel(ctx, (TransportedForExchange) msg);
-        } else if (msg instanceof TransportedPropagatedConsumesList) {
-            pd.updatePropagatedServices((TransportedPropagatedConsumesList) msg);
+        } else if (msg instanceof TransportedPropagatedConsumes) {
+            pd.updatePropagatedServices((TransportedPropagatedConsumes) msg);
         } else {
             throw new IllegalArgumentException("Impossible case");
         }

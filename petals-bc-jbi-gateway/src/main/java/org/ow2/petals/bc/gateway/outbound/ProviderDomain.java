@@ -39,9 +39,9 @@ import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.messages.ServiceKey;
+import org.ow2.petals.bc.gateway.messages.TransportedDocument;
 import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
-import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumesList;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayProvideExtFlowStepBeginLogData;
 import org.ow2.petals.bc.gateway.utils.LastLoggingHandler;
@@ -78,7 +78,7 @@ import io.netty.handler.logging.LoggingHandler;
  * It maintains the list of Provides we should create on our side (based on the Consumes propagated)
  *
  * {@link #connect()} and {@link #disconnect()} corresponds to components start and stop. {@link #connect()} should
- * trigger {@link #updatePropagatedServices(TransportedPropagatedConsumesList)} by the {@link Channel} normally.
+ * trigger {@link #updatePropagatedServices(TransportedPropagatedConsumes)} by the {@link Channel} normally.
  * 
  * {@link #register()} and {@link #deregister()} corresponds to SU init and shutdown.
  * 
@@ -98,7 +98,7 @@ public class ProviderDomain extends AbstractDomain {
     private final Bootstrap bootstrap;
 
     /**
-     * Updated by {@link #updatePropagatedServices(TransportedPropagatedConsumesList)}.
+     * Updated by {@link #updatePropagatedServices(TransportedPropagatedConsumes)}.
      * 
      * Contains the services announced by the provider partner as being propagated.
      * 
@@ -247,8 +247,8 @@ public class ProviderDomain extends AbstractDomain {
         }
     }
 
-    public void updatePropagatedServices(final TransportedPropagatedConsumesList propagatedServices) {
-        updatePropagatedServices(propagatedServices.consumes);
+    public void updatePropagatedServices(final TransportedPropagatedConsumes propagatedServices) {
+        updatePropagatedServices(propagatedServices.getConsumes());
     }
 
     /**
@@ -262,26 +262,30 @@ public class ProviderDomain extends AbstractDomain {
      * 
      * In case of reconnection, it can be called again or if there is an update from the other side.
      */
-    private void updatePropagatedServices(final List<TransportedPropagatedConsumes> propagated) {
+    private void updatePropagatedServices(final Map<ServiceKey, TransportedDocument> propagated) {
         servicesLock.lock();
         try {
 
             final Set<ServiceKey> oldKeys = new HashSet<>(services.keySet());
 
-            for (final TransportedPropagatedConsumes service : propagated) {
+            for (final Entry<ServiceKey, TransportedDocument> entry : propagated.entrySet()) {
+                final ServiceKey service = entry.getKey();
+                assert service != null;
+                final Document document = entry.getValue() != null ? entry.getValue().getDocument() : null;
 
                 // let's skip those we are not concerned with
-                if (!jpd.isPropagateAll() && !provides.containsKey(service.service)) {
+                if (!jpd.isPropagateAll() && !provides.containsKey(service)) {
                     continue;
                 }
 
                 final boolean register;
                 final ServiceData data;
-                if (oldKeys.remove(service.service)) {
+
+                if (oldKeys.remove(service)) {
                     // we already knew this service from a previous event
-                    data = services.get(service.service);
+                    data = services.get(service);
                     assert data != null;
-                    if (service.description != null) {
+                    if (document != null) {
                         if (data.description == null) {
                             // let's re-register it then!
                             deregisterOrStoreOrLog(data, null);
@@ -289,27 +293,28 @@ public class ProviderDomain extends AbstractDomain {
                         } else {
                             register = false;
                         }
-                        data.description = service.description;
+                        data.description = document;
                     } else {
                         register = false;
                     }
                 } else {
                     // the service is new!
-                    data = new ServiceData(service.description);
+                    data = new ServiceData(document);
                     register = true;
                 }
 
                 if (register) {
                     try {
                         if (init) {
-                            registerProviderService(service.service, data);
+                            registerProviderService(service, data);
                         }
 
                         // we add it after we are sure no error happened with the registration
-                        services.put(service.service, data);
+                        services.put(service, data);
                     } catch (final PEtALSCDKException e) {
                         logger.log(Level.WARNING,
-                                "Couldn't register propagated service '" + service.service + "' (" + data.key + ")", e);
+                                "Couldn't register propagated service '" + service + "' (" + data.key + ")",
+                                e);
                     }
                 }
             }
@@ -469,7 +474,7 @@ public class ProviderDomain extends AbstractDomain {
 
     public void close() {
         // this is like a disconnect... but emanating from the other side
-        updatePropagatedServices(new ArrayList<TransportedPropagatedConsumes>());
+        updatePropagatedServices(TransportedPropagatedConsumes.EMPTY);
     }
 
     @Override
