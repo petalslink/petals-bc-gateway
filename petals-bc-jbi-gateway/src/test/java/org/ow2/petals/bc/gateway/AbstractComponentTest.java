@@ -419,7 +419,7 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
                 createHelloProvider(TEST_AUTH_NAME, TEST_TRANSPORT_PORT, clientCertificate, clientKey,
                         clientRemoteCertificate));
 
-        Awaitility.await().atMost(Duration.TWO_SECONDS).until(new Callable<Boolean>() {
+        Awaitility.await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
             @Override
             public Boolean call() throws Exception {
                 return getNotExternalEndpoint(specifyService) != null;
