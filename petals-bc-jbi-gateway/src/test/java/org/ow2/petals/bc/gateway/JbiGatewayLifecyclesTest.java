@@ -22,24 +22,15 @@ import static com.jayway.awaitility.Awaitility.to;
 import static com.jayway.awaitility.Duration.TWO_SECONDS;
 import static org.hamcrest.Matchers.equalTo;
 
-import java.util.concurrent.Callable;
-import java.util.logging.Level;
-import java.util.logging.LogRecord;
-
 import javax.jbi.servicedesc.ServiceEndpoint;
 
-import org.eclipse.jdt.annotation.Nullable;
 import org.junit.Test;
 import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
-import org.ow2.petals.component.framework.junit.Message;
 import org.ow2.petals.component.framework.junit.ResponseMessage;
-import org.ow2.petals.component.framework.junit.StatusMessage;
 import org.ow2.petals.component.framework.junit.helpers.MessageChecks;
 import org.ow2.petals.component.framework.junit.helpers.ServiceProviderImplementation;
 
-import com.jayway.awaitility.Duration;
-
-public class JbiGatewayTest extends AbstractComponentTest {
+public class JbiGatewayLifecyclesTest extends AbstractComponentTest {
 
     @Test
     public void startAndStop() throws Exception {
@@ -48,54 +39,13 @@ public class JbiGatewayTest extends AbstractComponentTest {
         assertTrue(COMPONENT_UNDER_TEST.isStarted());
 
         // used by TEST_TRANSPORT_NAME
-        assertFalse(available(TEST_TRANSPORT_PORT));
+        assertNotAvailable(TEST_TRANSPORT_PORT);
         // used by TEST_TRANSPORT2_NAME
-        assertFalse(available(DEFAULT_PORT));
+        assertNotAvailable(DEFAULT_PORT);
 
         COMPONENT_UNDER_TEST.deployService(SU_CONSUMER_NAME, createHelloConsumes(true, true));
 
         assertTrue(COMPONENT_UNDER_TEST.isServiceDeployed(SU_CONSUMER_NAME));
-    }
-
-    @Test
-    public void testIncorrectAuthName() throws Exception {
-        COMPONENT_UNDER_TEST.deployService(SU_CONSUMER_NAME, createHelloConsumes(true, true));
-
-        final String authName = "INCORRECT";
-        COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createHelloProvider(authName));
-
-        // TODO wouldn't we want the deployment to fail instead?!
-        await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
-            @Override
-            public Boolean call() throws Exception {
-                for (final LogRecord lr : IN_MEMORY_LOG_HANDLER.getAllRecords(Level.SEVERE)) {
-                    if (lr.getMessage().contains("Authentication failed: unknown auth-name '" + authName + "'")) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-        });
-
-        // TODO we should also test that the connection is closed!
-    }
-
-    @Test
-    public void testTimeout() throws Exception {
-        final ServiceEndpoint endpoint = deployTwoDomains();
-
-        final ServiceProviderImplementation provider = ServiceProviderImplementation.errorMessage(ERROR)
-                .with(new MessageChecks() {
-                    @Override
-                    public void checks(final @Nullable Message message) throws Exception {
-                        Thread.sleep(DEFAULT_TIMEOUT_FOR_COMPONENT_SEND + 1000);
-                    }
-                });
-
-        final StatusMessage response = COMPONENT
-                .sendAndGetStatus(helloRequest(endpoint, MEPPatternConstants.IN_OUT.value()), provider);
-
-        assertEquals(AbstractDomain.TIMEOUT_EXCEPTION.getMessage(), response.getError().getMessage());
     }
 
     @Test

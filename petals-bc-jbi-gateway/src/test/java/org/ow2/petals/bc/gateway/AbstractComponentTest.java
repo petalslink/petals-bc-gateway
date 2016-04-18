@@ -17,32 +17,43 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import static com.jayway.awaitility.Awaitility.await;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.logging.Formatter;
+import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.SimpleFormatter;
 
+import javax.jbi.messaging.ExchangeStatus;
 import javax.jbi.servicedesc.ServiceEndpoint;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.rules.ExternalResource;
 import org.junit.rules.RuleChain;
 import org.junit.rules.TestRule;
+import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
+import org.ow2.petals.basisapi.exception.PetalsException;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.junit.Component;
 import org.ow2.petals.component.framework.junit.RequestMessage;
+import org.ow2.petals.component.framework.junit.helpers.MessageChecks;
+import org.ow2.petals.component.framework.junit.helpers.ServiceProviderImplementation;
 import org.ow2.petals.component.framework.junit.helpers.SimpleComponent;
 import org.ow2.petals.component.framework.junit.impl.ComponentConfiguration;
 import org.ow2.petals.component.framework.junit.impl.ConsumesServiceConfiguration;
@@ -131,17 +142,17 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         @Override
         protected void before() throws Throwable {
             // used by TEST_TRANSPORT_NAME
-            assertTrue(available(TEST_TRANSPORT_PORT));
+            assertAvailable(TEST_TRANSPORT_PORT);
             // used by TEST_TRANSPORT2_NAME
-            assertTrue(available(DEFAULT_PORT));
+            assertAvailable(DEFAULT_PORT);
         }
 
         @Override
         protected void after() {
             // used by TEST_TRANSPORT_NAME
-            assertTrue(available(TEST_TRANSPORT_PORT));
+            assertAvailable(TEST_TRANSPORT_PORT);
             // used by TEST_TRANSPORT2_NAME
-            assertTrue(available(DEFAULT_PORT));
+            assertAvailable(DEFAULT_PORT);
         }
     }
 
@@ -171,12 +182,22 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         PetalsExecutionContext.clear();
     }
 
-    /**
-     * We undeploy services after each test (because the component is static and lives during the whole suite of tests)
-     */
-    @After
-    public void after() {
+    private final List<String> manuallyAddedListeners = new ArrayList<>();
 
+    protected void addTransportListener(final String id, final int port) throws PetalsException {
+        final JbiGatewayComponent comp = (JbiGatewayComponent) COMPONENT_UNDER_TEST.getComponentObject();
+        comp.addTransportListener(id, port);
+        manuallyAddedListeners.add(id);
+    }
+
+    protected boolean removeTransportListener(final String id) throws PetalsException {
+        final JbiGatewayComponent comp = (JbiGatewayComponent) COMPONENT_UNDER_TEST.getComponentObject();
+        manuallyAddedListeners.remove(id);
+        return comp.removeTransportListener(id);
+    }
+
+    @After
+    public void ensureNoExchangeInProgress() {
         final JbiGatewayComponent comp = (JbiGatewayComponent) COMPONENT_UNDER_TEST.getComponentObject();
 
         for (final ProviderDomain pd : comp.getServiceUnitManager().getProviderDomains()) {
@@ -194,7 +215,23 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
             assertTrue(String.format("Exchange in progress is not empty for %s: %s", pd.getJCD().getId(),
                     exchangesInProgress), exchangesInProgress.isEmpty());
         }
+    }
 
+    @After
+    public void cleanManuallyAddedListeners() throws Exception {
+        final JbiGatewayComponent comp = (JbiGatewayComponent) COMPONENT_UNDER_TEST.getComponentObject();
+        final List<String> todo = new ArrayList<>(manuallyAddedListeners);
+        manuallyAddedListeners.clear();
+        for (final String tl : todo) {
+            comp.removeTransportListener(tl);
+        }
+    }
+
+    /**
+     * We undeploy services after each test (because the component is static and lives during the whole suite of tests)
+     */
+    @After
+    public void undeployServices() {
         COMPONENT_UNDER_TEST.undeployAllServices();
 
         // asserts are ALWAYS a bug!
@@ -206,15 +243,15 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
     }
 
     protected static ServiceConfiguration createHelloProvider() {
-        return createHelloProvider(TEST_AUTH_NAME);
+        return createHelloProvider(TEST_AUTH_NAME, TEST_TRANSPORT_PORT);
     }
 
-    protected static ServiceConfiguration createHelloProvider(final String authName) {
-        return createHelloProvider(authName, null, null, null);
+    protected static ServiceConfiguration createHelloProvider(final String authName, final int port) {
+        return createHelloProvider(authName, port, null, null, null);
     }
 
-    protected static ServiceConfiguration createHelloProvider(final String authName, final @Nullable String certificate,
-            final @Nullable String key, final @Nullable String remoteCertificate) {
+    protected static ServiceConfiguration createHelloProvider(final String authName, final int port,
+            final @Nullable String certificate, final @Nullable String key, final @Nullable String remoteCertificate) {
         final ServiceConfiguration provides = new ServiceConfiguration() {
             @Override
             protected void extraJBIConfiguration(final @Nullable Document jbiDocument) {
@@ -225,8 +262,7 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
                 final Element pDomain = addElement(jbiDocument, services, EL_PROVIDER_DOMAIN);
                 pDomain.setAttribute(ATTR_SERVICES_PROVIDER_DOMAIN_ID, TEST_PROVIDER_DOMAIN);
                 addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_IP).setTextContent("localhost");
-                addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_PORT)
-                        .setTextContent("" + TEST_TRANSPORT_PORT);
+                addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_PORT).setTextContent("" + port);
                 addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_AUTH_NAME).setTextContent(authName);
                 if (certificate != null) {
                     addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_CRT)
@@ -322,12 +358,41 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         return consumes;
     }
 
-    protected static boolean available(int port) {
-        try (Socket ignored = new Socket("localhost", port)) {
-            return false;
-        } catch (IOException ignored) {
-            return true;
-        }
+    protected static void assertAvailable(final int port) {
+        assertAvailable(port, true);
+    }
+
+    protected static void assertNotAvailable(final int port) {
+        assertAvailable(port, false);
+    }
+
+    protected static void assertAvailable(final int port, final boolean is) {
+        Awaitility.waitAtMost(Duration.ONE_SECOND).until(new Callable<Boolean>() {
+            @Override
+            public Boolean call() throws Exception {
+                try (final Socket ignored = new Socket("localhost", port)) {
+                    return false;
+                } catch (IOException ignored) {
+                    return true;
+                }
+            }
+        }, Matchers.is(is));
+    }
+
+    protected void twoDomainsTest(final boolean specifyService, final boolean specifyEndpoint) throws Exception {
+        twoDomainsTest(specifyService, specifyEndpoint, null, null, null, null, null, null);
+    }
+    protected void twoDomainsTest(final boolean specifyService, final boolean specifyEndpoint,
+            final @Nullable String clientCertificate, final @Nullable String clientKey,
+            final @Nullable String clientRemoteCertificate, final @Nullable String serverCertificate,
+            final @Nullable String serverKey, final @Nullable String serverRemoteCertificate) throws Exception {
+
+        final ServiceEndpoint endpoint = deployTwoDomains(specifyService, specifyEndpoint, clientCertificate, clientKey,
+                clientRemoteCertificate, serverCertificate, serverKey, serverRemoteCertificate);
+
+        COMPONENT.sendAndCheckResponseAndSendStatus(helloRequest(endpoint, MEPPatternConstants.IN_OUT.value()),
+                ServiceProviderImplementation.outMessage(OUT),
+                MessageChecks.hasOut().andThen(MessageChecks.hasXmlContent(OUT)), ExchangeStatus.DONE);
     }
 
     protected ServiceEndpoint deployTwoDomains() throws Exception {
@@ -351,7 +416,8 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
                 serverCertificate, serverKey, serverRemoteCertificate));
 
         COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME,
-                createHelloProvider(TEST_AUTH_NAME, clientCertificate, clientKey, clientRemoteCertificate));
+                createHelloProvider(TEST_AUTH_NAME, TEST_TRANSPORT_PORT, clientCertificate, clientKey,
+                        clientRemoteCertificate));
 
         Awaitility.await().atMost(Duration.TWO_SECONDS).until(new Callable<Boolean>() {
             @Override
@@ -387,5 +453,19 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         }
 
         return null;
+    }
+
+    protected static void assertLogContains(final String log) {
+        await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
+            @Override
+            public Boolean call() throws Exception {
+                for (final LogRecord lr : IN_MEMORY_LOG_HANDLER.getAllRecords(Level.SEVERE)) {
+                    if (lr.getMessage().contains(log)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        });
     }
 }

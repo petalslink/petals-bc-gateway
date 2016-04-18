@@ -518,6 +518,9 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
     }
 
+    /**
+     * TODO Add transporter status (listening/not listening and error)
+     */
     @Override
     public Map<String, Integer> getTransportListeners() throws PetalsException {
 

@@ -59,10 +59,11 @@ import org.ow2.petals.component.framework.util.WSDLUtilImpl;
 import org.w3c.dom.Document;
 
 import com.ebmwebsourcing.easycommons.lang.StringHelper;
-import com.ebmwebsourcing.easycommons.lang.UncheckedException;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
@@ -415,52 +416,59 @@ public class ProviderDomain extends AbstractDomain {
         assert provideExtStep != null;
         final TransportedMessage m = TransportedMessage.newMessage(service, provideExtStep, mex);
 
-        final Channel channel = this.channel;
-        // we can't be disconnected because it would mean that the component is stopped and in that case we don't
-        // receive messages!
-        assert channel != null;
+        final Channel _channel = channel;
+        // channel can't be null because it would mean that the component is stopped and in that case we
+        // wouldn't be receiving messages!
+        assert _channel != null;
         // let's use the context of the client
-        final ChannelHandlerContext ctx = channel.pipeline().context(TransportClient.class);
+        final ChannelHandlerContext ctx = _channel.pipeline().context(TransportClient.class);
         assert ctx != null;
         sendToChannel(ctx, m, exchange);
     }
 
     /**
      * Connect to the provider partner
-     * 
-     * TODO how to be sure the authentication succeeded?! because the connect, even if done sync, does not contain the
-     * auth (it is done after asynchronously...)
      */
     public void connect() {
-        final Channel _channel;
-        try {
-            // it should have been checked already by JbiGatewayJBIHelper
-            final int port = Integer.parseInt(jpd.getRemotePort());
+        // it should have been checked already by JbiGatewayJBIHelper
+        final int port = Integer.parseInt(jpd.getRemotePort());
 
-            // we must use sync so that we know if a problem arises
-            _channel = bootstrap.remoteAddress(jpd.getRemoteIp(), port).connect().sync().channel();
-        } catch (final InterruptedException e) {
-            // TODO maybe I should just let it go, it must mean the component is being stopped
-            throw new UncheckedException("Connect was interrupted...", e);
-        }
-        assert _channel != null;
-        channel = _channel;
+        bootstrap.remoteAddress(jpd.getRemoteIp(), port).connect().addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(final @Nullable ChannelFuture future) throws Exception {
+                assert future != null;
+                if (!future.isSuccess()) {
+                    // TODO propose another way to reconnect?
+                    logger.log(Level.SEVERE, "Can't connect to provider domain " + jpd.getId()
+                            + ": fix the problem and, either stop/start the component, "
+                            + "undeploy/deploy the SU or fix/reload the placeholders if it applies",
+                            future.cause());
+                } else {
+                    channel = future.channel();
+                }
+            }
+        });
     }
 
     /**
      * Disconnect from the provider partner
      */
     public void disconnect() {
-        final Channel _channel = this.channel;
+        final Channel _channel = channel;
+        channel = null;
         if (_channel != null && _channel.isOpen()) {
-            try {
-                // we must use sync so that we know if a problem arises
-                // Note: this should trigger a call to close normally!
-                _channel.close().sync();
-            } catch (final InterruptedException e) {
-                throw new UncheckedException(e);
-            }
-            channel = null;
+            // Note: this should trigger a call to close normally!
+            _channel.close().addListener(new ChannelFutureListener() {
+                @Override
+                public void operationComplete(final @Nullable ChannelFuture future) throws Exception {
+                    assert future != null;
+                    if (!future.isSuccess()) {
+                        logger.log(Level.WARNING,
+                                "Error while disconnecting from provider domain " + jpd.getId() + ": nothing to do",
+                                future.cause());
+                    }
+                }
+            });
         }
     }
 

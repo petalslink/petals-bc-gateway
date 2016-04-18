@@ -17,37 +17,22 @@
  */
 package org.ow2.petals.bc.gateway;
 
-import javax.jbi.messaging.ExchangeStatus;
-import javax.jbi.servicedesc.ServiceEndpoint;
-
 import org.junit.Test;
-import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
-import org.ow2.petals.component.framework.junit.helpers.MessageChecks;
-import org.ow2.petals.component.framework.junit.helpers.ServiceProviderImplementation;
 
 public class JbiGatewayConsumesTest extends AbstractComponentTest {
 
     @Test
     public void testConsumesWithInterfaceServiceEndpoint() throws Exception {
-        twoDomains(true, true);
+        twoDomainsTest(true, true);
     }
 
     @Test
     public void testConsumesWithInterfaceService() throws Exception {
-        twoDomains(true, false);
+        twoDomainsTest(true, false);
     }
 
     @Test
     public void testConsumesWithInterface() throws Exception {
-        twoDomains(false, false);
-    }
-
-    public void twoDomains(final boolean specifyService, final boolean specifyEndpoint) throws Exception {
-
-        final ServiceEndpoint endpoint = deployTwoDomains(specifyService, specifyEndpoint);
-
-        COMPONENT.sendAndCheckResponseAndSendStatus(helloRequest(endpoint, MEPPatternConstants.IN_OUT.value()),
-                ServiceProviderImplementation.outMessage(OUT),
-                MessageChecks.hasOut().andThen(MessageChecks.hasXmlContent(OUT)), ExchangeStatus.DONE);
+        twoDomainsTest(false, false);
     }
 }

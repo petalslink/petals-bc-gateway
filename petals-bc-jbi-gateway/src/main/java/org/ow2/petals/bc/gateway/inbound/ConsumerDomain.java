@@ -51,6 +51,8 @@ import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.w3c.dom.Document;
 
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 
 /**
  * There is one instance of this class per consumer domain in an SU configuration (jbi.xml).
@@ -135,7 +137,18 @@ public class ConsumerDomain extends AbstractDomain {
             tl.deregistrer(jcd.getAuthName());
             for (final Channel c : channels) {
                 // this will trigger deregisterChannel btw
-                c.close();
+                c.close().addListener(new ChannelFutureListener() {
+                    @Override
+                    public void operationComplete(final @Nullable ChannelFuture future) throws Exception {
+                        assert future != null;
+                        if (!future.isSuccess()) {
+                            // TODO maybe this log should be logged by the channel itself in one of its handler!?
+                            logger.log(Level.WARNING,
+                                    "Error while disconnecting from consumer domain " + jcd.getId() + ": nothing to do",
+                                    future.cause());
+                        }
+                    }
+                });
             }
         } finally {
             channelsLock.readLock().unlock();

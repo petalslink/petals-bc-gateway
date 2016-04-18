@@ -17,14 +17,8 @@
  */
 package org.ow2.petals.bc.gateway;
 
-import javax.jbi.messaging.ExchangeStatus;
-import javax.jbi.servicedesc.ServiceEndpoint;
-
 import org.eclipse.jdt.annotation.Nullable;
 import org.junit.Test;
-import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
-import org.ow2.petals.component.framework.junit.helpers.MessageChecks;
-import org.ow2.petals.component.framework.junit.helpers.ServiceProviderImplementation;
 
 import com.jayway.awaitility.core.ConditionTimeoutException;
 
@@ -61,13 +55,8 @@ public class JBIGatewaySSLTest extends AbstractComponentTest {
     public void test(final @Nullable String clientCertificate, final @Nullable String clientKey,
             final @Nullable String clientRemoteCertificate, final @Nullable String serverCertificate,
             final @Nullable String serverKey, final @Nullable String serverRemoteCertificate) throws Exception {
-
-        final ServiceEndpoint endpoint = deployTwoDomains(true, true, clientCertificate, clientKey,
-                clientRemoteCertificate, serverCertificate, serverKey, serverRemoteCertificate);
-
-        COMPONENT.sendAndCheckResponseAndSendStatus(helloRequest(endpoint, MEPPatternConstants.IN_OUT.value()),
-                ServiceProviderImplementation.outMessage(OUT),
-                MessageChecks.hasOut().andThen(MessageChecks.hasXmlContent(OUT)), ExchangeStatus.DONE);
+        twoDomainsTest(true, true, clientCertificate, clientKey, clientRemoteCertificate, serverCertificate, serverKey,
+                serverRemoteCertificate);
     }
 
 }

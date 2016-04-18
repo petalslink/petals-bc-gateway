@@ -19,6 +19,7 @@ package org.ow2.petals.bc.gateway.inbound;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.eclipse.jdt.annotation.Nullable;
@@ -26,10 +27,10 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.bc.gateway.utils.LastLoggingHandler;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 
-import com.ebmwebsourcing.easycommons.lang.UncheckedException;
-
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
@@ -74,9 +75,12 @@ public class TransportListener implements ConsumerAuthenticator {
      */
     private final ConcurrentMap<String, ConsumerDomain> consumers = new ConcurrentHashMap<>();
 
+    private final Logger logger;
+
     public TransportListener(final JbiTransportListener jtl, final ServerBootstrap partialBootstrap,
             final Logger logger, final ClassResolver cr) {
         this.jtl = jtl;
+        this.logger = logger;
 
         // shared between all the connections of this listener
         final TransportDispatcher dispatcher = new TransportDispatcher(logger, this);
@@ -107,28 +111,29 @@ public class TransportListener implements ConsumerAuthenticator {
     }
 
     public void reload(final JbiTransportListener newJTL) {
-        if (jtl.getPort() != newJTL.getPort()) {
-            jtl = newJTL;
-            if (channel != null) {
-                unbind();
-                bind();
-            }
-        }
+        // always reload even if the port didn't change
+        jtl = newJTL;
+        unbind();
+        bind();
     }
 
     /**
      * Start listening
      */
     public void bind() {
-        final Channel _channel;
-        try {
-            // we must use sync so that we know if a problem arises
-            _channel = bootstrap.localAddress(jtl.getPort()).bind().sync().channel();
-        } catch (final InterruptedException e) {
-            throw new UncheckedException(e);
-        }
-        assert _channel != null;
-        channel = _channel;
+        bootstrap.localAddress(jtl.getPort()).bind().addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(final @Nullable ChannelFuture future) throws Exception {
+                assert future != null;
+                if (!future.isSuccess()) {
+                    logger.log(Level.SEVERE, "Cannot bind transport listener " + jtl.getId()
+                            + ": fix the problem and, either stop/start the component or use the JMX API to (re-)set the port",
+                            future.cause());
+                } else {
+                    channel = future.channel();
+                }
+            }
+        });
     }
 
     /**
@@ -136,13 +141,18 @@ public class TransportListener implements ConsumerAuthenticator {
      */
     public void unbind() {
         final Channel _channel = channel;
-        if (_channel != null && _channel.isOpen()) {
-            try {
-                // we must use sync so that we know if a problem arises
-                _channel.close().sync();
-            } catch (final InterruptedException e) {
-                throw new UncheckedException(e);
-            }
+        if (_channel != null && _channel.isActive()) {
+            _channel.close().addListener(new ChannelFutureListener() {
+                @Override
+                public void operationComplete(final @Nullable ChannelFuture future) throws Exception {
+                    assert future != null;
+                    if (!future.isSuccess()) {
+                        logger.log(Level.WARNING,
+                                "Error while unbinding transport listener " + jtl.getId() + ": nothing to do",
+                                future.cause());
+                    }
+                }
+            });
             channel = null;
         }
     }
