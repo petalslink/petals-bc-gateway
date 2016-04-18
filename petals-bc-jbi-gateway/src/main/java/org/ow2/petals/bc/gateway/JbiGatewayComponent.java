@@ -132,6 +132,9 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         for (final JbiTransportListener jtl : JbiGatewayJBIHelper
                 .getTransportListeners(getJbiComponentDescriptor().getComponent())) {
             assert jtl != null;
+            if (listeners.containsKey(jtl.getId())) {
+                throw new PEtALSCDKException(String.format("Duplicate transporter id '%s'", jtl.getId()));
+            }
             addTransporterListener(jtl);
         }
 
@@ -149,7 +152,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             logger = getContext().getLogger("provider." + handler.getName() + "." + jpd.getId(), null);
             assert logger != null;
         } catch (final MissingResourceException | JBIException e) {
-            throw new PEtALSCDKException("Can't create logger", e);
+            throw new PEtALSCDKException("Can't create logger for provider domain " + jpd.getId(), e);
         }
         final ProviderDomain pd = new ProviderDomain(this, handler, jpd, provides, getSender(), newClientBootstrap(),
                 logger, newClassResolver());
@@ -167,7 +170,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
             logger = getContext().getLogger("consumer." + handler.getName() + "." + jcd.getId(), null);
             assert logger != null;
         } catch (final MissingResourceException | JBIException e) {
-            throw new PEtALSCDKException("Can't create logger", e);
+            throw new PEtALSCDKException("Can't create logger for consumer domain " + jcd.getId(), e);
         }
         final TransportListener tl = getTransportListener(jcd.getTransport());
         return new ConsumerDomain(handler, tl, getServiceUnitManager(), jcd, consumes, getSender(), logger);
@@ -257,22 +260,27 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     private TransportListener addTransporterListener(final JbiTransportListener jtl) throws PEtALSCDKException {
-        if (listeners.containsKey(jtl.getId())) {
-            throw new PEtALSCDKException(String.format("Duplicate transporter id '%s'", jtl.getId()));
-        }
         final Logger logger;
         try {
             logger = getContext().getLogger(jtl.getId(), null);
             assert logger != null;
         } catch (final MissingResourceException | JBIException e) {
-            throw new PEtALSCDKException("Can't create logger", e);
+            throw new PEtALSCDKException("Can't create logger for transporter listener " + jtl.getId(), e);
         }
         final TransportListener tl = new TransportListener(jtl, newServerBootstrap(), logger, newClassResolver());
         listeners.put(jtl.getId(), tl);
         if (getLogger().isLoggable(Level.CONFIG)) {
-            getLogger().config(String.format("Transporter '%s' added", jtl));
+            getLogger().config(String.format("Transporter '%s' added: %s", jtl.getId(), jtl));
         }
         return tl;
+    }
+
+    private void removeTransportListener(final TransportListener tl) {
+        tl.unbind();
+
+        if (getLogger().isLoggable(Level.CONFIG)) {
+            getLogger().config(String.format("Transporter '%s' removed", tl.getJTL().getId()));
+        }
     }
 
     /**
@@ -296,11 +304,9 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
 
         // TODO the consumerdomain are not disconnected!
         for (final TransportListener tl : listeners.values()) {
+            assert tl != null;
             try {
-                tl.unbind();
-                if (getLogger().isLoggable(Level.CONFIG)) {
-                    getLogger().config(String.format("Transporter '%s' removed", tl.getJTL().getId()));
-                }
+                removeTransportListener(tl);
             } catch (final Exception e1) {
                 // normally this shouldn't really happen, but well...
                 exceptions.add(e1);
@@ -503,11 +509,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
 
         try {
-            tl.unbind();
-
-            if (getLogger().isLoggable(Level.CONFIG)) {
-                getLogger().config(String.format("Transporter '%s' removed", id));
-            }
+            removeTransportListener(tl);
 
             return JbiGatewayJBIHelper.removeTransportListener(id,
                     this.getJbiComponentDescriptor().getComponent()) != null;
