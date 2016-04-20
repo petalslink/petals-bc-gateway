@@ -224,8 +224,6 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
 
     @Override
     public void onPlaceHolderValuesReloaded() {
-        super.onPlaceHolderValuesReloaded();
-
         for (final ServiceUnitDataHandler suDH : getServiceUnitDataHandlers()) {
             assert suDH != null;
             try {
