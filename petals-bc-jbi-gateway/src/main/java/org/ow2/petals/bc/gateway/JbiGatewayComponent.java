@@ -520,29 +520,20 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
     }
 
-    /**
-     * TODO Add transporter status (listening/not listening and error)
-     */
     @Override
-    public Map<String, Integer> getTransportListeners() throws PetalsException {
+    public Map<String, Object[]> getTransportListeners() throws PetalsException {
 
         // note: this also ensure that the listeners won't be modified during the method execution
         if (!init) {
             // if not the jbi descriptor is null
             throw new PetalsException("The component must be initialised");
         }
-        try {
-            final Collection<JbiTransportListener> transportListeners = JbiGatewayJBIHelper
-                    .getTransportListeners(this.getJbiComponentDescriptor().getComponent());
-            final Map<String, Integer> results = new HashMap<>();
-            for (final JbiTransportListener transportListener : transportListeners) {
-                results.put(transportListener.getId(), Integer.valueOf(transportListener.getPort()));
-            }
-            return results;
-        } catch (final PEtALSCDKException e) {
-            final PetalsException ex = new PetalsException(e.getMessage());
-            ex.setStackTrace(e.getStackTrace());
-            throw ex;
+
+        final Map<String, Object[]> results = new HashMap<>();
+        for (final TransportListener tl : listeners.values()) {
+            results.put(tl.getJTL().getId(),
+                    new Object[] { Integer.valueOf(tl.getJTL().getPort()), tl.isBound(), tl.bindingError() });
         }
+        return results;
     }
 }

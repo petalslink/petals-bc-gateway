@@ -67,6 +67,8 @@ public class TransportListener implements ConsumerAuthenticator {
     @Nullable
     private Channel channel;
 
+    private String lastBindingError = "";
+
     /**
      * These are the actual consumer partner actually connected to us, potentially through multiple {@link Channel}.
      * 
@@ -129,8 +131,10 @@ public class TransportListener implements ConsumerAuthenticator {
                     logger.log(Level.SEVERE, "Cannot bind transport listener " + jtl.getId()
                             + ": fix the problem and, either stop/start the component or use the JMX API to (re-)set the port",
                             future.cause());
+                    lastBindingError = future.cause().getMessage();
                 } else {
                     channel = future.channel();
+                    lastBindingError = "";
                 }
             }
         });
@@ -175,5 +179,17 @@ public class TransportListener implements ConsumerAuthenticator {
 
     public boolean hasConsumers() {
         return !consumers.isEmpty();
+    }
+
+    public boolean isBound() {
+        return channel != null && channel.isActive();
+    }
+
+    public String bindingError() {
+        if (isBound()) {
+            return "";
+        } else {
+            return lastBindingError;
+        }
     }
 }

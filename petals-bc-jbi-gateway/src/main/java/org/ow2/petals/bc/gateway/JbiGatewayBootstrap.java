@@ -98,13 +98,14 @@ public class JbiGatewayBootstrap extends DefaultBootstrap implements AdminServic
     }
 
     @Override
-    public Map<String, Integer> getTransportListeners() throws PetalsException {
+    public Map<String, Object[]> getTransportListeners() throws PetalsException {
         try {
             final Collection<JbiTransportListener> transportListeners = JbiGatewayJBIHelper
                     .getTransportListeners(this.getJbiComponentConfiguration().getComponent());
-            final Map<String, Integer> results = new HashMap<>();
+            final Map<String, Object[]> results = new HashMap<>();
             for (final JbiTransportListener transportListener : transportListeners) {
-                results.put(transportListener.getId(), Integer.valueOf(transportListener.getPort()));
+                results.put(transportListener.getId(),
+                        new Object[] { Integer.valueOf(transportListener.getPort()), false, "" });
             }
             return results;
         } catch (final PEtALSCDKException e) {

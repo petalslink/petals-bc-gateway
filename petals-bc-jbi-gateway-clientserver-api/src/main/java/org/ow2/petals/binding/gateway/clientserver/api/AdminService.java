@@ -64,10 +64,11 @@ public interface AdminService {
     public Boolean removeTransportListener(final String id) throws PetalsException;
 
     /**
-     * @return The transport listeners declared on the current Petals BC Gateway
+     * @return The transport listeners declared on the current Petals BC Gateway, with, in order in the array: a port
+     *         (Integer), a listening status (Boolean) and an error status (String) potentially empty but not null
      * @throws PetalsException
      *             An error occurs getting the transport listeners
      */
-    public Map<String, Integer> getTransportListeners() throws PetalsException;
+    public Map<String, Object[]> getTransportListeners() throws PetalsException;
 
 }
