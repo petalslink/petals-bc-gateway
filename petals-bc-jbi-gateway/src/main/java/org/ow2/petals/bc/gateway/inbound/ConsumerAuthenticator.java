@@ -21,9 +21,7 @@ import org.eclipse.jdt.annotation.Nullable;
 
 /**
  * 
- * TODO The key is for now the auth-name declared in the jbi.xml, but later we need to introduce something better to
- * identify consumer and not simply a string because this corresponds to a validity check of the consumer. e.g., a
- * public key fingerprint or something like that
+ * The auth-name is used to identify a given consumer domain.
  * 
  * @author vnoel
  *

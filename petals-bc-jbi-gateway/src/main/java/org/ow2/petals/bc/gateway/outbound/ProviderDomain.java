@@ -195,7 +195,6 @@ public class ProviderDomain extends AbstractDomain {
     public void register() throws PEtALSCDKException {
         servicesLock.lock();
         try {
-            // TODO log warning if there is a provides in the SU that is not propagated
             for (final Entry<ServiceKey, ServiceData> e : services.entrySet()) {
                 final ServiceKey sk = e.getKey();
                 final ServiceData data = e.getValue();

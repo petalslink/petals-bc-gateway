@@ -62,8 +62,6 @@ public class TransportInitClient extends ChannelInboundHandlerAdapter {
 
         ctx.writeAndFlush(new TransportedAuthentication(jpd.getRemoteAuthName()));
 
-        // TODO is that enough to do that here to ensure that anything arriving after I sent the authentication will be
-        // treated by SSL?
         final String remoteCertificate = jpd.getRemoteCertificate();
         if (remoteCertificate != null) {
             final SslContextBuilder builder = SslContextBuilder.forClient().sslProvider(SslProvider.JDK)
@@ -97,10 +95,12 @@ public class TransportInitClient extends ChannelInboundHandlerAdapter {
                 // it will be taken care of by the newly instantiated client!
                 ctx.fireChannelRead(msg);
             } else if (msg instanceof String) {
-                logger.severe("Authentication failed: " + msg);
-                // TODO should we do something else such as marking the SU as disabled or something like that?!
+                logger.severe("Can't connect to the provider domain " + pd.getJPD().getId() + " (server said: " + msg
+                        + "): fix the problem and either stop/start the component, "
+                        + "undeploy/deploy the SU or fix/reload the placeholders if it applies");
                 ctx.close();
             } else {
+                ctx.close();
                 throw new IllegalArgumentException("Impossible");
             }
         } finally {

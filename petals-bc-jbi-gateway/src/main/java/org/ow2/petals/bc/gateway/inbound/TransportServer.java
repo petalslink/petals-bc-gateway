@@ -79,6 +79,7 @@ public class TransportServer extends SimpleChannelInboundHandler<TransportedToPr
         if (msg instanceof TransportedForExchange) {
             cd.receiveFromChannel(ctx, (TransportedForExchange) msg);
         } else {
+            ctx.close();
             throw new IllegalArgumentException("Impossible case");
         }
     }

@@ -63,6 +63,7 @@ public class TransportClient extends SimpleChannelInboundHandler<TransportedToCo
         } else if (msg instanceof TransportedPropagatedConsumes) {
             pd.updatePropagatedServices((TransportedPropagatedConsumes) msg);
         } else {
+            ctx.close();
             throw new IllegalArgumentException("Impossible case");
         }
     }

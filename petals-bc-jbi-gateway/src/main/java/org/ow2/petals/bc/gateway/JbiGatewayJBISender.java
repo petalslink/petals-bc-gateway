@@ -71,8 +71,8 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
         @SuppressWarnings("unchecked")
         final Set<String> oldProps = new HashSet<>(to.getPropertyNames());
         for (final String oldProp : oldProps) {
+            assert oldProp != null;
             if (ignoreProperty(oldProp)) {
-                // TODO find a better solution...
                 // let's skip this one, we don't want to remove it!
                 continue;
             }
@@ -91,8 +91,8 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
         @SuppressWarnings("unchecked")
         final Set<String> props = from.getPropertyNames();
         for (final String prop : props) {
+            assert prop != null;
             if (ignoreProperty(prop)) {
-                // TODO find a better solution...
                 // let's skip this one, we don't want to propagate it!
                 continue;
             }
@@ -100,6 +100,9 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
         }
     }
 
+    /**
+     * TODO find a better solution than ignoring some properties!!
+     */
     private static boolean ignoreProperty(final String prop) {
         return prop.startsWith("org.ow2.petals.microkernel.jbi.messaging.exchange.DeliveryChannelImpl.")
                 || prop.startsWith(AsyncMessageManager.ASYNC_MESSAGE_PROPERTY_PREFIX)
@@ -147,7 +150,8 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
 
         try {
             // this is a Consumes I propagated on the other side
-            // TODO should I rely on information sent by the other side or should I keep a map somewhere?
+            // TODO should I rely on information sent by the other side or should I keep a map somewhere for security
+            // reasons?
             final ServiceKey service = m.service;
 
             final Exchange exchange = createExchange(service.interfaceName, service.service, service.endpointName,
@@ -250,11 +254,6 @@ public class JbiGatewayJBISender extends AbstractListener implements JBISender {
 
     public static class JbiGatewaySenderAsyncContext extends AsyncContext {
 
-        /**
-         * TODO when doing sendSync, it would be best if the CDK return the exchange to us instead of one of the jbi
-         * listeners of the processors... until then, we need to be called back by {@link JbiGatewayJBIListener} using
-         * {@link #sender}.
-         */
         private final JbiGatewayJBISender sender;
 
         private final DomainContext ctx;

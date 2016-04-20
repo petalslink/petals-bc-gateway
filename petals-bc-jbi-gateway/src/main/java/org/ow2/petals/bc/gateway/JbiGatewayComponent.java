@@ -225,17 +225,14 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         init = false;
 
         assert bossGroup != null;
-        // TODO is that ok?
         bossGroup.shutdownGracefully();
         bossGroup = null;
 
         assert workerGroup != null;
-        // TODO is that ok?
         workerGroup.shutdownGracefully();
         workerGroup = null;
 
         assert clientsGroup != null;
-        // TODO is that ok?
         clientsGroup.shutdownGracefully();
         clientsGroup = null;
 

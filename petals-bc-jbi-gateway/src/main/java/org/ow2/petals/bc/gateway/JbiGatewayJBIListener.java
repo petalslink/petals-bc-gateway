@@ -53,10 +53,13 @@ public class JbiGatewayJBIListener extends AbstractJBIListener {
             if (ps != null) {
                 ps.sendToChannel(exchange);
             } else {
-                // TODO this should not happen... it is not for us!
+                exchange.setError(new MessagingException("Endpoint '" + key + "' unknown on this component!"));
+                return true;
             }
         } else {
-            // TODO this should not happen
+            exchange.setError(new MessagingException(
+                    "Impossible situation: this component only use sendAsync for handling answers!"));
+            return true;
         }
 
         return false;
@@ -75,11 +78,12 @@ public class JbiGatewayJBIListener extends AbstractJBIListener {
                 asyncExchange.setError(e);
                 return true;
             }
+            return false;
         } else {
-            // TODO
+            asyncExchange.setError(new MessagingException(
+                    "Impossible situation: unknown async context of type " + asyncContext.getClass()));
+            return true;
         }
-
-        return false;
     }
 
     @Override
@@ -92,7 +96,8 @@ public class JbiGatewayJBIListener extends AbstractJBIListener {
             final JbiGatewaySenderAsyncContext context = (JbiGatewaySenderAsyncContext) asyncContext;
             context.handleTimeout();
         } else {
-            // TODO
+            getLogger().severe("Impossible situation: unknown async context of type " + asyncContext.getClass()
+                    + " for exchange " + originalExchange.getExchangeId());
         }
     }
 
