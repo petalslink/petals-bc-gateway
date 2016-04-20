@@ -35,8 +35,6 @@ public class JbiGatewayClientTest extends AbstractComponentTest {
 
     @Test
     public void testCantAuthNoCD() throws Exception {
-        final JbiGatewayComponent comp = (JbiGatewayComponent) COMPONENT_UNDER_TEST.getComponentObject();
-
         final String id = "default";
         final int port = 1234;
         
@@ -49,7 +47,7 @@ public class JbiGatewayClientTest extends AbstractComponentTest {
 
         COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createHelloProvider(TEST_AUTH_NAME, port));
 
-        assertLogContains("Authentication failed: unknown auth-name '" + TEST_AUTH_NAME + "'");
+        assertLogContains("unknown auth-name '" + TEST_AUTH_NAME + "'");
 
         removeTransportListener(id);
     }
@@ -61,7 +59,7 @@ public class JbiGatewayClientTest extends AbstractComponentTest {
         final String authName = "INCORRECT";
         COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createHelloProvider(authName, TEST_TRANSPORT_PORT));
 
-        assertLogContains("Authentication failed: unknown auth-name '" + authName + "'");
+        assertLogContains("unknown auth-name '" + authName + "'");
         // TODO we should also test that the connection is closed!
     }
 }
