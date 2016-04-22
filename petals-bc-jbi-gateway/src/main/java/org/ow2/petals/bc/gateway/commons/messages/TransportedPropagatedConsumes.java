@@ -15,12 +15,12 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway.messages;
+package org.ow2.petals.bc.gateway.commons.messages;
 
 import java.util.Collections;
 import java.util.Map;
 
-import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
+import org.ow2.petals.bc.gateway.commons.messages.Transported.TransportedToConsumer;
 
 public class TransportedPropagatedConsumes implements TransportedToConsumer {
 

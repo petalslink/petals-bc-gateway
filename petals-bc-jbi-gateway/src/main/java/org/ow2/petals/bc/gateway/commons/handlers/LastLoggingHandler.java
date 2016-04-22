@@ -15,7 +15,7 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway.utils;
+package org.ow2.petals.bc.gateway.commons.handlers;
 
 import java.util.logging.Logger;
 

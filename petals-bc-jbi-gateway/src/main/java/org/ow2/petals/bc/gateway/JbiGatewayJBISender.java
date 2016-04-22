@@ -26,12 +26,12 @@ import javax.jbi.messaging.MessagingException;
 import javax.jbi.messaging.NormalizedMessage;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.commons.AbstractDomain;
+import org.ow2.petals.bc.gateway.commons.DomainContext;
+import org.ow2.petals.bc.gateway.commons.messages.ServiceKey;
+import org.ow2.petals.bc.gateway.commons.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
-import org.ow2.petals.bc.gateway.inbound.TransportServer;
-import org.ow2.petals.bc.gateway.messages.ServiceKey;
-import org.ow2.petals.bc.gateway.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
-import org.ow2.petals.bc.gateway.outbound.TransportClient;
 import org.ow2.petals.commons.log.FlowAttributesExchangeHelper;
 import org.ow2.petals.component.framework.AbstractComponent;
 import org.ow2.petals.component.framework.api.message.Exchange;
@@ -43,11 +43,11 @@ import org.ow2.petals.component.framework.process.async.AsyncMessageManager;
 import io.netty.channel.ChannelHandlerContext;
 
 /**
- * This is responsible of managing the bridge between the {@link TransportServer} (who gives us
+ * This is responsible of managing the bridge between the {@link ConsumerDomain} (who gives us
  * {@link TransportedMessage}s and {@link ChannelHandlerContext}s to send answers back) and the bus from the provider
  * partner point of view.
  * 
- * Or between {@link TransportClient} (who gives us {@link TransportedMessage}s and {@link ChannelHandlerContext}s as
+ * Or between {@link ProviderDomain} (who gives us {@link TransportedMessage}s and {@link ChannelHandlerContext}s as
  * answers to our exchanges) and the bus from the consumer partner point of view.
  */
 public class JbiGatewayJBISender extends AbstractListener implements JBISender {

@@ -46,6 +46,7 @@ import org.junit.rules.RuleChain;
 import org.junit.rules.TestRule;
 import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
 import org.ow2.petals.basisapi.exception.PetalsException;
+import org.ow2.petals.bc.gateway.commons.AbstractDomain;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
@@ -455,16 +456,17 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         return null;
     }
 
-    protected static void assertLogContains(final String log) {
+    protected static void assertLogContains(final String log, final Level level, final int howMany) {
         await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
             @Override
             public Boolean call() throws Exception {
-                for (final LogRecord lr : IN_MEMORY_LOG_HANDLER.getAllRecords(Level.SEVERE)) {
+                int count = 0;
+                for (final LogRecord lr : IN_MEMORY_LOG_HANDLER.getAllRecords(level)) {
                     if (lr.getMessage().contains(log)) {
-                        return true;
+                        count++;
                     }
                 }
-                return false;
+                return count == howMany;
             }
         });
     }

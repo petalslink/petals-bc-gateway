@@ -23,8 +23,15 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.commons.handlers.AuthenticatorSSLHandler;
+import org.ow2.petals.bc.gateway.commons.handlers.AuthenticatorSSLHandler.ConsumerAuthenticator;
+import org.ow2.petals.bc.gateway.commons.handlers.AuthenticatorSSLHandler.DomainHandlerBuilder;
+import org.ow2.petals.bc.gateway.commons.handlers.HandlerConstants;
+import org.ow2.petals.bc.gateway.commons.handlers.LastLoggingHandler;
+import org.ow2.petals.bc.gateway.commons.messages.Transported.TransportedToProvider;
+import org.ow2.petals.bc.gateway.commons.messages.TransportedForExchange;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
-import org.ow2.petals.bc.gateway.utils.LastLoggingHandler;
+import org.ow2.petals.bc.gateway.outbound.TransportClient;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -32,8 +39,10 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
+import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.serialization.ClassResolver;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
@@ -43,8 +52,10 @@ import io.netty.handler.logging.LoggingHandler;
 /**
  * There is one instance of this class per listener in a component configuration (jbi.xml).
  * 
- * It is responsible of creating the basic listener with netty which will dispatch connections to
- * {@link TransportServer}.
+ * It is responsible of listening with netty, dispatch new connection to the right {@link ConsumerDomain} and setup SSL
+ * when needed.
+ * 
+ * See {@link TransportClient} for the client.
  * 
  * TODO for now, we use ONE channel for both technical messages and business messages: we should check what are the
  * shortcoming of this in terms of performances...
@@ -54,14 +65,11 @@ import io.netty.handler.logging.LoggingHandler;
  */
 public class TransportListener implements ConsumerAuthenticator {
 
-    public static final String LOG_ERRORS_HANDLER = "log-errors";
-
-    public static final String LOG_DEBUG_HANDLER = "log-debug";
-
-    public static final String SSL_HANDLER = "ssl";
-
     private final ServerBootstrap bootstrap;
 
+    /**
+     * This is not final because it can modified by {@link #reload(JbiTransportListener)}.
+     */
     private JbiTransportListener jtl;
 
     @Nullable
@@ -70,10 +78,10 @@ public class TransportListener implements ConsumerAuthenticator {
     private String lastBindingError = "";
 
     /**
-     * These are the actual consumer partner actually connected to us, potentially through multiple {@link Channel}.
+     * These are the actual consumer partner actually connected to us (potentially through multiple {@link Channel}, see
+     * {@link ConsumerDomain}).
      * 
-     * Careful, here the key is the auth-name, so it must be unique across SUs!!
-     * 
+     * Careful, here the key is the auth-name, so it must be unique even across SUs!!
      */
     private final ConcurrentMap<String, ConsumerDomain> consumers = new ConcurrentHashMap<>();
 
@@ -85,7 +93,6 @@ public class TransportListener implements ConsumerAuthenticator {
         this.logger = logger;
 
         // shared between all the connections of this listener
-        final TransportDispatcher dispatcher = new TransportDispatcher(logger, this);
         final LoggingHandler debugs = new LoggingHandler(logger.getName() + ".dispatcher", LogLevel.TRACE);
         final ChannelHandler errors = new LastLoggingHandler(logger.getName() + ".errors");
 
@@ -97,11 +104,18 @@ public class TransportListener implements ConsumerAuthenticator {
                     protected void initChannel(final @Nullable Channel ch) throws Exception {
                         assert ch != null;
                         final ChannelPipeline p = ch.pipeline();
-                        p.addLast(LOG_DEBUG_HANDLER, debugs);
+                        p.addLast(HandlerConstants.LOG_DEBUG_HANDLER, debugs);
                         p.addLast(objectEncoder);
                         p.addLast(new ObjectDecoder(cr));
-                        p.addLast("dispatcher", dispatcher);
-                        p.addLast(LOG_ERRORS_HANDLER, errors);
+                        p.addLast(HandlerConstants.DOMAIN_HANDLER,
+                                new AuthenticatorSSLHandler(TransportListener.this, logger,
+                                        new DomainHandlerBuilder<ConsumerDomain>() {
+                                            @Override
+                                            public ChannelHandler build(final ConsumerDomain domain) {
+                                                return new DomainHandler(domain);
+                                            }
+                                        }));
+                        p.addLast(HandlerConstants.LOG_ERRORS_HANDLER, errors);
                     }
                 });
         assert _bootstrap != null;
@@ -146,17 +160,7 @@ public class TransportListener implements ConsumerAuthenticator {
     public void unbind() {
         final Channel _channel = channel;
         if (_channel != null && _channel.isActive()) {
-            _channel.close().addListener(new ChannelFutureListener() {
-                @Override
-                public void operationComplete(final @Nullable ChannelFuture future) throws Exception {
-                    assert future != null;
-                    if (!future.isSuccess()) {
-                        logger.log(Level.WARNING,
-                                "Error while unbinding transport listener " + jtl.getId() + ": nothing to do",
-                                future.cause());
-                    }
-                }
-            });
+            _channel.close();
             channel = null;
         }
     }
@@ -192,4 +196,42 @@ public class TransportListener implements ConsumerAuthenticator {
             return lastBindingError;
         }
     }
+
+    private class DomainHandler extends SimpleChannelInboundHandler<TransportedToProvider> {
+
+        private final ConsumerDomain cd;
+
+        public DomainHandler(final ConsumerDomain cd) {
+            this.cd = cd;
+        }
+
+        /**
+         * At that point we know the {@link Channel} is already active and the SSL handshake happened (if it is enabled)
+         */
+        @Override
+        public void handlerAdded(final @Nullable ChannelHandlerContext ctx) throws Exception {
+            assert ctx != null;
+            cd.registerChannel(ctx.channel());
+        }
+
+        @Override
+        public void channelInactive(final @Nullable ChannelHandlerContext ctx) throws Exception {
+            assert ctx != null;
+            cd.deregisterChannel(ctx.channel());
+        }
+
+        @Override
+        protected void channelRead0(final @Nullable ChannelHandlerContext ctx,
+                final @Nullable TransportedToProvider msg) throws Exception {
+            assert ctx != null;
+            assert msg != null;
+
+            if (msg instanceof TransportedForExchange) {
+                cd.receiveFromChannel(ctx, (TransportedForExchange) msg);
+            } else {
+                throw new IllegalArgumentException("Impossible case");
+            }
+        }
+    }
+
 }

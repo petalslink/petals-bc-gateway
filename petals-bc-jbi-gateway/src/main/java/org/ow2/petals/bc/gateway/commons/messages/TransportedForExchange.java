@@ -15,10 +15,10 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway.messages;
+package org.ow2.petals.bc.gateway.commons.messages;
 
-import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
-import org.ow2.petals.bc.gateway.messages.Transported.TransportedToProvider;
+import org.ow2.petals.bc.gateway.commons.messages.Transported.TransportedToConsumer;
+import org.ow2.petals.bc.gateway.commons.messages.Transported.TransportedToProvider;
 import org.ow2.petals.commons.log.FlowAttributes;
 
 public abstract class TransportedForExchange implements TransportedToProvider, TransportedToConsumer {

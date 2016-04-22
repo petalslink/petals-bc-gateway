@@ -15,18 +15,21 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway;
-
-import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.commons.DomainContext;
-import org.ow2.petals.component.framework.api.message.Exchange;
+package org.ow2.petals.bc.gateway.commons.handlers;
 
 /**
+ * These are constants used both by the client and the server.
  * 
  * @author vnoel
  *
  */
-public interface JBISender {
+public interface HandlerConstants {
 
-    void sendToNMR(DomainContext ctx, @Nullable Exchange exchange);
+    public static final String LOG_ERRORS_HANDLER = "log-errors";
+
+    public static final String LOG_DEBUG_HANDLER = "log-debug";
+
+    public static final String SSL_HANDLER = "ssl";
+
+    public static final String DOMAIN_HANDLER = "domain";
 }

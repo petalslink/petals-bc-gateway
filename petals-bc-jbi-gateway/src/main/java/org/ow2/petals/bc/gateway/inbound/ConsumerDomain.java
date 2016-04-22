@@ -32,14 +32,14 @@ import javax.jbi.JBIException;
 import javax.jbi.servicedesc.ServiceEndpoint;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.AbstractDomain;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.JbiGatewaySUManager;
+import org.ow2.petals.bc.gateway.commons.AbstractDomain;
+import org.ow2.petals.bc.gateway.commons.messages.ServiceKey;
+import org.ow2.petals.bc.gateway.commons.messages.TransportedDocument;
+import org.ow2.petals.bc.gateway.commons.messages.TransportedMessage;
+import org.ow2.petals.bc.gateway.commons.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
-import org.ow2.petals.bc.gateway.messages.ServiceKey;
-import org.ow2.petals.bc.gateway.messages.TransportedDocument;
-import org.ow2.petals.bc.gateway.messages.TransportedMessage;
-import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayConsumeExtFlowStepBeginLogData;
 import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.commons.log.Level;
@@ -51,8 +51,6 @@ import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.w3c.dom.Document;
 
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
 
 /**
  * There is one instance of this class per consumer domain in an SU configuration (jbi.xml).
@@ -88,13 +86,10 @@ public class ConsumerDomain extends AbstractDomain {
 
     private final ReadWriteLock channelsLock = new ReentrantReadWriteLock();
 
-    private final ServiceUnitDataHandler handler;
-
     public ConsumerDomain(final ServiceUnitDataHandler handler, final TransportListener tl,
             final JbiGatewaySUManager sum, final JbiConsumerDomain jcd, final Collection<Consumes> consumes,
             final JBISender sender, final Logger logger) throws PEtALSCDKException {
-        super(sender, logger);
-        this.handler = handler;
+        super(sender, handler, logger);
         this.tl = tl;
         this.sum = sum;
         this.jcd = jcd;
@@ -106,8 +101,11 @@ public class ConsumerDomain extends AbstractDomain {
         tl.register(jcd.getAuthName(), this);
     }
 
-    public ServiceUnitDataHandler getSUHandler() {
-        return handler;
+    @Override
+    public String getId() {
+        final String id = jcd.getId();
+        assert id != null;
+        return id;
     }
 
     public void reload(final JbiConsumerDomain newJCD) throws PEtALSCDKException {
@@ -137,18 +135,7 @@ public class ConsumerDomain extends AbstractDomain {
             tl.deregistrer(jcd.getAuthName());
             for (final Channel c : channels) {
                 // this will trigger deregisterChannel btw
-                c.close().addListener(new ChannelFutureListener() {
-                    @Override
-                    public void operationComplete(final @Nullable ChannelFuture future) throws Exception {
-                        assert future != null;
-                        if (!future.isSuccess()) {
-                            // TODO maybe this log should be logged by the channel itself in one of its handler!?
-                            logger.log(Level.WARNING,
-                                    "Error while disconnecting from consumer domain " + jcd.getId() + ": nothing to do",
-                                    future.cause());
-                        }
-                    }
-                });
+                c.close();
             }
         } finally {
             channelsLock.readLock().unlock();
@@ -248,7 +235,7 @@ public class ConsumerDomain extends AbstractDomain {
             // we remember the step of the consumer partner through the correlated flow attributes
             logger.log(Level.MONIT, "",
                     new JbiGatewayConsumeExtFlowStepBeginLogData(PetalsExecutionContext.getFlowAttributes(),
-                            m.provideExtStep, jcd.getId()));
+                            m.provideExtStep, getId()));
         }
     }
 

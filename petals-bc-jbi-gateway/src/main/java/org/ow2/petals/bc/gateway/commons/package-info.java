@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016 Linagora
+ * Copyright (c) 2015-2016 Linagora
  * 
  * This program/library is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -15,17 +15,6 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway.messages;
+@org.eclipse.jdt.annotation.NonNullByDefault
+package org.ow2.petals.bc.gateway.commons;
 
-import java.io.Serializable;
-
-public class TransportedAuthentication implements Serializable {
-
-    private static final long serialVersionUID = 1444808179664463165L;
-
-    public final String authName;
-
-    public TransportedAuthentication(final String authName) {
-        this.authName = authName;
-    }
-}

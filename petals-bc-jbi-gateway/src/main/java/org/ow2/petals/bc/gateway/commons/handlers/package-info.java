@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016 Linagora
+ * Copyright (c) 2015-2016 Linagora
  * 
  * This program/library is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -15,25 +15,6 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway.inbound;
+@org.eclipse.jdt.annotation.NonNullByDefault
+package org.ow2.petals.bc.gateway.commons.handlers;
 
-import org.eclipse.jdt.annotation.Nullable;
-
-/**
- * 
- * The auth-name is used to identify a given consumer domain.
- * 
- * @author vnoel
- *
- */
-public interface ConsumerAuthenticator {
-
-    /**
-     * Authenticate a consumer based on an auth name
-     * 
-     * The implementation must be thread safe!
-     */
-    @Nullable
-    ConsumerDomain authenticate(String authName);
-
-}

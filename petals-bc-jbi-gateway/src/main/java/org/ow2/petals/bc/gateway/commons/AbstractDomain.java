@@ -15,7 +15,7 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway;
+package org.ow2.petals.bc.gateway.commons;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -25,14 +25,16 @@ import javax.jbi.messaging.MessageExchange;
 import javax.jbi.messaging.MessagingException;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.messages.TransportedException;
-import org.ow2.petals.bc.gateway.messages.TransportedForExchange;
-import org.ow2.petals.bc.gateway.messages.TransportedMessage;
+import org.ow2.petals.bc.gateway.JBISender;
+import org.ow2.petals.bc.gateway.commons.messages.TransportedException;
+import org.ow2.petals.bc.gateway.commons.messages.TransportedForExchange;
+import org.ow2.petals.bc.gateway.commons.messages.TransportedMessage;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.message.Exchange;
+import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -51,6 +53,8 @@ public abstract class AbstractDomain {
 
     protected final Logger logger;
 
+    protected final ServiceUnitDataHandler handler;
+
     private final JBISender sender;
 
     /**
@@ -58,10 +62,17 @@ public abstract class AbstractDomain {
      */
     private final ConcurrentMap<String, Pair<Exchange, FlowAttributes>> exchangesInProgress = new ConcurrentHashMap<>();
 
-    public AbstractDomain(final JBISender sender, final Logger logger) {
+    public AbstractDomain(final JBISender sender, final ServiceUnitDataHandler handler, final Logger logger) {
         this.sender = sender;
+        this.handler = handler;
         this.logger = logger;
     }
+
+    public ServiceUnitDataHandler getSUHandler() {
+        return handler;
+    }
+
+    public abstract String getId();
 
     protected abstract void logAfterReceivingFromChannel(TransportedMessage m);
 

@@ -35,9 +35,9 @@ import javax.jbi.servicedesc.ServiceEndpoint;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.basisapi.exception.PetalsException;
+import org.ow2.petals.bc.gateway.commons.AbstractDomain;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.inbound.TransportListener;
-import org.ow2.petals.bc.gateway.inbound.TransportServer;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
@@ -69,7 +69,7 @@ import io.netty.handler.codec.serialization.ClassResolvers;
 /**
  * There is one instance for the whole component. The class is declared in the jbi.xml.
  * 
- * For external exchange handling, see {@link JbiGatewayJBISender} and {@link TransportServer}.
+ * For external exchange handling, see {@link JbiGatewayJBISender} and {@link TransportListener}.
  * 
  * For internal exchange handling, see {@link JbiGatewayJBIListener}.
  * 
@@ -391,7 +391,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     /**
-     * Used by the {@link TransportServer} to send exchanges. But they come back through one of the
+     * Used by the {@link AbstractDomain}s to send exchanges. But they come back through one of the
      * {@link JbiGatewayJBIListener}.
      */
     private JbiGatewayJBISender getSender() {

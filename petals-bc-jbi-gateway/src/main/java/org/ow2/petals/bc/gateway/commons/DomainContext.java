@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2016 Linagora
+ * Copyright (c) 2016 Linagora
  * 
  * This program/library is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -15,20 +15,28 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway.messages;
+package org.ow2.petals.bc.gateway.commons;
 
-import java.io.Serializable;
+import org.ow2.petals.bc.gateway.commons.messages.TransportedMessage;
+import org.ow2.petals.component.framework.api.message.Exchange;
 
-public interface Transported extends Serializable {
+public interface DomainContext {
 
-    public interface TransportedToConsumer extends Transported {
+    /**
+     * For answers
+     */
+    void sendToChannel(Exchange exchange);
 
-    }
+    /**
+     * For error during send
+     */
+    void sendToChannel(Exception e);
 
-    public interface TransportedToProvider extends Transported {
+    /**
+     * For timeout after send
+     */
+    void sendTimeoutToChannel();
 
-    }
+    TransportedMessage getMessage();
 
 }
-
-

@@ -34,17 +34,16 @@ import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.easywsdl.wsdl.api.WSDLException;
-import org.ow2.petals.bc.gateway.AbstractDomain;
 import org.ow2.petals.bc.gateway.JBISender;
+import org.ow2.petals.bc.gateway.commons.AbstractDomain;
+import org.ow2.petals.bc.gateway.commons.messages.ServiceKey;
+import org.ow2.petals.bc.gateway.commons.messages.TransportedDocument;
+import org.ow2.petals.bc.gateway.commons.messages.TransportedMessage;
+import org.ow2.petals.bc.gateway.commons.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
-import org.ow2.petals.bc.gateway.messages.ServiceKey;
-import org.ow2.petals.bc.gateway.messages.TransportedDocument;
-import org.ow2.petals.bc.gateway.messages.TransportedMessage;
-import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayProvideExtFlowStepBeginLogData;
-import org.ow2.petals.bc.gateway.utils.LastLoggingHandler;
 import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
@@ -62,16 +61,8 @@ import com.ebmwebsourcing.easycommons.lang.StringHelper;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.serialization.ClassResolver;
-import io.netty.handler.codec.serialization.ObjectDecoder;
-import io.netty.handler.codec.serialization.ObjectEncoder;
-import io.netty.handler.logging.LogLevel;
-import io.netty.handler.logging.LoggingHandler;
 
 /**
  * There is one instance of this class per opened connection to a provider partner.
@@ -86,17 +77,14 @@ import io.netty.handler.logging.LoggingHandler;
  */
 public class ProviderDomain extends AbstractDomain {
 
-    public static final String LOG_ERRORS_HANDLER = "log-errors";
-
-    public static final String LOG_DEBUG_HANDLER = "log-debug";
-
-    public static final String SSL_HANDLER = "ssl";
-
+    /**
+     * Not final because it can be updated by {@link #reload(JbiProviderDomain)}.
+     */
     private JbiProviderDomain jpd;
 
     private final ProviderMatcher matcher;
 
-    private final Bootstrap bootstrap;
+    private final TransportClient client;
 
     /**
      * Updated by {@link #updatePropagatedServices(TransportedPropagatedConsumes)}.
@@ -120,9 +108,6 @@ public class ProviderDomain extends AbstractDomain {
      */
     private final Map<ServiceKey, Provides> provides;
 
-    @Nullable
-    private Channel channel;
-
     private boolean init = false;
 
     private static class ServiceData {
@@ -140,7 +125,7 @@ public class ProviderDomain extends AbstractDomain {
             final JbiProviderDomain jpd, final Collection<Pair<Provides, JbiProvidesConfig>> provides,
             final JBISender sender, final Bootstrap partialBootstrap, final Logger logger, final ClassResolver cr)
             throws PEtALSCDKException {
-        super(sender, logger);
+        super(sender, handler, logger);
 
         this.matcher = matcher;
         this.jpd = jpd;
@@ -154,25 +139,12 @@ public class ProviderDomain extends AbstractDomain {
             this.provides.put(new ServiceKey(pair.getB()), pair.getA());
         }
 
-        final LoggingHandler debugs = new LoggingHandler(logger.getName() + ".client", LogLevel.TRACE);
-        final LastLoggingHandler errors = new LastLoggingHandler(logger.getName() + ".errors");
-        final ObjectEncoder objectEncoder = new ObjectEncoder();
+        this.client = new TransportClient(handler, partialBootstrap, logger, cr, this);
+    }
 
-        final Bootstrap _bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
-            @Override
-            protected void initChannel(final @Nullable Channel ch) throws Exception {
-                assert ch != null;
-                // This mirror the protocol used in TransporterListener
-                final ChannelPipeline p = ch.pipeline();
-                p.addFirst(LOG_DEBUG_HANDLER, debugs);
-                p.addLast(objectEncoder);
-                p.addLast(new ObjectDecoder(cr));
-                p.addLast("init", new TransportInitClient(handler, logger, ProviderDomain.this));
-                p.addLast(LOG_ERRORS_HANDLER, errors);
-            }
-        });
-        assert _bootstrap != null;
-        bootstrap = _bootstrap;
+    @Override
+    public String getId() {
+        return jpd.getId();
     }
 
     public void reload(final JbiProviderDomain newJPD) {
@@ -415,12 +387,10 @@ public class ProviderDomain extends AbstractDomain {
         assert provideExtStep != null;
         final TransportedMessage m = TransportedMessage.newMessage(service, provideExtStep, mex);
 
-        final Channel _channel = channel;
-        // channel can't be null because it would mean that the component is stopped and in that case we
-        // wouldn't be receiving messages!
-        assert _channel != null;
         // let's use the context of the client
-        final ChannelHandlerContext ctx = _channel.pipeline().context(TransportClient.class);
+        final ChannelHandlerContext ctx = client.getDomainContext();
+        // it can't be null because it would mean that the component is stopped and in that case we
+        // wouldn't be receiving messages!
         assert ctx != null;
         sendToChannel(ctx, m, exchange);
     }
@@ -429,48 +399,16 @@ public class ProviderDomain extends AbstractDomain {
      * Connect to the provider partner
      */
     public void connect() {
-        // it should have been checked already by JbiGatewayJBIHelper
-        final int port = Integer.parseInt(jpd.getRemotePort());
-
-        bootstrap.remoteAddress(jpd.getRemoteIp(), port).connect().addListener(new ChannelFutureListener() {
-            @Override
-            public void operationComplete(final @Nullable ChannelFuture future) throws Exception {
-                assert future != null;
-                if (!future.isSuccess()) {
-                    // TODO propose another way to reconnect?
-                    logger.log(Level.SEVERE, "Can't connect to provider domain " + jpd.getId()
-                            + ": fix the problem and, either stop/start the component, "
-                            + "undeploy/deploy the SU or fix/reload the placeholders if it applies",
-                            future.cause());
-                } else {
-                    channel = future.channel();
-                }
-            }
-        });
+        client.connect();
     }
-
+    
     /**
      * Disconnect from the provider partner
      */
     public void disconnect() {
-        final Channel _channel = channel;
-        channel = null;
-        if (_channel != null && _channel.isOpen()) {
-            // Note: this should trigger a call to close normally!
-            _channel.close().addListener(new ChannelFutureListener() {
-                @Override
-                public void operationComplete(final @Nullable ChannelFuture future) throws Exception {
-                    assert future != null;
-                    if (!future.isSuccess()) {
-                        logger.log(Level.WARNING,
-                                "Error while disconnecting from provider domain " + jpd.getId() + ": nothing to do",
-                                future.cause());
-                    }
-                }
-            });
-        }
+        client.disconnect();
     }
-
+    
     public JbiProviderDomain getJPD() {
         return jpd;
     }

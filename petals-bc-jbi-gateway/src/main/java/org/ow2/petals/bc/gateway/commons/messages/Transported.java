@@ -15,6 +15,20 @@
  * along with this program/library; If not, see <http://www.gnu.org/licenses/>
  * for the GNU Lesser General Public License version 2.1.
  */
-@org.eclipse.jdt.annotation.NonNullByDefault
-package org.ow2.petals.bc.gateway.messages;
+package org.ow2.petals.bc.gateway.commons.messages;
+
+import java.io.Serializable;
+
+public interface Transported extends Serializable {
+
+    public interface TransportedToConsumer extends Transported {
+
+    }
+
+    public interface TransportedToProvider extends Transported {
+
+    }
+
+}
+
 

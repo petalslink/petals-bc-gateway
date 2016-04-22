@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2016 Linagora
+ * Copyright (c) 2016 Linagora
  * 
  * This program/library is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -17,59 +17,197 @@
  */
 package org.ow2.petals.bc.gateway.outbound;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.messages.Transported.TransportedToConsumer;
-import org.ow2.petals.bc.gateway.messages.TransportedForExchange;
-import org.ow2.petals.bc.gateway.messages.TransportedPropagatedConsumes;
+import org.ow2.petals.bc.gateway.commons.handlers.AuthenticatorSSLHandler;
+import org.ow2.petals.bc.gateway.commons.handlers.AuthenticatorSSLHandler.DomainHandlerBuilder;
+import org.ow2.petals.bc.gateway.commons.handlers.HandlerConstants;
+import org.ow2.petals.bc.gateway.commons.handlers.LastLoggingHandler;
+import org.ow2.petals.bc.gateway.commons.messages.Transported.TransportedToConsumer;
+import org.ow2.petals.bc.gateway.commons.messages.TransportedForExchange;
+import org.ow2.petals.bc.gateway.commons.messages.TransportedPropagatedConsumes;
+import org.ow2.petals.bc.gateway.inbound.TransportListener;
 import org.ow2.petals.commons.log.Level;
+import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.codec.serialization.ClassResolver;
+import io.netty.handler.codec.serialization.ObjectDecoder;
+import io.netty.handler.codec.serialization.ObjectEncoder;
+import io.netty.handler.logging.LogLevel;
+import io.netty.handler.logging.LoggingHandler;
 
 /**
- * TODO detect when the connection was closed properly ({@link #channelInactive(ChannelHandlerContext)}?) and when there
- * was a problem and we maybe need reconnect ({@link #exceptionCaught(ChannelHandlerContext, Throwable)}?)
+ * This is responsible of connecting to {@link TransportListener}.
+ * 
+ * It handles retry of connect on connection failure as well as unexpected connection close.
+ * 
+ * It setup SSL if needed.
  * 
  * @author vnoel
  *
  */
-public class TransportClient extends SimpleChannelInboundHandler<TransportedToConsumer> {
-
-    private final ProviderDomain pd;
+public class TransportClient {
 
     private final Logger logger;
 
-    public TransportClient(final Logger logger, final ProviderDomain pd) {
+    private final ProviderDomain pd;
+
+    private final Bootstrap bootstrap;
+
+    private int retriesLeft = 0;
+
+    @Nullable
+    private Channel channel;
+
+    public TransportClient(final ServiceUnitDataHandler handler, final Bootstrap partialBootstrap, final Logger logger,
+            final ClassResolver cr, final ProviderDomain pd) {
         this.logger = logger;
         this.pd = pd;
+
+        final LoggingHandler debugs = new LoggingHandler(logger.getName() + ".client", LogLevel.TRACE);
+        final LastLoggingHandler errors = new LastLoggingHandler(logger.getName() + ".errors");
+        final ObjectEncoder objectEncoder = new ObjectEncoder();
+
+        final Bootstrap _bootstrap = partialBootstrap.handler(new ChannelInitializer<Channel>() {
+            @Override
+            protected void initChannel(final @Nullable Channel ch) throws Exception {
+                assert ch != null;
+                // This mirror the protocol used in TransporterListener
+                final ChannelPipeline p = ch.pipeline();
+                p.addFirst(HandlerConstants.LOG_DEBUG_HANDLER, debugs);
+                p.addLast(objectEncoder);
+                p.addLast(new ObjectDecoder(cr));
+                p.addLast(HandlerConstants.DOMAIN_HANDLER,
+                        new AuthenticatorSSLHandler(pd, logger, new DomainHandlerBuilder<ProviderDomain>() {
+                            @Override
+                            public ChannelHandler build(final ProviderDomain domain) {
+                                assert domain == pd;
+                                return new DomainHandler();
+                            }
+                        }));
+                p.addLast(HandlerConstants.LOG_ERRORS_HANDLER, errors);
+            }
+        });
+        assert _bootstrap != null;
+        bootstrap = _bootstrap;
     }
 
-    @Override
-    public void exceptionCaught(final @Nullable ChannelHandlerContext ctx, final @Nullable Throwable cause)
-            throws Exception {
-        logger.log(Level.WARNING, "Exception caught", cause);
+    /**
+     * Connect to the provider partner
+     */
+    public void connect() {
+        // TODO add tests
+        final Integer retryMax = pd.getJPD().getRetryMax();
+        retriesLeft = retryMax == null ? 0 : retryMax;
+
+        // it should have been checked already by JbiGatewayJBIHelper
+        final int port = Integer.parseInt(pd.getJPD().getRemotePort());
+
+        bootstrap.remoteAddress(pd.getJPD().getRemoteIp(), port).connect().addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(final @Nullable ChannelFuture future) throws Exception {
+                assert future != null;
+                if (!future.isSuccess()) {
+                    reconnect(future, false);
+                } else {
+                    final Channel _channel = future.channel();
+                    channel = _channel;
+                    _channel.closeFuture().addListener(new ChannelFutureListener() {
+                        @Override
+                        public void operationComplete(final @Nullable ChannelFuture future) throws Exception {
+                            assert future != null;
+                            reconnect(future, true);
+                        }
+                    });
+                }
+            }
+        });
     }
 
-    @Override
-    protected void channelRead0(final @Nullable ChannelHandlerContext ctx, final @Nullable TransportedToConsumer msg)
-            throws Exception {
-        assert ctx != null;
-        assert msg != null;
-
-        if (msg instanceof TransportedForExchange) {
-            pd.receiveFromChannel(ctx, (TransportedForExchange) msg);
-        } else if (msg instanceof TransportedPropagatedConsumes) {
-            pd.updatePropagatedServices((TransportedPropagatedConsumes) msg);
+    private void reconnect(final ChannelFuture future, final boolean closed) {
+        final Channel ch = future.channel();
+        // TODO add a more explicit message about what can be done!
+        final StringBuilder msg = new StringBuilder("Connection to provider domain ");
+        msg.append(pd.getId());
+        if (closed) {
+            msg.append(" (").append(ch.remoteAddress()).append(") was closed unexpectedly");
         } else {
-            ctx.close();
-            throw new IllegalArgumentException("Impossible case");
+            msg.append(" failed");
+        }
+        // TODO do we really want to log the whole exception for both??
+        if (retriesLeft > 0) {
+            retriesLeft--;
+            final long retryDelay = pd.getJPD().getRetryDelay();
+            msg.append(", reconnecting in ").append(retryDelay).append("ms");
+            // Note: in the case of closed, the cause is null and it's normal
+            logger.log(Level.WARNING, msg.toString(), future.cause());
+            // TODO propose another way to force reconnect, e.g. with an admin command
+            ch.eventLoop().schedule(new Callable<Void>() {
+                @Override
+                public @Nullable Void call() throws Exception {
+                    connect();
+                    return null;
+                }
+            }, retryDelay, TimeUnit.MILLISECONDS);
+        } else {
+            // Note: in the case of closed, the cause is null and it's normal
+            logger.log(Level.SEVERE, msg.toString(), future.cause());
         }
     }
 
-    @Override
-    public void channelInactive(final @Nullable ChannelHandlerContext ctx) throws Exception {
-        pd.close();
+    /**
+     * Disconnect from the provider partner
+     */
+    public void disconnect() {
+        retriesLeft = 0;
+        final Channel _channel = channel;
+        channel = null;
+        if (_channel != null && _channel.isOpen()) {
+            // Note: this should trigger a call to ProviderDomain.close() as defined in DomainHandler!
+            _channel.close();
+        }
+    }
+
+    public @Nullable ChannelHandlerContext getDomainContext() {
+        final Channel _channel = channel;
+        if (_channel != null) {
+            return _channel.pipeline().context(DomainHandler.class);
+        } else {
+            return null;
+        }
+    }
+
+    private class DomainHandler extends SimpleChannelInboundHandler<TransportedToConsumer> {
+        @Override
+        protected void channelRead0(final @Nullable ChannelHandlerContext ctx,
+                final @Nullable TransportedToConsumer msg) throws Exception {
+            assert ctx != null;
+            assert msg != null;
+
+            if (msg instanceof TransportedForExchange) {
+                pd.receiveFromChannel(ctx, (TransportedForExchange) msg);
+            } else if (msg instanceof TransportedPropagatedConsumes) {
+                pd.updatePropagatedServices((TransportedPropagatedConsumes) msg);
+            } else {
+                throw new IllegalArgumentException("Impossible case");
+            }
+        }
+
+        @Override
+        public void channelInactive(final @Nullable ChannelHandlerContext ctx) throws Exception {
+            pd.close();
+        }
     }
 }

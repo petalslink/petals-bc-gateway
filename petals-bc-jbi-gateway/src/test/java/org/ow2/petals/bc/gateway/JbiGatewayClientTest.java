@@ -17,6 +17,8 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import java.util.logging.Level;
+
 import org.junit.Test;
 
 public class JbiGatewayClientTest extends AbstractComponentTest {
@@ -30,7 +32,7 @@ public class JbiGatewayClientTest extends AbstractComponentTest {
 
         COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createHelloProvider(TEST_AUTH_NAME, port));
 
-        assertLogContains("Can't connect to provider domain " + TEST_PROVIDER_DOMAIN);
+        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE, 1);
     }
 
     @Test
@@ -47,7 +49,7 @@ public class JbiGatewayClientTest extends AbstractComponentTest {
 
         COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createHelloProvider(TEST_AUTH_NAME, port));
 
-        assertLogContains("unknown auth-name '" + TEST_AUTH_NAME + "'");
+        assertLogContains("unknown auth-name '" + TEST_AUTH_NAME + "'", Level.SEVERE, 1);
 
         removeTransportListener(id);
     }
@@ -59,7 +61,7 @@ public class JbiGatewayClientTest extends AbstractComponentTest {
         final String authName = "INCORRECT";
         COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createHelloProvider(authName, TEST_TRANSPORT_PORT));
 
-        assertLogContains("unknown auth-name '" + authName + "'");
+        assertLogContains("unknown auth-name '" + authName + "'", Level.SEVERE, 1);
         // TODO we should also test that the connection is closed!
     }
 }

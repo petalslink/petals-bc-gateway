@@ -19,6 +19,7 @@ package org.ow2.petals.bc.gateway;
 
 import org.junit.Test;
 import org.ow2.petals.basisapi.exception.PetalsException;
+import org.ow2.petals.commons.log.Level;
 
 public class JbiGatewayAdminTest extends AbstractComponentTest {
 
@@ -97,7 +98,7 @@ public class JbiGatewayAdminTest extends AbstractComponentTest {
 
         assertNotAvailable(port);
         assertAvailable(port2);
-        assertLogContains("Cannot bind transport listener " + id2);
+        assertLogContains("Cannot bind transport listener " + id2, Level.SEVERE, 1);
 
         comp.setTransportListenerPort(id2, port2);
 

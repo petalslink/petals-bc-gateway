@@ -601,4 +601,43 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
             return new Pair<>(a, b);
         }
     }
+
+    public static class Either<A, B> {
+
+        private final @Nullable A a;
+
+        private final @Nullable B b;
+
+        private Either(final @Nullable A a, final @Nullable B b) {
+            assert a == null ^ b == null;
+            this.a = a;
+            this.b = b;
+        }
+
+        public boolean isA() {
+            return a != null;
+        }
+
+        public boolean isB() {
+            return b != null;
+        }
+
+        public A getA() {
+            assert a != null;
+            return a;
+        }
+
+        public B getB() {
+            assert b != null;
+            return b;
+        }
+
+        public static <A, B> Either<A, B> ofA(final A a) {
+            return new Either<A, B>(a, null);
+        }
+
+        public static <A, B> Either<A, B> ofB(final B b) {
+            return new Either<A, B>(null, b);
+        }
+    }
 }
