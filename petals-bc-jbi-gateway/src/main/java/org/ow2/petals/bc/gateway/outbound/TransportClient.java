@@ -66,7 +66,7 @@ public class TransportClient {
 
     private final Bootstrap bootstrap;
 
-    private int retriesLeft = 0;
+    private int retries = 0;
 
     @Nullable
     private Channel channel;
@@ -108,10 +108,12 @@ public class TransportClient {
      * Connect to the provider partner
      */
     public void connect() {
-        // TODO add tests
-        final Integer retryMax = pd.getJPD().getRetryMax();
-        retriesLeft = retryMax == null ? 0 : retryMax;
+        // reset the number of retries
+        retries = 0;
+        doConnect();
+    }
 
+    private void doConnect() {
         // it should have been checked already by JbiGatewayJBIHelper
         final int port = Integer.parseInt(pd.getJPD().getRemotePort());
 
@@ -136,9 +138,11 @@ public class TransportClient {
         });
     }
 
+    /**
+     * TODO add tests
+     */
     private void reconnect(final ChannelFuture future, final boolean closed) {
         final Channel ch = future.channel();
-        // TODO add a more explicit message about what can be done!
         final StringBuilder msg = new StringBuilder("Connection to provider domain ");
         msg.append(pd.getId());
         if (closed) {
@@ -146,18 +150,25 @@ public class TransportClient {
         } else {
             msg.append(" failed");
         }
+        final Integer retryMax = pd.getJPD().getRetryMax();
         // TODO do we really want to log the whole exception for both??
-        if (retriesLeft > 0) {
-            retriesLeft--;
+        // negative means infinite, null or 0 means no retry
+        if (retryMax != null && (retryMax < 0 || (retryMax-retries) > 0)) {
+            retries++;
+            // this can't be null or negative, it was verified at deploy
             final long retryDelay = pd.getJPD().getRetryDelay();
             msg.append(", reconnecting in ").append(retryDelay).append("ms");
+            msg.append(" (retry ").append(retries);
+            if (retryMax > 0) {
+                msg.append(" of ").append(retryMax).append(")");
+            }
             // Note: in the case of closed, the cause is null and it's normal
             logger.log(Level.WARNING, msg.toString(), future.cause());
             // TODO propose another way to force reconnect, e.g. with an admin command
             ch.eventLoop().schedule(new Callable<Void>() {
                 @Override
                 public @Nullable Void call() throws Exception {
-                    connect();
+                    doConnect();
                     return null;
                 }
             }, retryDelay, TimeUnit.MILLISECONDS);
@@ -171,7 +182,6 @@ public class TransportClient {
      * Disconnect from the provider partner
      */
     public void disconnect() {
-        retriesLeft = 0;
         final Channel _channel = channel;
         channel = null;
         if (_channel != null && _channel.isOpen()) {

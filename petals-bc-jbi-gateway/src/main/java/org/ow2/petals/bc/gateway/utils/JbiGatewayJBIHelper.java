@@ -408,6 +408,15 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
                         + ") for provider domain (" + jpd.getId() + ")");
             }
         }
+
+        final Integer retryMax = jpd.getRetryMax();
+        if (retryMax != null && retryMax != 0) {
+            final Long retryDelay = jpd.getRetryDelay();
+            if (retryDelay == null || retryDelay < 0) {
+                throw new PEtALSCDKException("retry delay (" + retryDelay
+                        + ") can't be unset or negative if retry max (" + retryMax + ") is set non-zero value");
+            }
+        }
     }
 
     private static void replace(final JbiProviderDomain jpd, final Properties placeholders, final Logger logger) {

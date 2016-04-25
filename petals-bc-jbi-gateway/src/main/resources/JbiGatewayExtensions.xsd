@@ -81,7 +81,10 @@
          <!-- TODO Maybe introduce a command to start the SUs with keys that needs a password?
                having them in clear here is the same as using no key -->
          <xs:element name="passphrase" type="xs:string" minOccurs="0" />
-         <xs:element name="retry-max" type="xs:int" minOccurs="0" />
+         <!-- a negative value means infinite
+              0 no retry (identical to not specifying the element or its value) -->
+         <xs:element name="retry-max" type="xs:int" minOccurs="0" default="0" />
+         <!-- must be equals to 0 or positive -->
          <xs:element name="retry-delay" type="xs:long" minOccurs="0" />
       </xs:all>
       <xs:attribute name="id" type="xs:string" use="required" />
