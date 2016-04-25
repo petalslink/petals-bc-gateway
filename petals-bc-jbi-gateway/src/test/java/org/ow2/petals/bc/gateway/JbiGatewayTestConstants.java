@@ -30,6 +30,10 @@ public interface JbiGatewayTestConstants extends JbiGatewayConstants, JbiConstan
 
     public static final String ATTR_SERVICES_PROVIDER_DOMAIN_ID = "id";
 
+    public static final String ATTR_SERVICES_PROVIDER_DOMAIN_RETRY_MAX = "retry-max";
+
+    public static final String ATTR_SERVICES_PROVIDER_DOMAIN_RETRY_DELAY = "retry-delay";
+
     public static final QName EL_SERVICES_PROVIDER_DOMAIN_IP = new QName(JG_NS_URI, "remote-ip");
 
     public static final QName EL_SERVICES_PROVIDER_DOMAIN_PORT = new QName(JG_NS_URI, "remote-port");

@@ -30,9 +30,28 @@ public class JbiGatewayClientTest extends AbstractComponentTest {
         // there is no listener on this one
         assertAvailable(port);
 
-        COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createHelloProvider(TEST_AUTH_NAME, port));
+        COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME,
+                createHelloProvider(TEST_AUTH_NAME, port, null, null, null, 0, 0L));
 
         assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE, 1);
+    }
+
+    @Test
+    public void testCantConnectRetry() throws Exception {
+        final int port = 1234;
+
+        // there is no listener on this one
+        assertAvailable(port);
+
+        COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME,
+                createHelloProvider(TEST_AUTH_NAME, port, null, null, null, 3, 0L));
+
+        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE, 1);
+
+        COMPONENT_UNDER_TEST.undeployAllServices();
+
+        // ensure it has been done only 3 times by checking after undeploy
+        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.WARNING, 3);
     }
 
     @Test
