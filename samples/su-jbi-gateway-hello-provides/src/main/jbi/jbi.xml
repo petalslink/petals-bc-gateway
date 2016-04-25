@@ -26,8 +26,6 @@
          <jg:remote-ip>localhost</jg:remote-ip>
          <jg:remote-port>${domain0.port}</jg:remote-port>
          <jg:remote-auth-name>${domain1.provider.auth-name}</jg:remote-auth-name>
-         <jg:retry-delay>1000</jg:retry-delay>
-         <jg:retry-max>10</jg:retry-max>
       </jg:provider-domain>
 
    </jbi:services>
