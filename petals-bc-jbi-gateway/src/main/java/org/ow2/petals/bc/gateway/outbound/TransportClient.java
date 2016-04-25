@@ -161,6 +161,8 @@ public class TransportClient {
             msg.append(" (retry ").append(retries);
             if (retryMax > 0) {
                 msg.append(" of ").append(retryMax).append(")");
+            } else {
+                msg.append(")");
             }
             // Note: in the case of closed, the cause is null and it's normal
             logger.log(Level.WARNING, msg.toString(), future.cause());
