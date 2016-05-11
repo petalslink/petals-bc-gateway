@@ -19,10 +19,12 @@ package org.ow2.petals.bc.gateway.utils;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.logging.Logger;
 
@@ -64,6 +66,8 @@ import com.ebmwebsourcing.easycommons.xml.DocumentBuilders;
 
 /**
  * Helper class to manipulate the jbi.xml according to the schema in the resources directory.
+ * 
+ * All the collections returned are immutables!
  * 
  * TODO one day we should actually exploit in an automated way this schema in the CDK directly.
  * 
@@ -233,10 +237,14 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
     public static Collection<JbiTransportListener> getTransportListeners(final @Nullable Component component)
             throws PEtALSCDKException {
         assert component != null;
-        return getAll(component.getAny(), EL_TRANSPORT_LISTENER, JbiTransportListener.class);
+        final Collection<JbiTransportListener> tls = getAll(component.getAny(), EL_TRANSPORT_LISTENER,
+                JbiTransportListener.class);
+        final Collection<JbiTransportListener> res = Collections.unmodifiableCollection(tls);
+        assert res != null;
+        return res;
     }
 
-    public static Collection<JbiConsumerDomain> getConsumerDomains(final ServiceUnitDataHandler handler,
+    private static Collection<JbiConsumerDomain> getConsumerDomains(final ServiceUnitDataHandler handler,
             final @Nullable Services services, final Properties placeholders, final Logger logger)
             throws PEtALSCDKException {
         assert services != null;
@@ -349,7 +357,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         }
     }
 
-    public static Collection<JbiProviderDomain> getProviderDomains(final ServiceUnitDataHandler handler,
+    private static Collection<JbiProviderDomain> getProviderDomains(final ServiceUnitDataHandler handler,
             final @Nullable Services services, final Properties placeholders, final Logger logger)
             throws PEtALSCDKException {
         assert services != null;
@@ -493,7 +501,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         }
     }
 
-    public static JbiProvidesConfig getProviderConfig(final @Nullable Provides provides) throws PEtALSCDKException {
+    private static JbiProvidesConfig getProviderConfig(final @Nullable Provides provides) throws PEtALSCDKException {
         assert provides != null;
         final Collection<JbiProvidesConfig> configs = getAll(provides.getAny(), EL_PROVIDER, JbiProvidesConfig.class);
         if (configs.isEmpty()) {
@@ -507,12 +515,6 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         final JbiProvidesConfig config = configs.iterator().next();
         assert config != null;
         return config;
-    }
-
-    public static String getProviderDomain(final @Nullable Provides provides) throws PEtALSCDKException {
-        final String domain = getProviderConfig(provides).getDomain();
-        assert domain != null;
-        return domain;
     }
 
     public static Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> getProvidesPerDomain(
@@ -539,7 +541,19 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
             }
             pd2provides.get(jpd).add(new Pair<>(provides, config));
         }
-        return pd2provides;
+
+        // let's make that unmodifiable!
+        return unmodifiable(pd2provides);
+    }
+
+    private static <A, B> Map<A, Collection<B>> unmodifiable(final Map<A, Collection<B>> map) {
+        for (final Entry<A, Collection<B>> entry : map.entrySet()) {
+            entry.setValue(Collections.unmodifiableCollection(entry.getValue()));
+        }
+
+        final Map<A, Collection<B>> res = Collections.unmodifiableMap(map);
+        assert res != null;
+        return res;
     }
 
     public static Map<JbiConsumerDomain, Collection<Consumes>> getConsumesPerDomain(
@@ -569,10 +583,12 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
                 cd2consumes.get(jcd).add(consumes);
             }
         }
-        return cd2consumes;
+
+        // let's make that unmodifiable!
+        return unmodifiable(cd2consumes);
     }
 
-    public static Collection<String> getConsumerDomains(final @Nullable Consumes consumes) throws PEtALSCDKException {
+    private static Collection<String> getConsumerDomains(final @Nullable Consumes consumes) throws PEtALSCDKException {
         assert consumes != null;
         final Collection<JbiConsumesConfig> confs = getAll(consumes.getAny(), EL_CONSUMER, JbiConsumesConfig.class);
         if (confs.isEmpty()) {
