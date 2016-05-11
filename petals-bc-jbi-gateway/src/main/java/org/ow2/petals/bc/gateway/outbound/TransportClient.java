@@ -71,6 +71,8 @@ public class TransportClient {
     @Nullable
     private Channel channel;
 
+    private boolean reconnect = false;
+
     public TransportClient(final ServiceUnitDataHandler handler, final Bootstrap partialBootstrap, final Logger logger,
             final ClassResolver cr, final ProviderDomain pd) {
         this.logger = logger;
@@ -110,10 +112,16 @@ public class TransportClient {
     public void connect() {
         // reset the number of retries
         retries = 0;
+        reconnect = true;
         doConnect();
     }
 
     private void doConnect() {
+
+        if (!reconnect) {
+            return;
+        }
+
         // it should have been checked already by JbiGatewayJBIHelper
         final int port = Integer.parseInt(pd.getJPD().getRemotePort());
 
@@ -186,6 +194,7 @@ public class TransportClient {
     public void disconnect() {
         final Channel _channel = channel;
         channel = null;
+        reconnect = false;
         if (_channel != null && _channel.isOpen()) {
             // Note: this should trigger a call to ProviderDomain.close() as defined in DomainHandler!
             _channel.close();
