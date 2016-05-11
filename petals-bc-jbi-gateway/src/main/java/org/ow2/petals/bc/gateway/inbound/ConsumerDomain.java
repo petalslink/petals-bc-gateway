@@ -20,6 +20,7 @@ package org.ow2.petals.bc.gateway.inbound;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -30,6 +31,7 @@ import java.util.logging.Logger;
 
 import javax.jbi.JBIException;
 import javax.jbi.servicedesc.ServiceEndpoint;
+import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
@@ -38,7 +40,7 @@ import org.ow2.petals.bc.gateway.commons.AbstractDomain;
 import org.ow2.petals.bc.gateway.commons.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.commons.messages.TransportedDocument;
 import org.ow2.petals.bc.gateway.commons.messages.TransportedMessage;
-import org.ow2.petals.bc.gateway.commons.messages.TransportedPropagatedConsumes;
+import org.ow2.petals.bc.gateway.commons.messages.TransportedPropagations;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumerDomain;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayConsumeExtFlowStepBeginLogData;
 import org.ow2.petals.commons.log.FlowAttributes;
@@ -62,18 +64,15 @@ import io.netty.util.concurrent.ScheduledFuture;
  * The main idea is that a given consumer partner can contact us (a provider partner) with multiple connections (for
  * example in case of HA) and each of these needs to know what are the consumes propagated to them.
  * 
- * TODO should I propagate one servicekey per Service? because for a given interface, there could be endpoints with
- * different services!
- * 
  * @author vnoel
  *
  */
 public class ConsumerDomain extends AbstractDomain {
 
     /**
-     * The keys of the {@link Consumes} propagated to this consumer domain.
+     * The {@link Consumes} propagated to this consumer domain.
      */
-    private final Map<ServiceKey, Consumes> services = new HashMap<>();
+    private final Collection<Consumes> consumes;
 
     private final JbiGatewaySUManager sum;
 
@@ -93,7 +92,7 @@ public class ConsumerDomain extends AbstractDomain {
 
     private volatile boolean open = false;
 
-    private TransportedPropagatedConsumes propagations = TransportedPropagatedConsumes.EMPTY;
+    private TransportedPropagations propagations = TransportedPropagations.EMPTY;
 
     private @Nullable ScheduledFuture<?> polling = null;
 
@@ -104,10 +103,7 @@ public class ConsumerDomain extends AbstractDomain {
         this.tl = tl;
         this.sum = sum;
         this.jcd = jcd;
-        for (final Consumes c : consumes) {
-            assert c != null;
-            services.put(new ServiceKey(c), c);
-        }
+        this.consumes = consumes;
         // Consumer partner will be able to connect to us (but no consumes will be propagated until open() is called)
         tl.register(jcd.getAuthName(), this);
     }
@@ -170,6 +166,7 @@ public class ConsumerDomain extends AbstractDomain {
                 if (logger.isLoggable(Level.CONFIG)) {
                     logger.config("Propagation refresh polling is enabled (every " + propagationPollingDelay + "ms)");
                 }
+                // TODO maybe we could have faster polling at beginning and then plateau at a given delay?
                 polling = GlobalEventExecutor.INSTANCE.scheduleWithFixedDelay(new Runnable() {
                     @Override
                     public void run() {
@@ -198,7 +195,7 @@ public class ConsumerDomain extends AbstractDomain {
                 polling.cancel(true);
                 polling = null;
             }
-            sendPropagations(TransportedPropagatedConsumes.EMPTY);
+            sendPropagations(TransportedPropagations.EMPTY);
         } finally {
             lock.unlock();
         }
@@ -240,10 +237,10 @@ public class ConsumerDomain extends AbstractDomain {
      * Note, this can be interrupted, for example if the polling is cancelled: in that case we simply returns
      * <code>false</code>.
      * 
-     * Sends the propagation to all channels if the domain is open, and if force is <code>true</code> or if there is
-     * some changes.
+     * Sends the propagation to all channels if the domain is open, and either if force is <code>true</code> or if there
+     * is some changes.
      * 
-     * @return <code>false</code> if the propagations were sent.
+     * @return <code>true</code> if the propagations were sent.
      */
     private boolean sendPropagations(final boolean force) {
         lock.lock();
@@ -252,54 +249,69 @@ public class ConsumerDomain extends AbstractDomain {
                 return false;
             }
             boolean changes = false;
-            final Map<ServiceKey, TransportedDocument> consumes = new HashMap<>();
-            for (final Entry<ServiceKey, Consumes> entry : services.entrySet()) {
-                final ServiceKey service = entry.getKey();
-                final Collection<ServiceEndpoint> endpoints = sum.getEndpointsForConsumes(entry.getValue());
+            final Map<ServiceKey, TransportedDocument> propagated = new HashMap<>();
+            for (final Consumes c : consumes) {
+                assert c != null;
+                final String endpointName = c.getEndpointName();
+                final QName interfaceName = c.getInterfaceName();
+                assert interfaceName != null;
+
+                final Collection<ServiceEndpoint> allEndpoints = sum.getEndpointsForConsumes(c);
+                assert allEndpoints != null;
 
                 if (Thread.interrupted()) {
                     return false;
                 }
 
-                final boolean shouldBePropagated = !endpoints.isEmpty();
+                // there will be one propagation per interface/service, even if the consumes only declares an interface!
+                for (final Entry<QName, Collection<ServiceEndpoint>> entry : splitPerService(allEndpoints).entrySet()) {
+                    final QName serviceName = entry.getKey();
+                    assert serviceName != null;
+                    final Collection<ServiceEndpoint> endpoints = entry.getValue();
 
-                final TransportedDocument description;
-                if (shouldBePropagated) {
-                    description = getFirstDescription(endpoints);
+                    final boolean shouldBePropagated = !endpoints.isEmpty();
+
+                    final TransportedDocument description;
+                    if (shouldBePropagated) {
+                        description = getFirstDescription(endpoints);
+                        if (Thread.interrupted()) {
+                            return false;
+                        }
+                    } else {
+                        description = null;
+                    }
+
+                    final ServiceKey service = new ServiceKey(endpointName, serviceName, interfaceName);
+
+                    if (!force) {
+                        // careful, the map can contains null for some keys! so containsKey is not the same as get !=
+                        // null!
+                        final boolean wasPropagated = propagations.getPropagations().containsKey(service);
+
+                        if (shouldBePropagated != wasPropagated) {
+                            // if they have different values, then it means something changed
+                            changes = true;
+                        } else if (shouldBePropagated && description != null
+                                && propagations.getPropagations().get(service) == null) {
+                            // if they have the same value, but the description changed from null to non-null,
+                            // then it means something changed too!
+                            changes = true;
+                        }
+                    }
+
+                    if (shouldBePropagated) {
+                        propagated.put(service, description);
+                    }
+
                     if (Thread.interrupted()) {
                         return false;
                     }
-                } else {
-                    description = null;
-                }
-
-                if (!force) {
-                    // careful, the map can contains null for some keys! so containsKey is not the same as get != null!
-                    final boolean wasPropagated = propagations.getConsumes().containsKey(service);
-
-                    if (shouldBePropagated != wasPropagated) {
-                        // if they have different values, then it means something changed
-                        changes = true;
-                    } else if (shouldBePropagated && description != null
-                            && propagations.getConsumes().get(service) == null) {
-                        // if they have the same value, but the description changed from null to non-null,
-                        // then it means something changed too!
-                        changes = true;
-                    }
-                }
-
-                if (shouldBePropagated) {
-                    consumes.put(service, description);
-                }
-
-                if (Thread.interrupted()) {
-                    return false;
                 }
             }
 
             final boolean sendPropagations = force || changes;
             if (sendPropagations) {
-                sendPropagations(new TransportedPropagatedConsumes(consumes));
+                sendPropagations(new TransportedPropagations(propagated));
             }
 
             return sendPropagations;
@@ -308,7 +320,22 @@ public class ConsumerDomain extends AbstractDomain {
         }
     }
 
-    private void sendPropagations(final TransportedPropagatedConsumes toPropagate) {
+    private static Map<QName, Collection<ServiceEndpoint>> splitPerService(
+            final Collection<ServiceEndpoint> endpoints) {
+        final Map<QName, Collection<ServiceEndpoint>> res = new HashMap<>();
+        for (final ServiceEndpoint endpoint : endpoints) {
+            final QName serviceName = endpoint.getServiceName();
+            Collection<ServiceEndpoint> c = res.get(serviceName);
+            if (c == null) {
+                c = new LinkedList<>();
+                res.put(serviceName, c);
+            }
+            c.add(endpoint);
+        }
+        return res;
+    }
+
+    private void sendPropagations(final TransportedPropagations toPropagate) {
         propagations = toPropagate;
         for (final Channel c : channels) {
             assert c != null;

@@ -17,6 +17,7 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import java.util.Collection;
 import java.util.concurrent.Callable;
 import java.util.logging.Level;
 
@@ -44,6 +45,9 @@ import com.jayway.awaitility.Duration;
 /**
  * TODO also test that there is no warning in the log w.r.t. descriptions!
  * 
+ * Maybe we could use assertLogContains to remove the logs we expected, and then at the end test that there is no
+ * warning nor severe?
+ * 
  * TODO and test with specify endpoint!
  * 
  * @author vnoel
@@ -55,12 +59,21 @@ public class JbiGatewayRefreshTest extends AbstractComponentTest {
 
     private static final QName TEST_SERVICE = new QName(HELLO_NS, "TestService");
 
+    private static final QName TEST_SERVICE2 = new QName(HELLO_NS, "TestService2");
+
     private static final String TEST_ENDPOINT_NAME = "testEndpoint";
+
+    private static final String TEST_ENDPOINT_NAME2 = "testEndpoint2";
 
     private static final MockServiceEndpoint SERVICE_ENDPOINT = new MockServiceEndpoint(TEST_ENDPOINT_NAME,
             TEST_SERVICE, TEST_INTERFACE);
 
+    private static final MockServiceEndpoint SERVICE_ENDPOINT2 = new MockServiceEndpoint(TEST_ENDPOINT_NAME2,
+            TEST_SERVICE2, TEST_INTERFACE);
+
     private static final MockServiceEndpoint SERVICE_ENDPOINT_WITH_DESC;
+
+    private static final MockServiceEndpoint SERVICE_ENDPOINT_WITH_DESC2;
 
     static {
         try {
@@ -68,6 +81,12 @@ public class JbiGatewayRefreshTest extends AbstractComponentTest {
                     new QName[] { TEST_INTERFACE }, new Location("test", "test"),
                     WSDLUtilImpl.convertDescriptionToDocument(WSDLUtilImpl.createLightWSDL20Description(TEST_INTERFACE,
                             TEST_SERVICE, TEST_ENDPOINT_NAME)));
+
+            SERVICE_ENDPOINT_WITH_DESC2 = new MockServiceEndpoint(TEST_ENDPOINT_NAME2, TEST_SERVICE2,
+                    new QName[] { TEST_INTERFACE }, new Location("test", "test"),
+                    WSDLUtilImpl.convertDescriptionToDocument(WSDLUtilImpl.createLightWSDL20Description(TEST_INTERFACE,
+                            TEST_SERVICE2, TEST_ENDPOINT_NAME2)));
+
         } catch (WSDLException e) {
             throw new RuntimeException(e);
         }
@@ -106,32 +125,34 @@ public class JbiGatewayRefreshTest extends AbstractComponentTest {
     @After
     public void undeployServices2() {
         COMPONENT_UNDER_TEST.getEndpointDirectory().deactivateEndpoint(SERVICE_ENDPOINT);
+        COMPONENT_UNDER_TEST.getEndpointDirectory().deactivateEndpoint(SERVICE_ENDPOINT2);
         COMPONENT_UNDER_TEST.getEndpointDirectory().deactivateEndpoint(SERVICE_ENDPOINT_WITH_DESC);
+        COMPONENT_UNDER_TEST.getEndpointDirectory().deactivateEndpoint(SERVICE_ENDPOINT_WITH_DESC2);
 
         undeployServices(COMPONENT_UNDER_TEST2, IN_MEMORY_LOG_HANDLER2);
     }
 
     @Test
     public void testRefreshExplicitWithoutDesc1() throws Exception {
-        testRefreshExplicit(true, SERVICE_ENDPOINT);
+        testRefreshExplicit(true, false);
     }
 
     @Test
     public void testRefreshExplicitWithoutDesc2() throws Exception {
-        testRefreshExplicit(false, SERVICE_ENDPOINT);
+        testRefreshExplicit(false, false);
     }
 
     @Test
     public void testRefreshExplicitWitDesc1() throws Exception {
-        testRefreshExplicit(true, SERVICE_ENDPOINT_WITH_DESC);
+        testRefreshExplicit(true, true);
     }
 
     @Test
     public void testRefreshExplicitWitDesc2() throws Exception {
-        testRefreshExplicit(false, SERVICE_ENDPOINT_WITH_DESC);
+        testRefreshExplicit(false, true);
     }
 
-    public void testRefreshExplicit(final boolean specifyService, final MockServiceEndpoint externalEndpoint) throws Exception {
+    public void testRefreshExplicit(final boolean specifyService, final boolean withDesc) throws Exception {
 
         final MockEndpointDirectory ed = COMPONENT_UNDER_TEST.getEndpointDirectory();
 
@@ -145,39 +166,65 @@ public class JbiGatewayRefreshTest extends AbstractComponentTest {
 
         assertTrue(ed.resolveEndpoints(TEST_INTERFACE).isEmpty());
 
-        ed.activateEndpoint(externalEndpoint);
+        ed.activateEndpoint(withDesc ? SERVICE_ENDPOINT_WITH_DESC : SERVICE_ENDPOINT);
 
         getComponent().refreshPropagations();
 
         Awaitility.await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
             @Override
             public Boolean call() throws Exception {
-                return !COMPONENT_UNDER_TEST2.getEndpointDirectory().resolveEndpoints(TEST_INTERFACE).isEmpty();
+                return hasInterface(TEST_INTERFACE, 1) && hasService(TEST_SERVICE, 1);
             }
         });
+
+        if (!specifyService) {
+            ed.activateEndpoint(withDesc ? SERVICE_ENDPOINT_WITH_DESC2 : SERVICE_ENDPOINT2);
+
+            getComponent().refreshPropagations();
+
+            Awaitility.await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
+                @Override
+                public Boolean call() throws Exception {
+                    return hasInterface(TEST_INTERFACE, 2) && hasService(TEST_SERVICE, 1)
+                            && hasService(TEST_SERVICE2, 1);
+                }
+            });
+        }
+    }
+
+    private boolean hasInterface(final QName interfaceName, final int howMany) {
+        final Collection<MockServiceEndpoint> endpoints = COMPONENT_UNDER_TEST2.getEndpointDirectory()
+                .resolveEndpoints(interfaceName);
+        return endpoints.size() == howMany;
+    }
+
+    private boolean hasService(final QName service, final int howMany) {
+        final Collection<MockServiceEndpoint> endpoints = COMPONENT_UNDER_TEST2.getEndpointDirectory()
+                .resolveEndpointsForService(service);
+        return endpoints.size() == howMany;
     }
 
     @Test
     public void testRefreshPollingWithDesc1() throws Exception {
-        testRefreshPolling(true, SERVICE_ENDPOINT_WITH_DESC);
+        testRefreshPolling(true, true);
     }
 
     @Test
     public void testRefreshPollingWithDesc2() throws Exception {
-        testRefreshPolling(false, SERVICE_ENDPOINT_WITH_DESC);
+        testRefreshPolling(false, true);
     }
 
     @Test
     public void testRefreshPollingWithoutDesc1() throws Exception {
-        testRefreshPolling(true, SERVICE_ENDPOINT);
+        testRefreshPolling(true, false);
     }
 
     @Test
     public void testRefreshPollingWithoutDesc2() throws Exception {
-        testRefreshPolling(false, SERVICE_ENDPOINT);
+        testRefreshPolling(false, false);
     }
 
-    public void testRefreshPolling(final boolean specifyService, final MockServiceEndpoint externalEndpoint)
+    public void testRefreshPolling(final boolean specifyService, final boolean withDesc)
             throws Exception {
 
         final MockEndpointDirectory ed = COMPONENT_UNDER_TEST.getEndpointDirectory();
@@ -195,12 +242,12 @@ public class JbiGatewayRefreshTest extends AbstractComponentTest {
         // let's wait for two of them
         assertLogContains("Propagation refresh polling (next in", Level.FINE, 2);
 
-        ed.activateEndpoint(externalEndpoint);
+        ed.activateEndpoint(withDesc ? SERVICE_ENDPOINT_WITH_DESC : SERVICE_ENDPOINT);
 
         Awaitility.await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
             @Override
             public Boolean call() throws Exception {
-                return !COMPONENT_UNDER_TEST2.getEndpointDirectory().resolveEndpoints(TEST_INTERFACE).isEmpty();
+                return hasInterface(TEST_INTERFACE, 1) && hasService(TEST_SERVICE, 1);
             }
         });
 
@@ -209,5 +256,23 @@ public class JbiGatewayRefreshTest extends AbstractComponentTest {
 
         // and check that there was only one change detected from the beginning!
         assertLogContains("Changes in propagations detected: refreshed", Level.INFO, 1);
+
+        if (!specifyService) {
+            ed.activateEndpoint(withDesc ? SERVICE_ENDPOINT_WITH_DESC2 : SERVICE_ENDPOINT2);
+
+            Awaitility.await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
+                @Override
+                public Boolean call() throws Exception {
+                    return hasInterface(TEST_INTERFACE, 2) && hasService(TEST_SERVICE, 1)
+                            && hasService(TEST_SERVICE2, 1);
+                }
+            });
+
+            // let's wait for some more polling (careful, they are all counted from zero!)
+            assertLogContains("Propagation refresh polling (next in", Level.FINE, 10);
+
+            // and check that there was only 2 change detected from the beginning!
+            assertLogContains("Changes in propagations detected: refreshed", Level.INFO, 2);
+        }
     }
 }

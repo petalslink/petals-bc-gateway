@@ -503,6 +503,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
 
     private static JbiProvidesConfig getProviderConfig(final @Nullable Provides provides) throws PEtALSCDKException {
         assert provides != null;
+
         final Collection<JbiProvidesConfig> configs = getAll(provides.getAny(), EL_PROVIDER, JbiProvidesConfig.class);
         if (configs.isEmpty()) {
             throw new PEtALSCDKException(String.format("Missing provider in Provides for '%s/%s/%s'",
@@ -514,7 +515,37 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         }
         final JbiProvidesConfig config = configs.iterator().next();
         assert config != null;
+
+        validate(provides, config);
+
         return config;
+    }
+
+    private static void validate(final Provides provides, final JbiProvidesConfig config) throws PEtALSCDKException {
+
+        final String endpointName = config.getProviderEndpointName();
+        final QName serviceName = config.getProviderServiceName();
+
+        if (serviceName == null && endpointName != null) {
+            throw new PEtALSCDKException(String.format(
+                    "Can't specify a provider endpoint name (%s)"
+                            + " if no provider service name is specified in Provides for '%s/%s/%s'",
+                    endpointName, provides.getInterfaceName(), provides.getServiceName(), provides.getEndpointName()));
+        }
+
+        if (provides.getServiceName() == null && serviceName != null) {
+            throw new PEtALSCDKException(String.format(
+                    "Can't specify a provider service name (%s)"
+                            + " if no service name is specified in Provides for '%s'",
+                    serviceName, provides.getInterfaceName()));
+        }
+
+        if (provides.getEndpointName() == null && endpointName != null) {
+            throw new PEtALSCDKException(String.format(
+                    "Can't specify a provider endpoint name (%s)"
+                            + " if no endpoint name is specified in Provides for '%s/%s'",
+                    endpointName, provides.getInterfaceName(), provides.getServiceName()));
+        }
     }
 
     public static Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> getProvidesPerDomain(

@@ -22,21 +22,21 @@ import java.util.Map;
 
 import org.ow2.petals.bc.gateway.commons.messages.Transported.TransportedToConsumer;
 
-public class TransportedPropagatedConsumes implements TransportedToConsumer {
+public class TransportedPropagations implements TransportedToConsumer {
 
     @SuppressWarnings("null")
-    public static final TransportedPropagatedConsumes EMPTY = new TransportedPropagatedConsumes(
+    public static final TransportedPropagations EMPTY = new TransportedPropagations(
             Collections.<ServiceKey, TransportedDocument> emptyMap());
 
     private static final long serialVersionUID = -2818905233890110391L;
 
-    private final Map<ServiceKey, TransportedDocument> consumes;
+    private final Map<ServiceKey, TransportedDocument> propagations;
 
-    public TransportedPropagatedConsumes(final Map<ServiceKey, TransportedDocument> consumes) {
-        this.consumes = consumes;
+    public TransportedPropagations(final Map<ServiceKey, TransportedDocument> propagations) {
+        this.propagations = propagations;
     }
 
-    public Map<ServiceKey, TransportedDocument> getConsumes() {
-        return consumes;
+    public Map<ServiceKey, TransportedDocument> getPropagations() {
+        return propagations;
     }
 }

@@ -22,11 +22,9 @@ import java.io.Serializable;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
-import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 
 /**
- * Represents a {@link Consumes} that is propagated.
+ * Represents a service that is propagated.
  * 
  * It is used by provider partner to inform consumer partner of available services, and by consumer partner to tell a
  * provider partner to which service a message is addressed
@@ -41,7 +39,6 @@ public class ServiceKey implements Serializable {
     @Nullable
     public final String endpointName;
 
-    @Nullable
     public final QName service;
 
     /**
@@ -49,18 +46,10 @@ public class ServiceKey implements Serializable {
      */
     public final QName interfaceName;
 
-    public ServiceKey(final @Nullable String endpointName, final @Nullable QName service, final QName interfaceName) {
+    public ServiceKey(final @Nullable String endpointName, final QName service, final QName interfaceName) {
         this.endpointName = endpointName;
         this.service = service;
         this.interfaceName = interfaceName;
-    }
-
-    public ServiceKey(final JbiProvidesConfig config) {
-        this(config.getProviderEndpointName(), config.getProviderServiceName(), config.getProviderInterfaceName());
-    }
-
-    public ServiceKey(final Consumes consumes) {
-        this(consumes.getEndpointName(), consumes.getServiceName(), consumes.getInterfaceName());
     }
 
     @Override
@@ -93,10 +82,7 @@ public class ServiceKey implements Serializable {
         if (!interfaceName.equals(other.interfaceName))
             return false;
         final QName _service = this.service;
-        if (_service == null) {
-            if (other.service != null)
-                return false;
-        } else if (!_service.equals(other.service))
+        if (!_service.equals(other.service))
             return false;
         return true;
     }

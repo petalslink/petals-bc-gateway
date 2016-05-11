@@ -28,7 +28,7 @@ import org.ow2.petals.bc.gateway.commons.handlers.HandlerConstants;
 import org.ow2.petals.bc.gateway.commons.handlers.LastLoggingHandler;
 import org.ow2.petals.bc.gateway.commons.messages.Transported.TransportedToConsumer;
 import org.ow2.petals.bc.gateway.commons.messages.TransportedForExchange;
-import org.ow2.petals.bc.gateway.commons.messages.TransportedPropagatedConsumes;
+import org.ow2.petals.bc.gateway.commons.messages.TransportedPropagations;
 import org.ow2.petals.bc.gateway.inbound.TransportListener;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
@@ -219,8 +219,8 @@ public class TransportClient {
 
             if (msg instanceof TransportedForExchange) {
                 pd.receiveFromChannel(ctx, (TransportedForExchange) msg);
-            } else if (msg instanceof TransportedPropagatedConsumes) {
-                pd.updatePropagatedServices((TransportedPropagatedConsumes) msg);
+            } else if (msg instanceof TransportedPropagations) {
+                pd.updatePropagatedServices((TransportedPropagations) msg);
             } else {
                 throw new IllegalArgumentException("Impossible case");
             }

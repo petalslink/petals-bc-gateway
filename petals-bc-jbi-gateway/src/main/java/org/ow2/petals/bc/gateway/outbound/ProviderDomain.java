@@ -45,7 +45,7 @@ import org.ow2.petals.bc.gateway.commons.AbstractDomain;
 import org.ow2.petals.bc.gateway.commons.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.commons.messages.TransportedDocument;
 import org.ow2.petals.bc.gateway.commons.messages.TransportedMessage;
-import org.ow2.petals.bc.gateway.commons.messages.TransportedPropagatedConsumes;
+import org.ow2.petals.bc.gateway.commons.messages.TransportedPropagations;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
@@ -76,7 +76,7 @@ import io.netty.handler.codec.serialization.ClassResolver;
  * It maintains the list of Provides we should create on our side (based on the Consumes propagated)
  *
  * {@link #connect()} and {@link #disconnect()} corresponds to components start and stop. {@link #connect()} should
- * trigger {@link #updatePropagatedServices(TransportedPropagatedConsumes)} by the {@link Channel} normally.
+ * trigger {@link #updatePropagatedServices(TransportedPropagations)} by the {@link Channel} normally.
  * 
  * {@link #register()} and {@link #deregister()} corresponds to SU init and shutdown.
  * 
@@ -85,8 +85,10 @@ public class ProviderDomain extends AbstractDomain {
 
     /**
      * immutable, all the provides for this domain.
+     * 
+     * See {@link #validate(Map)} for the conditions it holds.
      */
-    private final Map<ServiceKey, Provides> provides;
+    private final Map<QName, Map<QName, Map<String, Provides>>> provides;
 
     private final ProviderMatcher matcher;
 
@@ -98,7 +100,7 @@ public class ProviderDomain extends AbstractDomain {
     private final Lock lock = new ReentrantLock();
 
     /**
-     * Updated by {@link #updatePropagatedServices(TransportedPropagatedConsumes)}.
+     * Updated by {@link #updatePropagatedServices(TransportedPropagations)}.
      * 
      * Contains the services announced by the provider partner as being propagated.
      * 
@@ -135,17 +137,107 @@ public class ProviderDomain extends AbstractDomain {
         this.matcher = matcher;
         this.jpd = jpd;
 
+        // TODO maybe move all of that to JbiGatewayJBIHelper?
         this.provides = new HashMap<>();
         for (final Pair<Provides, JbiProvidesConfig> pair : provides) {
-            if (StringHelper.isNullOrEmpty(pair.getA().getWsdl())) {
+            final Provides p = pair.getA();
+            final JbiProvidesConfig config = pair.getB();
+
+            if (StringHelper.isNullOrEmpty(p.getWsdl())) {
                 // TODO maybe later we can do simple mirroring and rewriting w.r.t. the JbiProvidesConfig
-                throw new PEtALSCDKException(
-                        "The provides " + pair.getA().getServiceName() + " must have a WSDL defined");
+                throw new PEtALSCDKException("The provides " + p.getServiceName() + " must have a WSDL defined");
             }
-            this.provides.put(new ServiceKey(pair.getB()), pair.getA());
+
+            addToProvides(p, config);
         }
 
+        assert validate(this.provides);
+
         this.client = new TransportClient(handler, partialBootstrap, logger, cr, this);
+    }
+
+    private static boolean validate(final Map<QName, Map<QName, Map<String, Provides>>> provides) {
+
+        // there can't be any interface
+        if (provides.containsKey(null)) {
+            return false;
+        }
+
+        for (final Map<QName, Map<String, Provides>> byServices : provides.values()) {
+            final Map<String, Provides> anyServices = byServices.get(null);
+            if (anyServices != null) {
+                // normally for the any service key, there should only be at most the null key
+                if (anyServices.size() > 1) {
+                    return false;
+                }
+                if (anyServices.size() == 1 && !anyServices.containsKey(null)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * For now we only accept ONE provides per propagated service, but there is no reason to do so, we could have many
+     * provides for a given matching service (as long as each provides matches only one service of course!).
+     * 
+     * TODO support multi provides per service (it's complicated because then we have to rething {@link #services} that
+     * won't match the received services anymore)
+     */
+    private void addToProvides(final Provides p, final JbiProvidesConfig config) throws PEtALSCDKException {
+        // can't be null
+        final QName interfaceName = config.getProviderInterfaceName();
+        Map<QName, Map<String, Provides>> byServices = provides.get(interfaceName);
+        if (byServices == null) {
+            byServices = new HashMap<>();
+            provides.put(interfaceName, byServices);
+        }
+
+        // can be null
+        final QName serviceName = config.getProviderServiceName();
+        // null key is accepted in HashMap, it means any service name here!
+        Map<String, Provides> byEndpoints = byServices.get(serviceName);
+        if (byEndpoints == null) {
+            byEndpoints = new HashMap<>();
+            byServices.put(serviceName, byEndpoints);
+        }
+
+        // can be null
+        final String endpointName = config.getProviderEndpointName();
+        // null key is accepted in HashMap, it means any endpoint name here!
+        if (byEndpoints.containsKey(endpointName)) {
+            // TODO can be detect that earlier maybe in JbiGatewayJBIHelper
+            throw new PEtALSCDKException(
+                    String.format("Ambiguous provider configuration: duplicate matching service for %s/%s/%s",
+                            interfaceName, serviceName, endpointName));
+        } else {
+            byEndpoints.put(endpointName, p);
+        }
+    }
+
+    /**
+     * TODO add tests related to that!
+     */
+    private @Nullable Provides getProvides(final ServiceKey key) {
+        final Map<QName, Map<String, Provides>> byServices = this.provides.get(key.interfaceName);
+        if (byServices != null) {
+            final Map<String, Provides> byEndpoints = byServices.get(key.service);
+            if (byEndpoints == null) {
+                // if it doesn't match a specific provides, then maybe we have a generic one!
+                // Note that there can't be any other key possible than null endpoint for a null service
+                final Map<String, Provides> anyServices = byServices.get(null);
+                if (anyServices != null) {
+                    return anyServices.get(null);
+                }
+            } else {
+                // note: key.service can't be null!
+                return byEndpoints.get(key.endpointName);
+            }
+        }
+
+        return null;
     }
 
     @Override
@@ -230,8 +322,8 @@ public class ProviderDomain extends AbstractDomain {
         }
     }
 
-    public void updatePropagatedServices(final TransportedPropagatedConsumes propagatedServices) {
-        updatePropagatedServices(propagatedServices.getConsumes());
+    public void updatePropagatedServices(final TransportedPropagations propagatedServices) {
+        updatePropagatedServices(propagatedServices.getPropagations());
     }
 
     /**
@@ -310,26 +402,26 @@ public class ProviderDomain extends AbstractDomain {
 
     private void registerProviderService(final ServiceKey sk, final ServiceData data) throws PEtALSCDKException {
 
-        final ProviderService ps = new ProviderService() {
+        final ProviderService provider = new ProviderService() {
             @Override
             public void sendToChannel(final Exchange exchange) {
                 ProviderDomain.this.sendToChannel(sk, exchange);
             }
         };
 
-        // the service key was built from the provides config: it must match exactly for rewriting work
-        final Provides p = provides.get(sk);
+        final Provides p = getProvides(sk);
+
         if (p != null) {
             final ServiceEndpointKey key = new ServiceEndpointKey(p);
             data.key = key;
             // the description is managed by the ServiceUnitManager, the component will retrieve it
-            // see also the constructor that verify that the description is present
-            matcher.register(key, ps);
+            // see also the Class constructor that verify that the description is present
+            matcher.register(key, provider);
         } else {
             final ServiceEndpointKey key = generateSEK(sk);
             data.key = key;
             final Document description = generateDescription(data.description, sk, key);
-            matcher.register(key, ps, description);
+            matcher.register(key, provider, description);
         }
     }
 
@@ -372,28 +464,9 @@ public class ProviderDomain extends AbstractDomain {
             }
 
             if (description != null) {
-                final Service service;
-                if (originalKey.service != null) {
-                    service = description.getService(originalKey.service);
-                } else {
-                    // TODO maybe the provider domain should have sent us one ServiceKey per interface/service that he
-                    // found even if it didn't specify any service in its consume! like this I can mirror all the
-                    // services available instead of generating service names!
-
-                    // for now let's take the first one!
-                    service = description.getServices().isEmpty() ? null : description.getServices().get(0);
-                }
+                final Service service = description.getService(originalKey.service);
 
                 if (service != null) {
-                    
-                    // we only change it in the description if we generated one!
-                    if (originalKey.service == null) {
-                        service.setQName(newKey.getServiceName());
-                    } else {
-                        assert originalKey.service != null;
-                        assert originalKey.service.equals(newKey.getServiceName());
-                    }
-
                     final Endpoint endpoint;
                     if (originalKey.endpointName != null) {
                         endpoint = service.getEndpoint(originalKey.endpointName);
@@ -449,10 +522,7 @@ public class ProviderDomain extends AbstractDomain {
     private static ServiceEndpointKey generateSEK(final ServiceKey sk) {
         // Note: we should not propagate endpoint name, it is local to each domain
         final String endpointName = EndpointUtil.generateEndpointName();
-        final QName serviceName = sk.service == null
-                ? new QName(sk.interfaceName.getNamespaceURI(), sk.interfaceName.getLocalPart() + "GeneratedService")
-                : sk.service;
-        final ServiceEndpointKey key = new ServiceEndpointKey(serviceName, endpointName);
+        final ServiceEndpointKey key = new ServiceEndpointKey(sk.service, endpointName);
         return key;
     }
 
@@ -505,7 +575,7 @@ public class ProviderDomain extends AbstractDomain {
 
     public void close() {
         // this is like a disconnect... but emanating from the other side
-        updatePropagatedServices(TransportedPropagatedConsumes.EMPTY);
+        updatePropagatedServices(TransportedPropagations.EMPTY);
     }
 
     @Override

@@ -461,11 +461,11 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         Awaitility.await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
             @Override
             public Boolean call() throws Exception {
-                return getNotExternalEndpoint(specifyService) != null;
+                return getNotExternalEndpoint() != null;
             }
         });
 
-        final ServiceEndpoint endpoint = getNotExternalEndpoint(specifyService);
+        final ServiceEndpoint endpoint = getNotExternalEndpoint();
         assert endpoint != null;
         return endpoint;
     }
@@ -475,22 +475,14 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
                 endpoint.getServiceName(), null, HELLO_OPERATION, pattern, IN);
     }
 
-    protected static @Nullable ServiceEndpoint getNotExternalEndpoint(final boolean specifyService) {
-        return getNotEndpoint(HELLO_INTERFACE, specifyService ? HELLO_SERVICE : null, EXTERNAL_HELLO_ENDPOINT);
+    protected static @Nullable ServiceEndpoint getNotExternalEndpoint() {
+        return getNotEndpoint(HELLO_INTERFACE, HELLO_SERVICE, EXTERNAL_HELLO_ENDPOINT);
     }
 
-    protected static @Nullable ServiceEndpoint getNotEndpoint(final QName interfaceName,
-            final @Nullable QName serviceName, final String notEndpointName) {
-
-        final QName service;
-        if (serviceName != null) {
-            service = serviceName;
-        } else {
-            service = new QName(interfaceName.getNamespaceURI(), interfaceName.getLocalPart() + "GeneratedService");
-        }
-
+    protected static @Nullable ServiceEndpoint getNotEndpoint(final QName interfaceName, final QName serviceName,
+            final String notEndpointName) {
         for (final ServiceEndpoint endpoint : COMPONENT_UNDER_TEST.getEndpointDirectory()
-                .resolveEndpointsForService(service)) {
+                .resolveEndpointsForService(serviceName)) {
             if (!endpoint.getEndpointName().equals(notEndpointName)) {
                 return endpoint;
             }

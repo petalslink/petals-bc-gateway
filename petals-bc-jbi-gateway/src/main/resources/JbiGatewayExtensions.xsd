@@ -178,7 +178,7 @@
 <!--       <xs:complexContent> -->
 <!--          <xs:extension base="jbi:Provides"> -->
 <!--             <xs:sequence> -->
-<!--                <xs:element name="provider-mapping" type="jg:JbiProviderMapping" /> -->
+<!--                <xs:element name="provider-mapping" type="jg:JbiProviderMapping" minOccurs="0" /> -->
 <!--             </xs:sequence> -->
 <!--          </xs:extension> -->
 <!--       </xs:complexContent> -->
