@@ -78,13 +78,18 @@ import io.netty.handler.codec.serialization.ClassResolver;
 public class ProviderDomain extends AbstractDomain {
 
     /**
-     * Not final because it can be updated by {@link #reload(JbiProviderDomain)}.
+     * immutable, all the provides for this domain.
      */
-    private JbiProviderDomain jpd;
+    private final Map<ServiceKey, Provides> provides;
 
     private final ProviderMatcher matcher;
 
     private final TransportClient client;
+
+    /**
+     * lock for manipulating the {@link #services}, {@link #jpd} and {@link #init},
+     */
+    private final Lock lock = new ReentrantLock();
 
     /**
      * Updated by {@link #updatePropagatedServices(TransportedPropagatedConsumes)}.
@@ -98,15 +103,9 @@ public class ProviderDomain extends AbstractDomain {
     private final Map<ServiceKey, ServiceData> services = new HashMap<>();
 
     /**
-     * lock for manipulating the services map to avoid new services not taken into account during {@link #register()}
-     * and {@link #deregister()}.
+     * Not final because it can be updated by {@link #reload(JbiProviderDomain)}.
      */
-    private final Lock servicesLock = new ReentrantLock();
-
-    /**
-     * immutable, all the provides for this domain.
-     */
-    private final Map<ServiceKey, Provides> provides;
+    private JbiProviderDomain jpd;
 
     private boolean init = false;
 
@@ -148,15 +147,20 @@ public class ProviderDomain extends AbstractDomain {
     }
 
     public void reload(final JbiProviderDomain newJPD) {
-        if (!jpd.getRemoteAuthName().equals(newJPD.getRemoteAuthName())
-                || !jpd.getRemoteIp().equals(newJPD.getRemoteIp())
-                || !jpd.getRemotePort().equals(newJPD.getRemotePort())
-                || !jpd.getCertificate().equals(newJPD.getCertificate())
-                || !jpd.getRemoteCertificate().equals(newJPD.getRemoteCertificate())
-                || !jpd.getKey().equals(newJPD.getKey()) || !jpd.getPassphrase().equals(newJPD.getPassphrase())) {
-            jpd = newJPD;
-            disconnect();
-            connect();
+        lock.lock();
+        try {
+            if (!jpd.getRemoteAuthName().equals(newJPD.getRemoteAuthName())
+                    || !jpd.getRemoteIp().equals(newJPD.getRemoteIp())
+                    || !jpd.getRemotePort().equals(newJPD.getRemotePort())
+                    || !jpd.getCertificate().equals(newJPD.getCertificate())
+                    || !jpd.getRemoteCertificate().equals(newJPD.getRemoteCertificate())
+                    || !jpd.getKey().equals(newJPD.getKey()) || !jpd.getPassphrase().equals(newJPD.getPassphrase())) {
+                jpd = newJPD;
+                disconnect();
+                connect();
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -165,7 +169,7 @@ public class ProviderDomain extends AbstractDomain {
      * {@link #connect()} has been called).
      */
     public void register() throws PEtALSCDKException {
-        servicesLock.lock();
+        lock.lock();
         try {
             for (final Entry<ServiceKey, ServiceData> e : services.entrySet()) {
                 final ServiceKey sk = e.getKey();
@@ -187,7 +191,7 @@ public class ProviderDomain extends AbstractDomain {
 
             throw e;
         } finally {
-            servicesLock.unlock();
+            lock.unlock();
         }
     }
 
@@ -198,7 +202,7 @@ public class ProviderDomain extends AbstractDomain {
 
         final List<Exception> exceptions = new ArrayList<>();
 
-        servicesLock.lock();
+        lock.lock();
         try {
             init = false;
 
@@ -207,7 +211,7 @@ public class ProviderDomain extends AbstractDomain {
                 deregisterOrStoreOrLog(data, exceptions);
             }
         } finally {
-            servicesLock.unlock();
+            lock.unlock();
         }
 
         if (!exceptions.isEmpty()) {
@@ -235,9 +239,8 @@ public class ProviderDomain extends AbstractDomain {
      * In case of reconnection, it can be called again or if there is an update from the other side.
      */
     private void updatePropagatedServices(final Map<ServiceKey, TransportedDocument> propagated) {
-        servicesLock.lock();
+        lock.lock();
         try {
-
             final Set<ServiceKey> oldKeys = new HashSet<>(services.keySet());
 
             for (final Entry<ServiceKey, TransportedDocument> entry : propagated.entrySet()) {
@@ -294,7 +297,7 @@ public class ProviderDomain extends AbstractDomain {
                 deregisterOrStoreOrLog(data, null);
             }
         } finally {
-            servicesLock.unlock();
+            lock.unlock();
         }
     }
 
