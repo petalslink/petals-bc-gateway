@@ -17,6 +17,7 @@
  */
 package org.ow2.petals.bc.gateway.outbound;
 
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -33,6 +34,11 @@ import javax.jbi.messaging.MessageExchange;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.easywsdl.extensions.wsdl4complexwsdl.WSDL4ComplexWsdlFactory;
+import org.ow2.easywsdl.extensions.wsdl4complexwsdl.api.Description;
+import org.ow2.easywsdl.extensions.wsdl4complexwsdl.api.WSDL4ComplexWsdlException;
+import org.ow2.easywsdl.wsdl.api.Endpoint;
+import org.ow2.easywsdl.wsdl.api.Service;
 import org.ow2.easywsdl.wsdl.api.WSDLException;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.commons.AbstractDomain;
@@ -132,6 +138,7 @@ public class ProviderDomain extends AbstractDomain {
         this.provides = new HashMap<>();
         for (final Pair<Provides, JbiProvidesConfig> pair : provides) {
             if (StringHelper.isNullOrEmpty(pair.getA().getWsdl())) {
+                // TODO maybe later we can do simple mirroring and rewriting w.r.t. the JbiProvidesConfig
                 throw new PEtALSCDKException(
                         "The provides " + pair.getA().getServiceName() + " must have a WSDL defined");
             }
@@ -319,22 +326,9 @@ public class ProviderDomain extends AbstractDomain {
             // see also the constructor that verify that the description is present
             matcher.register(key, ps);
         } else {
-            final Document description;
             final ServiceEndpointKey key = generateSEK(sk);
             data.key = key;
-            if (data.description == null) {
-                // let's generate a minimal one for now
-                // but we won't store it, in case we get one from the other side later
-                try {
-                    description = WSDLUtilImpl.convertDescriptionToDocument(WSDLUtilImpl.createLightWSDL20Description(
-                            sk.interfaceName, key.getServiceName(), key.getEndpointName()));
-                } catch (final WSDLException e) {
-                    throw new PEtALSCDKException(e);
-                }
-            } else {
-                description = data.description;
-            }
-            assert description != null;
+            final Document description = generateDescription(data.description, sk, key);
             matcher.register(key, ps, description);
         }
     }
@@ -356,6 +350,99 @@ public class ProviderDomain extends AbstractDomain {
             }
         } else {
             assert !init;
+        }
+    }
+
+    /**
+     * TODO prevent any throw exception?!
+     */
+    private Document generateDescription(final @Nullable Document originalDescription,
+            final ServiceKey originalKey, final ServiceEndpointKey newKey) throws PEtALSCDKException {
+
+        Description description = null;
+        if (originalDescription != null) {
+            // TODO reuse the reader, the instance, or whatever
+            try {
+                description = WSDL4ComplexWsdlFactory.newInstance().newWSDLReader().read(originalDescription);
+            } catch (final WSDL4ComplexWsdlException | URISyntaxException e) {
+                final String msg = "Couldn't read the received description for " + originalKey
+                        + ", generating a lightweigth description";
+                logger.warning(msg);
+                logger.log(Level.FINE, msg, e);
+            }
+
+            if (description != null) {
+                final Service service;
+                if (originalKey.service != null) {
+                    service = description.getService(originalKey.service);
+                } else {
+                    // TODO maybe the provider domain should have sent us one ServiceKey per interface/service that he
+                    // found even if it didn't specify any service in its consume! like this I can mirror all the
+                    // services available instead of generating service names!
+
+                    // for now let's take the first one!
+                    service = description.getServices().isEmpty() ? null : description.getServices().get(0);
+                }
+
+                if (service != null) {
+                    
+                    // we only change it in the description if we generated one!
+                    if (originalKey.service == null) {
+                        service.setQName(newKey.getServiceName());
+                    } else {
+                        assert originalKey.service != null;
+                        assert originalKey.service.equals(newKey.getServiceName());
+                    }
+
+                    final Endpoint endpoint;
+                    if (originalKey.endpointName != null) {
+                        endpoint = service.getEndpoint(originalKey.endpointName);
+                    } else {
+                        // TODO how do I know which endpoint is the right one? maybe the provider domain should send us
+                        // this information on top of the rest?!
+
+                        // for now let's take the first one!
+                        endpoint = service.getEndpoints().isEmpty() ? null : service.getEndpoints().get(0);
+                    }
+
+                    // we always generate the endpoint name!
+                    if (endpoint != null) {
+                        endpoint.setName(newKey.getEndpointName());
+                    } else {
+                        logger.warning("Couldn't find the endpoint of " + originalKey
+                                + " in the received description, generating a lightweigth description");
+                        // TODO should I do that or just keep it...
+                        description = null;
+                    }
+                } else {
+                    logger.warning("Couldn't find the service of " + originalKey
+                            + " in the received description, generating a lightweigth description");
+                    // TODO should I do that or just keep it...
+                    description = null;
+                }
+            }
+        } else {
+            logger.warning("No description received for " + originalKey + ", generating a lightweigth description");
+        }
+
+        if (description == null) {
+            // let's generate a minimal one for now
+            // but we won't store it, in case we get one from the other side later
+            try {
+            description = WSDLUtilImpl.createLightWSDL20Description(originalKey.interfaceName, newKey.getServiceName(),
+                    newKey.getEndpointName());
+            } catch (final WSDLException e) {
+                throw new PEtALSCDKException(e);
+            }
+        }
+        assert description != null;
+
+        try {
+            Document desc = WSDLUtilImpl.convertDescriptionToDocument(description);
+            assert desc != null;
+            return desc;
+        } catch (final WSDLException e) {
+            throw new PEtALSCDKException(e);
         }
     }
 
