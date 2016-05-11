@@ -31,7 +31,7 @@ public class JbiGatewayClientTest extends AbstractComponentTest {
         assertAvailable(port);
 
         COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME,
-                createHelloProvider(TEST_AUTH_NAME, port, null, null, null, 0, 0L));
+                createProvider(TEST_AUTH_NAME, port, null, null, null, 0, 0L));
 
         assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE, 1);
     }
@@ -44,7 +44,7 @@ public class JbiGatewayClientTest extends AbstractComponentTest {
         assertAvailable(port);
 
         COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME,
-                createHelloProvider(TEST_AUTH_NAME, port, null, null, null, 3, 0L));
+                createProvider(TEST_AUTH_NAME, port, null, null, null, 3, 0L));
 
         assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE, 1);
 
@@ -66,7 +66,7 @@ public class JbiGatewayClientTest extends AbstractComponentTest {
 
         assertNotAvailable(port);
 
-        COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createHelloProvider(TEST_AUTH_NAME, port));
+        COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createProvider(TEST_AUTH_NAME, port));
 
         assertLogContains("unknown auth-name '" + TEST_AUTH_NAME + "'", Level.SEVERE, 1);
 
@@ -78,9 +78,9 @@ public class JbiGatewayClientTest extends AbstractComponentTest {
         COMPONENT_UNDER_TEST.deployService(SU_CONSUMER_NAME, createHelloConsumes(true, true));
 
         final String authName = "INCORRECT";
-        COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createHelloProvider(authName, TEST_TRANSPORT_PORT));
+        COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createProvider(authName, TEST_TRANSPORT_PORT));
 
         assertLogContains("unknown auth-name '" + authName + "'", Level.SEVERE, 1);
-        // TODO we should also test that the connection is closed!
+        // TODO we should also test that the connection is closed
     }
 }

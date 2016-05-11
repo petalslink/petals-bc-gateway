@@ -56,7 +56,7 @@ public class JBIGatewaySSLTest extends AbstractComponentTest {
             final @Nullable String clientRemoteCertificate, final @Nullable String serverCertificate,
             final @Nullable String serverKey, final @Nullable String serverRemoteCertificate) throws Exception {
         twoDomainsTest(true, true, clientCertificate, clientKey, clientRemoteCertificate, serverCertificate, serverKey,
-                serverRemoteCertificate, 0, 0L);
+                serverRemoteCertificate, 0, 0L, 2000L);
     }
 
 }

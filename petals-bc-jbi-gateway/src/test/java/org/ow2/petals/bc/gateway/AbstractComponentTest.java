@@ -186,21 +186,29 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
     private final List<String> manuallyAddedListeners = new ArrayList<>();
 
     protected void addTransportListener(final String id, final int port) throws PetalsException {
-        final JbiGatewayComponent comp = (JbiGatewayComponent) COMPONENT_UNDER_TEST.getComponentObject();
+        final JbiGatewayComponent comp = getComponent();
         comp.addTransportListener(id, port);
         manuallyAddedListeners.add(id);
     }
 
     protected boolean removeTransportListener(final String id) throws PetalsException {
-        final JbiGatewayComponent comp = (JbiGatewayComponent) COMPONENT_UNDER_TEST.getComponentObject();
+        final JbiGatewayComponent comp = getComponent();
         manuallyAddedListeners.remove(id);
         return comp.removeTransportListener(id);
     }
 
+    @SuppressWarnings("null")
+    protected JbiGatewayComponent getComponent() {
+        return (JbiGatewayComponent) COMPONENT_UNDER_TEST.getComponentObject();
+    }
+
     @After
     public void ensureNoExchangeInProgress() {
-        final JbiGatewayComponent comp = (JbiGatewayComponent) COMPONENT_UNDER_TEST.getComponentObject();
+        ensureNoExchangeInProgress(COMPONENT_UNDER_TEST);
+    }
 
+    protected void ensureNoExchangeInProgress(final Component componentUnderTest) {
+        final JbiGatewayComponent comp = (JbiGatewayComponent) componentUnderTest.getComponentObject();
         for (final ProviderDomain pd : comp.getServiceUnitManager().getProviderDomains()) {
             @SuppressWarnings("unchecked")
             final Map<String, Exchange> exchangesInProgress = (Map<String, Exchange>) ReflectionHelper
@@ -220,7 +228,7 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
 
     @After
     public void cleanManuallyAddedListeners() throws Exception {
-        final JbiGatewayComponent comp = (JbiGatewayComponent) COMPONENT_UNDER_TEST.getComponentObject();
+        final JbiGatewayComponent comp = getComponent();
         final List<String> todo = new ArrayList<>(manuallyAddedListeners);
         manuallyAddedListeners.clear();
         for (final String tl : todo) {
@@ -228,30 +236,37 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         }
     }
 
+    @After
+    public void undeployServices() {
+        undeployServices(COMPONENT_UNDER_TEST, IN_MEMORY_LOG_HANDLER);
+    }
+
     /**
      * We undeploy services after each test (because the component is static and lives during the whole suite of tests)
      */
-    @After
-    public void undeployServices() {
-        COMPONENT_UNDER_TEST.undeployAllServices();
+    public void undeployServices(final Component comp, final InMemoryLogHandler handler) {
+        comp.undeployAllServices();
+
+        // TODO we should check that there is no reconnections or polling still working!
+        // TODO could we check that everything was well gc'd?
 
         // asserts are ALWAYS a bug!
         final Formatter formatter = new SimpleFormatter();
-        for (final LogRecord r : IN_MEMORY_LOG_HANDLER.getAllRecords()) {
+        for (final LogRecord r : handler.getAllRecords()) {
             assertFalse("Got a log with an assertion: " + formatter.format(r),
                     r.getThrown() instanceof AssertionError || r.getMessage().contains("AssertionError"));
         }
     }
 
-    protected static ServiceConfiguration createHelloProvider() {
-        return createHelloProvider(TEST_AUTH_NAME, TEST_TRANSPORT_PORT);
+    protected static ServiceConfiguration createProvider() {
+        return createProvider(TEST_AUTH_NAME, TEST_TRANSPORT_PORT);
     }
 
-    protected static ServiceConfiguration createHelloProvider(final String authName, final int port) {
-        return createHelloProvider(authName, port, null, null, null, null, null);
+    protected static ServiceConfiguration createProvider(final String authName, final int port) {
+        return createProvider(authName, port, null, null, null, null, null);
     }
 
-    protected static ServiceConfiguration createHelloProvider(final String authName, final int port,
+    protected static ServiceConfiguration createProvider(final String authName, final int port,
             final @Nullable String certificate, final @Nullable String key, final @Nullable String remoteCertificate,
             final @Nullable Integer retryMax, final @Nullable Long retryDelay) {
         final ServiceConfiguration provides = new ServiceConfiguration() {
@@ -302,19 +317,26 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
 
     protected static ConsumesServiceConfiguration createHelloConsumes(final boolean specifyService,
             final boolean specifyEndpoint) {
-        return createHelloConsumes(specifyService, specifyEndpoint, null, null, null);
+        return createHelloConsumes(specifyService, specifyEndpoint, null, null, null, null);
     }
 
     protected static ConsumesServiceConfiguration createHelloConsumes(final boolean specifyService,
             final boolean specifyEndpoint, final @Nullable String certificate, final @Nullable String key,
-            final @Nullable String remoteCertificate) {
+            final @Nullable String remoteCertificate, final @Nullable Long pollingDelay) {
 
         // can't have endpoint specified without service
         assert !specifyEndpoint || specifyService;
 
-        final ConsumesServiceConfiguration consumes = new ConsumesServiceConfiguration(HELLO_INTERFACE,
-                specifyService ? HELLO_SERVICE : null, specifyEndpoint ? EXTERNAL_HELLO_ENDPOINT : null) {
+        return createConsumes(HELLO_INTERFACE, specifyService ? HELLO_SERVICE : null,
+                specifyEndpoint ? EXTERNAL_HELLO_ENDPOINT : null, certificate, key, remoteCertificate, pollingDelay);
+    }
 
+    protected static ConsumesServiceConfiguration createConsumes(final QName interfaceName,
+            final @Nullable QName service, final @Nullable String endpoint, final @Nullable String certificate,
+            final @Nullable String key, final @Nullable String remoteCertificate, final @Nullable Long pollingDelay) {
+
+        final ConsumesServiceConfiguration consumes = new ConsumesServiceConfiguration(interfaceName, service,
+                endpoint) {
             @Override
             protected void extraServiceConfiguration(final @Nullable Document jbiDocument,
                     final @Nullable Element service) {
@@ -334,6 +356,10 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
                 final Element cDomain = addElement(jbiDocument, services, EL_CONSUMER_DOMAIN);
                 cDomain.setAttribute(ATTR_SERVICES_CONSUMER_DOMAIN_ID, TEST_CONSUMER_DOMAIN);
                 cDomain.setAttribute(ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT, TEST_TRANSPORT_NAME);
+                if (pollingDelay != null) {
+                    cDomain.setAttribute(ATTR_SERVICES_CONSUMER_DOMAIN_POLLING_DELAY, "" + pollingDelay);
+                }
+
                 addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME, TEST_AUTH_NAME);
                 if (certificate != null) {
                     addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_CRT)
@@ -388,16 +414,18 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
     }
 
     protected void twoDomainsTest(final boolean specifyService, final boolean specifyEndpoint) throws Exception {
-        twoDomainsTest(specifyService, specifyEndpoint, null, null, null, null, null, null, null, null);
+        twoDomainsTest(specifyService, specifyEndpoint, null, null, null, null, null, null, null, null, null);
     }
     protected void twoDomainsTest(final boolean specifyService, final boolean specifyEndpoint,
             final @Nullable String clientCertificate, final @Nullable String clientKey,
             final @Nullable String clientRemoteCertificate, final @Nullable String serverCertificate,
             final @Nullable String serverKey, final @Nullable String serverRemoteCertificate,
-            final @Nullable Integer retryMax, final @Nullable Long retryDelay) throws Exception {
+            final @Nullable Integer retryMax, final @Nullable Long retryDelay, final @Nullable Long pollingDelay)
+            throws Exception {
 
         final ServiceEndpoint endpoint = deployTwoDomains(specifyService, specifyEndpoint, clientCertificate, clientKey,
-                clientRemoteCertificate, serverCertificate, serverKey, serverRemoteCertificate, retryMax, retryDelay);
+                clientRemoteCertificate, serverCertificate, serverKey, serverRemoteCertificate, retryMax, retryDelay,
+                pollingDelay);
 
         COMPONENT.sendAndCheckResponseAndSendStatus(helloRequest(endpoint, MEPPatternConstants.IN_OUT.value()),
                 ServiceProviderImplementation.outMessage(OUT),
@@ -410,7 +438,7 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
 
     protected ServiceEndpoint deployTwoDomains(final boolean specifyService, final boolean specifyEndpoint)
             throws Exception {
-        return deployTwoDomains(true, true, null, null, null, null, null, null, null, null);
+        return deployTwoDomains(true, true, null, null, null, null, null, null, null, null, null);
     }
 
     /**
@@ -420,13 +448,14 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
             final @Nullable String clientCertificate, final @Nullable String clientKey,
             final @Nullable String clientRemoteCertificate, final @Nullable String serverCertificate,
             final @Nullable String serverKey, final @Nullable String serverRemoteCertificate,
-            final @Nullable Integer retryMax, final @Nullable Long retryDelay) throws Exception {
+            final @Nullable Integer retryMax, final @Nullable Long retryDelay, final @Nullable Long pollingDelay)
+            throws Exception {
 
         COMPONENT_UNDER_TEST.deployService(SU_CONSUMER_NAME, createHelloConsumes(specifyService, specifyEndpoint,
-                serverCertificate, serverKey, serverRemoteCertificate));
+                serverCertificate, serverKey, serverRemoteCertificate, pollingDelay));
 
         COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME,
-                createHelloProvider(TEST_AUTH_NAME, TEST_TRANSPORT_PORT, clientCertificate, clientKey,
+                createProvider(TEST_AUTH_NAME, TEST_TRANSPORT_PORT, clientCertificate, clientKey,
                         clientRemoteCertificate, retryMax, retryDelay));
 
         Awaitility.await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
@@ -447,17 +476,22 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
     }
 
     protected static @Nullable ServiceEndpoint getNotExternalEndpoint(final boolean specifyService) {
+        return getNotEndpoint(HELLO_INTERFACE, specifyService ? HELLO_SERVICE : null, EXTERNAL_HELLO_ENDPOINT);
+    }
+
+    protected static @Nullable ServiceEndpoint getNotEndpoint(final QName interfaceName,
+            final @Nullable QName serviceName, final String notEndpointName) {
 
         final QName service;
-        if (specifyService) {
-            service = HELLO_SERVICE;
+        if (serviceName != null) {
+            service = serviceName;
         } else {
-            service = new QName(HELLO_INTERFACE.getNamespaceURI(), HELLO_INTERFACE.getLocalPart() + "GeneratedService");
+            service = new QName(interfaceName.getNamespaceURI(), interfaceName.getLocalPart() + "GeneratedService");
         }
 
         for (final ServiceEndpoint endpoint : COMPONENT_UNDER_TEST.getEndpointDirectory()
                 .resolveEndpointsForService(service)) {
-            if (!endpoint.getEndpointName().equals(EXTERNAL_HELLO_ENDPOINT)) {
+            if (!endpoint.getEndpointName().equals(notEndpointName)) {
                 return endpoint;
             }
         }
@@ -465,15 +499,20 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         return null;
     }
 
+    protected static void assertLogContains(final String log, final Level level, final int howMany) {
+        assertLogContains(IN_MEMORY_LOG_HANDLER, log, level, howMany);
+    }
+
     /**
      * Note: the check is not on the number, only the number of time it is printed before we are happy with the result
      */
-    protected static void assertLogContains(final String log, final Level level, final int howMany) {
+    protected static void assertLogContains(final InMemoryLogHandler handler, final String log, final Level level,
+            final int howMany) {
         await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
             @Override
             public Boolean call() throws Exception {
                 int count = 0;
-                for (final LogRecord lr : IN_MEMORY_LOG_HANDLER.getAllRecords(level)) {
+                for (final LogRecord lr : handler.getAllRecords(level)) {
                     if (lr.getMessage().contains(log)) {
                         count++;
                     }

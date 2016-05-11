@@ -29,6 +29,10 @@ import org.xml.sax.SAXException;
 
 import com.ebmwebsourcing.easycommons.xml.XMLHelper;
 
+/**
+ * TODO use proper DOM serialization?!
+ *
+ */
 public class TransportedDocument implements Serializable {
 
     private static final long serialVersionUID = 405158251976165734L;

@@ -18,14 +18,14 @@
 package org.ow2.petals.bc.gateway.inbound;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 import javax.jbi.JBIException;
@@ -51,6 +51,8 @@ import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.w3c.dom.Document;
 
 import io.netty.channel.Channel;
+import io.netty.util.concurrent.GlobalEventExecutor;
+import io.netty.util.concurrent.ScheduledFuture;
 
 /**
  * There is one instance of this class per consumer domain in an SU configuration (jbi.xml).
@@ -59,6 +61,9 @@ import io.netty.channel.Channel;
  * 
  * The main idea is that a given consumer partner can contact us (a provider partner) with multiple connections (for
  * example in case of HA) and each of these needs to know what are the consumes propagated to them.
+ * 
+ * TODO should I propagate one servicekey per Service? because for a given interface, there could be endpoints with
+ * different services!
  * 
  * @author vnoel
  *
@@ -70,21 +75,27 @@ public class ConsumerDomain extends AbstractDomain {
      */
     private final Map<ServiceKey, Consumes> services = new HashMap<>();
 
-    /**
-     * The channels from this consumer domain (there can be more than one in case of HA or stuffs like that for example)
-     */
-    @SuppressWarnings("null")
-    private final Set<Channel> channels = Collections.newSetFromMap(new ConcurrentHashMap<Channel, Boolean>());
-
     private final JbiGatewaySUManager sum;
-
-    private JbiConsumerDomain jcd;
 
     private final TransportListener tl;
 
+    /**
+     * Lock for synchronising changes to {@link #channels}, {@link #open}, {@link #propagations} and {@link #jcd}.
+     */
+    private final Lock lock = new ReentrantLock();
+
+    /**
+     * The channels from this consumer domain (there can be more than one in case of HA or stuffs like that for example)
+     */
+    private final Set<Channel> channels = new HashSet<>();
+
+    private JbiConsumerDomain jcd;
+
     private volatile boolean open = false;
 
-    private final ReadWriteLock channelsLock = new ReentrantReadWriteLock();
+    private TransportedPropagatedConsumes propagations = TransportedPropagatedConsumes.EMPTY;
+
+    private @Nullable ScheduledFuture<?> polling = null;
 
     public ConsumerDomain(final ServiceUnitDataHandler handler, final TransportListener tl,
             final JbiGatewaySUManager sum, final JbiConsumerDomain jcd, final Collection<Consumes> consumes,
@@ -109,16 +120,22 @@ public class ConsumerDomain extends AbstractDomain {
     }
 
     public void reload(final JbiConsumerDomain newJCD) throws PEtALSCDKException {
-        if (!jcd.getAuthName().equals(newJCD.getAuthName()) || !jcd.getCertificate().equals(newJCD.getCertificate())
-                || !jcd.getRemoteCertificate().equals(newJCD.getRemoteCertificate())
-                || !jcd.getKey().equals(newJCD.getKey()) || !jcd.getPassphrase().equals(newJCD.getPassphrase())) {
-            if (!jcd.getAuthName().equals(newJCD.getAuthName())) {
-                tl.register(newJCD.getAuthName(), this);
-                tl.deregistrer(jcd.getAuthName());
+        lock.lock();
+        try {
+            if (!jcd.getAuthName().equals(newJCD.getAuthName()) || !jcd.getCertificate().equals(newJCD.getCertificate())
+                    || !jcd.getRemoteCertificate().equals(newJCD.getRemoteCertificate())
+                    || !jcd.getKey().equals(newJCD.getKey()) || !jcd.getPassphrase().equals(newJCD.getPassphrase())) {
+                if (!jcd.getAuthName().equals(newJCD.getAuthName())) {
+                    tl.register(newJCD.getAuthName(), this);
+                    tl.deregistrer(jcd.getAuthName());
+                }
+                jcd = newJCD;
+                // this will disconnect clients and they should reconnect by themselves and use the new jcd and
+                // authname!
+                disconnect();
             }
-            jcd = newJCD;
-            // this will disconnect clients and they should reconnect by themselves and use the new jcd and authname!
-            disconnect();
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -130,87 +147,173 @@ public class ConsumerDomain extends AbstractDomain {
      * Consumer partner will be disconnected
      */
     public void disconnect() {
-        channelsLock.readLock().lock();
+        lock.lock();
         try {
             tl.deregistrer(jcd.getAuthName());
             for (final Channel c : channels) {
                 // this will trigger deregisterChannel btw
+                // Note: locking is ok, simply all the close will be sent before the deregistration is executed
                 c.close();
             }
         } finally {
-            channelsLock.readLock().unlock();
+            lock.unlock();
         }
     }
 
     public void open() {
-        // note: open and close are never called concurrently so read lock is ok
-        channelsLock.readLock().lock();
+        lock.lock();
         try {
             open = true;
-            for (final Channel c : channels) {
-                assert c != null;
-                sendPropagatedServices(c);
+            sendPropagations(true);
+            final long propagationPollingDelay = jcd.getPropagationPollingDelay();
+            if (propagationPollingDelay > 0) {
+                if (logger.isLoggable(Level.CONFIG)) {
+                    logger.config("Propagation refresh polling is enabled (every " + propagationPollingDelay + "ms)");
+                }
+                polling = GlobalEventExecutor.INSTANCE.scheduleWithFixedDelay(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (logger.isLoggable(Level.FINE)) {
+                            logger.fine("Propagation refresh polling (next in " + propagationPollingDelay + "ms)");
+                        }
+                        if (sendPropagations(false)) {
+                            logger.info("Changes in propagations detected: refreshed!");
+                        }
+                    }
+                }, propagationPollingDelay, propagationPollingDelay, TimeUnit.MILLISECONDS);
+            } else {
+                logger.config("Propagation refresh polling is disabled");
             }
         } finally {
-            channelsLock.readLock().unlock();
+            lock.unlock();
         }
     }
 
     public void close() {
-        // note: open and close are never called concurrently so read lock is ok
-        channelsLock.readLock().lock();
+        lock.lock();
         try {
             open = false;
-
-            for (final Channel c : channels) {
-                c.writeAndFlush(TransportedPropagatedConsumes.EMPTY);
+            if (polling != null) {
+                // interruption will stop any current sending!
+                polling.cancel(true);
+                polling = null;
             }
+            sendPropagations(TransportedPropagatedConsumes.EMPTY);
         } finally {
-            channelsLock.readLock().unlock();
+            lock.unlock();
         }
     }
 
     public void registerChannel(final Channel c) {
-        channelsLock.writeLock().lock();
+        lock.lock();
         try {
             channels.add(c);
+
             if (open) {
-                sendPropagatedServices(c);
+                if (!sendPropagations(false)) {
+                    // let's simply notify the new channel with the already known propagations
+                    c.writeAndFlush(propagations);
+                }
             }
         } finally {
-            channelsLock.writeLock().unlock();
+            lock.unlock();
         }
     }
 
     public void deregisterChannel(final Channel c) {
-        channelsLock.writeLock().lock();
+        lock.lock();
         try {
             channels.remove(c);
         } finally {
-            channelsLock.writeLock().unlock();
+            lock.unlock();
         }
     }
 
     public void refreshPropagations() {
-        if (open) {
+        if (logger.isLoggable(Level.INFO)) {
             logger.info("Refreshing propagations");
-            open();
+        }
+        sendPropagations(true);
+    }
+
+    /**
+     * Note, this can be interrupted, for example if the polling is cancelled: in that case we simply returns
+     * <code>false</code>.
+     * 
+     * Sends the propagation to all channels if the domain is open, and if force is <code>true</code> or if there is
+     * some changes.
+     * 
+     * @return <code>false</code> if the propagations were sent.
+     */
+    private boolean sendPropagations(final boolean force) {
+        lock.lock();
+        try {
+            if (!open) {
+                return false;
+            }
+            boolean changes = false;
+            final Map<ServiceKey, TransportedDocument> consumes = new HashMap<>();
+            for (final Entry<ServiceKey, Consumes> entry : services.entrySet()) {
+                final ServiceKey service = entry.getKey();
+                final Collection<ServiceEndpoint> endpoints = sum.getEndpointsForConsumes(entry.getValue());
+
+                if (Thread.interrupted()) {
+                    return false;
+                }
+
+                final boolean shouldBePropagated = !endpoints.isEmpty();
+
+                final TransportedDocument description;
+                if (shouldBePropagated) {
+                    description = getFirstDescription(endpoints);
+                    if (Thread.interrupted()) {
+                        return false;
+                    }
+                } else {
+                    description = null;
+                }
+
+                if (!force) {
+                    // careful, the map can contains null for some keys! so containsKey is not the same as get != null!
+                    final boolean wasPropagated = propagations.getConsumes().containsKey(service);
+
+                    if (shouldBePropagated != wasPropagated) {
+                        // if they have different values, then it means something changed
+                        changes = true;
+                    } else if (shouldBePropagated && description != null
+                            && propagations.getConsumes().get(service) == null) {
+                        // if they have the same value, but the description changed from null to non-null,
+                        // then it means something changed too!
+                        changes = true;
+                    }
+                }
+
+                if (shouldBePropagated) {
+                    consumes.put(service, description);
+                }
+
+                if (Thread.interrupted()) {
+                    return false;
+                }
+            }
+
+            final boolean sendPropagations = force || changes;
+            if (sendPropagations) {
+                sendPropagations(new TransportedPropagatedConsumes(consumes));
+            }
+
+            return sendPropagations;
+        } finally {
+            lock.unlock();
         }
     }
 
-    private void sendPropagatedServices(final Channel c) {
-        final Map<ServiceKey, TransportedDocument> consumes = new HashMap<>();
-        for (final Entry<ServiceKey, Consumes> entry : services.entrySet()) {
-            final Collection<ServiceEndpoint> endpoints = sum.getEndpointsForConsumes(entry.getValue());
-            // only add the consumes if there is an activated endpoint for it!
-            // TODO poll for newly added endpoints, removed ones and updated descriptions (who knows if the endpoint has
-            // been deactivated then reactivated with an updated description!)
-            if (!endpoints.isEmpty()) {
-                final TransportedDocument description = getFirstDescription(endpoints);
-                consumes.put(entry.getKey(), description);
-            }
+    private void sendPropagations(final TransportedPropagatedConsumes toPropagate) {
+        propagations = toPropagate;
+        for (final Channel c : channels) {
+            assert c != null;
+            c.writeAndFlush(toPropagate);
         }
-        c.writeAndFlush(new TransportedPropagatedConsumes(consumes));
     }
 
     private @Nullable TransportedDocument getFirstDescription(final Collection<ServiceEndpoint> endpoints) {

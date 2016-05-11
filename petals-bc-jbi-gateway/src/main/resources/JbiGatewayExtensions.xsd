@@ -115,6 +115,8 @@
       <xs:attribute name="id" type="xs:string" use="required" />
       <!-- id of the transport listener used -->
       <xs:attribute name="transport" type="xs:string" use="required" />
+      <!-- a negative or 0 value means no polling -->
+      <xs:attribute name="propagation-polling-delay" type="xs:long" default="300000" />
    </xs:complexType>
    
    <!-- To be used in services -->
