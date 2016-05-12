@@ -81,7 +81,7 @@ public class ConsumerDomain extends AbstractDomain {
     /**
      * Lock for synchronising changes to {@link #channels}, {@link #open}, {@link #propagations} and {@link #jcd}.
      */
-    private final Lock lock = new ReentrantLock();
+    private final Lock mainLock = new ReentrantLock();
 
     /**
      * The channels from this consumer domain (there can be more than one in case of HA or stuffs like that for example)
@@ -94,6 +94,15 @@ public class ConsumerDomain extends AbstractDomain {
 
     private TransportedPropagations propagations = TransportedPropagations.EMPTY;
 
+    /**
+     * @see #polling
+     */
+    private final Lock pollingLock = new ReentrantLock();
+
+    /**
+     * Access is controlled by {@link #pollingLock} (except for the first poll that is controlled by {@link #mainLock} in
+     * {@link #open()}).
+     */
     private @Nullable ScheduledFuture<?> polling = null;
 
     public ConsumerDomain(final ServiceUnitDataHandler handler, final TransportListener tl,
@@ -116,7 +125,7 @@ public class ConsumerDomain extends AbstractDomain {
     }
 
     public void reload(final JbiConsumerDomain newJCD) throws PEtALSCDKException {
-        lock.lock();
+        mainLock.lock();
         try {
             if (!jcd.getAuthName().equals(newJCD.getAuthName()) || !jcd.getCertificate().equals(newJCD.getCertificate())
                     || !jcd.getRemoteCertificate().equals(newJCD.getRemoteCertificate())
@@ -131,7 +140,7 @@ public class ConsumerDomain extends AbstractDomain {
                 disconnect();
             }
         } finally {
-            lock.unlock();
+            mainLock.unlock();
         }
     }
 
@@ -143,7 +152,7 @@ public class ConsumerDomain extends AbstractDomain {
      * Consumer partner will be disconnected
      */
     public void disconnect() {
-        lock.lock();
+        mainLock.lock();
         try {
             tl.deregistrer(jcd.getAuthName());
             for (final Channel c : channels) {
@@ -152,12 +161,12 @@ public class ConsumerDomain extends AbstractDomain {
                 c.close();
             }
         } finally {
-            lock.unlock();
+            mainLock.unlock();
         }
     }
 
     public void open() {
-        lock.lock();
+        mainLock.lock();
         try {
             open = true;
 
@@ -171,72 +180,86 @@ public class ConsumerDomain extends AbstractDomain {
                             "Propagation refresh polling is enabled (max delay: " + propagationPollingMaxDelay
                                     + "ms, acceleration: " + propagationPollingAccel + ")");
                 }
-                doPolling(5000, propagationPollingAccel, propagationPollingMaxDelay);
+                scheduleNextPolling(5000, propagationPollingAccel, propagationPollingMaxDelay);
             } else {
                 logger.config("Propagation refresh polling is disabled");
             }
         } finally {
-            lock.unlock();
+            mainLock.unlock();
         }
     }
 
-    private void doPolling(final long currentDelay, final double accel, final long maxDelay) {
-
-        final long nextDelay;
-        final long delay;
-        if (accel > 1) {
-            nextDelay = Math.min((long) (currentDelay * accel), maxDelay);
-            delay = Math.min(currentDelay, maxDelay);
-        } else {
-            nextDelay = maxDelay;
-            delay = maxDelay;
-        }
-
-        final boolean plateau = nextDelay >= maxDelay;
-
+    private void scheduleNextPolling(final long currentDelay, final double accel, final long maxDelay) {
         final Runnable command = new Runnable() {
             @Override
             public void run() {
-                if (logger.isLoggable(Level.FINE)) {
-                    logger.fine("Propagation refresh polling (next in " + nextDelay + "ms)");
+                final long nextDelay;
+                if (accel > 1) {
+                    nextDelay = Math.min((long) (currentDelay * accel), maxDelay);
+                } else {
+                    nextDelay = maxDelay;
                 }
 
-                // TODO catch exceptions?!
-                if (sendPropagations(false)) {
-                    logger.info("Changes in propagations detected: refreshed!");
-                }
+                try {
+                    if (logger.isLoggable(Level.FINE)) {
+                        logger.fine("Propagation refresh polling (next in " + nextDelay + "ms)");
+                    }
 
-                if (!plateau) {
-                    doPolling(nextDelay, accel, maxDelay);
+                    // TODO catch exceptions?!
+                    if (sendPropagations(false)) {
+                        logger.info("Changes in propagations detected: refreshed!");
+                    }
+                } finally {
+                    try {
+                        // in case it was interrupted during the propagation sending
+                        // this will also reset the interrupted flag
+                        pollingLock.lockInterruptibly();
+                        try {
+                            // polling corresponds to the current task
+                            // if it's null, it was cancelled (thus the test for
+                            // isCancelled is not really needed but well...)
+                            if (polling != null && !polling.isCancelled()) {
+                                scheduleNextPolling(nextDelay, accel, maxDelay);
+                            }
+                        } finally {
+                            pollingLock.unlock();
+                        }
+                    } catch (final InterruptedException e) {
+                        // we were interrupted, it's ok, we stop there
+                    }
                 }
             }
         };
 
-        if (plateau) {
-            polling = GlobalEventExecutor.INSTANCE.scheduleWithFixedDelay(command, delay, maxDelay,
-                    TimeUnit.MILLISECONDS);
+        final long delay;
+        if (accel > 1) {
+            delay = Math.min(currentDelay, maxDelay);
         } else {
-            polling = GlobalEventExecutor.INSTANCE.schedule(command, delay, TimeUnit.MILLISECONDS);
+            delay = maxDelay;
         }
+
+        polling = GlobalEventExecutor.INSTANCE.schedule(command, delay, TimeUnit.MILLISECONDS);
     }
 
     public void close() {
-        lock.lock();
+        mainLock.lock();
         try {
             open = false;
-            if (polling != null) {
-                // interruption will stop any current sending!
-                polling.cancel(true);
-                polling = null;
+            synchronized (pollingLock) {
+                if (polling != null) {
+                    // interruption will stop any current sending
+                    polling.cancel(true);
+                    polling = null;
+                }
             }
             sendPropagations(TransportedPropagations.EMPTY);
         } finally {
-            lock.unlock();
+            mainLock.unlock();
         }
     }
 
     public void registerChannel(final Channel c) {
-        lock.lock();
+        mainLock.lock();
         try {
             channels.add(c);
 
@@ -247,16 +270,16 @@ public class ConsumerDomain extends AbstractDomain {
                 }
             }
         } finally {
-            lock.unlock();
+            mainLock.unlock();
         }
     }
 
     public void deregisterChannel(final Channel c) {
-        lock.lock();
+        mainLock.lock();
         try {
             channels.remove(c);
         } finally {
-            lock.unlock();
+            mainLock.unlock();
         }
     }
 
@@ -269,7 +292,7 @@ public class ConsumerDomain extends AbstractDomain {
 
     /**
      * Note, this can be interrupted, for example if the polling is cancelled: in that case we simply returns
-     * <code>false</code>.
+     * <code>false</code> and the interrupt flag is kept as set to be handled by the caller.
      * 
      * Sends the propagation to all channels if the domain is open, and either if force is <code>true</code> or if there
      * is some changes.
@@ -277,7 +300,7 @@ public class ConsumerDomain extends AbstractDomain {
      * @return <code>true</code> if the propagations were sent.
      */
     private boolean sendPropagations(final boolean force) {
-        lock.lock();
+        mainLock.lock();
         try {
             if (!open) {
                 return false;
@@ -293,7 +316,7 @@ public class ConsumerDomain extends AbstractDomain {
                 final Collection<ServiceEndpoint> allEndpoints = sum.getEndpointsForConsumes(c);
                 assert allEndpoints != null;
 
-                if (Thread.interrupted()) {
+                if (Thread.currentThread().isInterrupted()) {
                     return false;
                 }
 
@@ -308,7 +331,7 @@ public class ConsumerDomain extends AbstractDomain {
                     final TransportedDocument description;
                     if (shouldBePropagated) {
                         description = getFirstDescription(endpoints);
-                        if (Thread.interrupted()) {
+                        if (Thread.currentThread().isInterrupted()) {
                             return false;
                         }
                     } else {
@@ -337,7 +360,7 @@ public class ConsumerDomain extends AbstractDomain {
                         propagated.put(service, description);
                     }
 
-                    if (Thread.interrupted()) {
+                    if (Thread.currentThread().isInterrupted()) {
                         return false;
                     }
                 }
@@ -350,7 +373,7 @@ public class ConsumerDomain extends AbstractDomain {
 
             return sendPropagations;
         } finally {
-            lock.unlock();
+            mainLock.unlock();
         }
     }
 
