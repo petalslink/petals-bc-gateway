@@ -81,7 +81,7 @@ public class ConsumerDomain extends AbstractDomain {
     /**
      * Lock for synchronising changes to {@link #channels}, {@link #open}, {@link #propagations} and {@link #jcd}.
      */
-    private final Lock mainLock = new ReentrantLock();
+    private final Lock mainLock = new ReentrantLock(true);
 
     /**
      * The channels from this consumer domain (there can be more than one in case of HA or stuffs like that for example)

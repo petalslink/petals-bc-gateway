@@ -97,7 +97,7 @@ public class ProviderDomain extends AbstractDomain {
     /**
      * lock for manipulating the {@link #services}, {@link #jpd} and {@link #init},
      */
-    private final Lock mainLock = new ReentrantLock();
+    private final Lock mainLock = new ReentrantLock(true);
 
     /**
      * Updated by {@link #updatePropagatedServices(TransportedPropagations)}.
