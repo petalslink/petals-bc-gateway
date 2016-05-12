@@ -31,7 +31,6 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 import javax.jbi.messaging.MessageExchange;
-import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.easywsdl.extensions.wsdl4complexwsdl.WSDL4ComplexWsdlFactory;
@@ -84,11 +83,13 @@ import io.netty.handler.codec.serialization.ClassResolver;
 public class ProviderDomain extends AbstractDomain {
 
     /**
-     * immutable, all the provides for this domain.
+     * For now we only accept ONE provides per propagated service, but there is no reason to do so, we could have many
+     * provides for a given matching service (as long as each provides matches only one service of course!).
      * 
-     * See {@link #validate(Map)} for the conditions it holds.
+     * TODO support multi provides per service (it's complicated because then we have to rething {@link #services} that
+     * won't match the received services anymore)
      */
-    private final Map<QName, Map<QName, Map<String, Provides>>> provides;
+    private final Service2ProvidesMatcher service2provides;
 
     private final ProviderMatcher matcher;
 
@@ -137,107 +138,15 @@ public class ProviderDomain extends AbstractDomain {
         this.matcher = matcher;
         this.jpd = jpd;
 
-        // TODO maybe move all of that to JbiGatewayJBIHelper?
-        this.provides = new HashMap<>();
-        for (final Pair<Provides, JbiProvidesConfig> pair : provides) {
-            final Provides p = pair.getA();
-            final JbiProvidesConfig config = pair.getB();
-
-            if (StringHelper.isNullOrEmpty(p.getWsdl())) {
+        for (final Pair<Provides, JbiProvidesConfig> p : provides) {
+            if (StringHelper.isNullOrEmpty(p.getA().getWsdl())) {
                 // TODO maybe later we can do simple mirroring and rewriting w.r.t. the JbiProvidesConfig
-                throw new PEtALSCDKException("The provides " + p.getServiceName() + " must have a WSDL defined");
+                throw new PEtALSCDKException("The provides " + p.getA().getServiceName() + " must have a WSDL defined");
             }
-
-            addToProvides(p, config);
         }
 
-        assert validate(this.provides);
-
+        this.service2provides = new Service2ProvidesMatcher(provides);
         this.client = new TransportClient(handler, partialBootstrap, logger, cr, this);
-    }
-
-    private static boolean validate(final Map<QName, Map<QName, Map<String, Provides>>> provides) {
-
-        // there can't be any interface
-        if (provides.containsKey(null)) {
-            return false;
-        }
-
-        for (final Map<QName, Map<String, Provides>> byServices : provides.values()) {
-            final Map<String, Provides> anyServices = byServices.get(null);
-            if (anyServices != null) {
-                // normally for the any service key, there should only be at most the null key
-                if (anyServices.size() > 1) {
-                    return false;
-                }
-                if (anyServices.size() == 1 && !anyServices.containsKey(null)) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * For now we only accept ONE provides per propagated service, but there is no reason to do so, we could have many
-     * provides for a given matching service (as long as each provides matches only one service of course!).
-     * 
-     * TODO support multi provides per service (it's complicated because then we have to rething {@link #services} that
-     * won't match the received services anymore)
-     */
-    private void addToProvides(final Provides p, final JbiProvidesConfig config) throws PEtALSCDKException {
-        // can't be null
-        final QName interfaceName = config.getProviderInterfaceName();
-        Map<QName, Map<String, Provides>> byServices = provides.get(interfaceName);
-        if (byServices == null) {
-            byServices = new HashMap<>();
-            provides.put(interfaceName, byServices);
-        }
-
-        // can be null
-        final QName serviceName = config.getProviderServiceName();
-        // null key is accepted in HashMap, it means any service name here!
-        Map<String, Provides> byEndpoints = byServices.get(serviceName);
-        if (byEndpoints == null) {
-            byEndpoints = new HashMap<>();
-            byServices.put(serviceName, byEndpoints);
-        }
-
-        // can be null
-        final String endpointName = config.getProviderEndpointName();
-        // null key is accepted in HashMap, it means any endpoint name here!
-        if (byEndpoints.containsKey(endpointName)) {
-            // TODO can be detect that earlier maybe in JbiGatewayJBIHelper
-            throw new PEtALSCDKException(
-                    String.format("Ambiguous provider configuration: duplicate matching service for %s/%s/%s",
-                            interfaceName, serviceName, endpointName));
-        } else {
-            byEndpoints.put(endpointName, p);
-        }
-    }
-
-    /**
-     * TODO add tests related to that!
-     */
-    private @Nullable Provides getProvides(final ServiceKey key) {
-        final Map<QName, Map<String, Provides>> byServices = this.provides.get(key.interfaceName);
-        if (byServices != null) {
-            final Map<String, Provides> byEndpoints = byServices.get(key.service);
-            if (byEndpoints == null) {
-                // if it doesn't match a specific provides, then maybe we have a generic one!
-                // Note that there can't be any other key possible than null endpoint for a null service
-                final Map<String, Provides> anyServices = byServices.get(null);
-                if (anyServices != null) {
-                    return anyServices.get(null);
-                }
-            } else {
-                // note: key.service can't be null!
-                return byEndpoints.get(key.endpointName);
-            }
-        }
-
-        return null;
     }
 
     @Override
@@ -348,7 +257,7 @@ public class ProviderDomain extends AbstractDomain {
                 final Document document = entry.getValue() != null ? entry.getValue().getDocument() : null;
 
                 // let's skip those we are not concerned with
-                if (!jpd.isPropagateAll() && !provides.containsKey(service)) {
+                if (!jpd.isPropagateAll() && service2provides.getProvides(service) == null) {
                     continue;
                 }
 
@@ -409,7 +318,7 @@ public class ProviderDomain extends AbstractDomain {
             }
         };
 
-        final Provides p = getProvides(sk);
+        final Provides p = service2provides.getProvides(sk);
 
         if (p != null) {
             final ServiceEndpointKey key = new ServiceEndpointKey(p);
