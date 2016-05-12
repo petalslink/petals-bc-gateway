@@ -447,12 +447,12 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
             }
         }
 
-        final Integer retryMax = jpd.getRetryMax();
-        if (retryMax != null && retryMax != 0) {
-            final Long retryDelay = jpd.getRetryDelay();
-            if (retryDelay == null || retryDelay < 0) {
-                throw new PEtALSCDKException("retry delay (" + retryDelay
-                        + ") can't be unset or negative if retry max (" + retryMax + ") is set non-zero value");
+        final int retryMax = jpd.getRetryMax();
+        if (retryMax != 0) {
+            final long retryDelay = jpd.getRetryDelay();
+            if (retryDelay < 0) {
+                throw new PEtALSCDKException("retry delay (" + retryDelay + ") can't be negative if retry max ("
+                        + retryMax + ") is set to a non-zero value");
             }
         }
     }
