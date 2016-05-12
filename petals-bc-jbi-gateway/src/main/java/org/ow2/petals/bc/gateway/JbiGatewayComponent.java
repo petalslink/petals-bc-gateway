@@ -57,6 +57,8 @@ import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.ow2.petals.component.framework.util.ServiceEndpointKey;
 import org.w3c.dom.Document;
 
+import com.ebmwebsourcing.easycommons.lang.reflect.ReflectionHelper;
+
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.EventLoopGroup;
@@ -65,6 +67,8 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.serialization.ClassResolver;
 import io.netty.handler.codec.serialization.ClassResolvers;
+import io.netty.util.concurrent.DefaultThreadFactory;
+import io.netty.util.concurrent.GlobalEventExecutor;
 
 /**
  * There is one instance for the whole component. The class is declared in the jbi.xml.
@@ -120,14 +124,30 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     protected void doInit() throws JBIException {
         sender = new JbiGatewayJBISender(this);
 
-        // only one thread for accepting new connections is enough, we don't create connections often
-        bossGroup = new NioEventLoopGroup(1);
+        final String componentName = getJbiComponentDescriptor().getComponent().getIdentification().getName();
+
+        final int cdMaxPoolSize = JbiGatewayJBIHelper
+                .getConsumerDomainsMaxPoolSize(getJbiComponentDescriptor().getComponent());
+        final int pdMaxPoolSize = JbiGatewayJBIHelper
+                .getProviderDomainsMaxPoolSize(getJbiComponentDescriptor().getComponent());
+
+        // this is needed to rename the the global event executor (global to this component because global to this
+        // classloader) used for executing propagation pooling
+        ReflectionHelper.setFieldValue(GlobalEventExecutor.INSTANCE, "threadFactory", new DefaultThreadFactory(
+                componentName + " - globalEventExecutor"), true);
+
+        // only one thread for accepting new connections is enough (shared between all transport listeners)
+        // we don't create connections often
+        bossGroup = new NioEventLoopGroup(1,
+                new DefaultThreadFactory(componentName + " - Transports Acceptor - netty"));
         // TODO choose a specific number of threads, knowing that they are only for very small tasks
         // This represents the number of thread concurrently usable by all the incoming connections
-        workerGroup = new NioEventLoopGroup();
+        workerGroup = new NioEventLoopGroup(cdMaxPoolSize,
+                new DefaultThreadFactory(componentName + " - Consumer Domains - netty"));
         // TODO choose a specific number of threads, knowing that they are only for very small tasks
         // This represents the number of thread concurrently usable by all the outgoing connections
-        clientsGroup = new NioEventLoopGroup();
+        clientsGroup = new NioEventLoopGroup(pdMaxPoolSize,
+                new DefaultThreadFactory(componentName + " - Provider Domains - netty"));
 
         for (final JbiTransportListener jtl : JbiGatewayJBIHelper
                 .getTransportListeners(getJbiComponentDescriptor().getComponent())) {

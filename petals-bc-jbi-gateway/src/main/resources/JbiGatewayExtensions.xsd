@@ -39,6 +39,10 @@
    
    <!-- To be used in component and services -->
    <xs:element name="transport-listener" type="jg:JbiTransportListener" />
+   
+   <xs:element name="consumer-domains-max-pool-size" type="cdk:settablepositivestrictint" default="6" />
+   
+   <xs:element name="provider-domains-max-pool-size" type="cdk:settablepositivestrictint" default="6" />
 
    <!-- this is only here for documentation -->
 <!--    <xs:complexType name="Component"> -->

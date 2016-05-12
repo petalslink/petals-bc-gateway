@@ -39,8 +39,9 @@
       <cdk:acceptor-retry-number />
       <cdk:acceptor-retry-wait />
       <cdk:acceptor-stop-max-wait />
-      <cdk:processor-pool-size />
-      <cdk:processor-max-pool-size />
+      <!-- Netty handles most of the concurrency, we don't need so much threads -->
+      <cdk:processor-pool-size>1</cdk:processor-pool-size>
+      <cdk:processor-max-pool-size>6</cdk:processor-max-pool-size>
       <cdk:processor-keep-alive-time />
       <cdk:processor-stop-max-wait />
       <cdk:time-beetween-async-cleaner-runs />
@@ -50,6 +51,8 @@
       <cdk:jbi-listener-class-name>org.ow2.petals.bc.gateway.JbiGatewayJBIListener</cdk:jbi-listener-class-name>
       
       <!-- Component specific configuration -->
+      <jg:consumer-domains-max-pool-size />
+      <jg:provider-domains-max-pool-size />
       
    </jbi:component>
 </jbi:jbi>

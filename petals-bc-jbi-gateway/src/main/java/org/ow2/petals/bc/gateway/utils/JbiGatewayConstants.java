@@ -43,4 +43,10 @@ public interface JbiGatewayConstants {
     @SuppressWarnings("null")
     public static final QName EL_CONSUMER = FACTORY.createConsumer(null).getName();
 
+    public static final QName EL_CONSUMER_DOMAINS_MAX_POOL_SIZE = new QName(JG_NS_URI,
+            "consumer-domains-max-pool-size");
+
+    public static final QName EL_PROVIDER_DOMAINS_MAX_POOL_SIZE = new QName(JG_NS_URI,
+            "provider-domains-max-pool-size");
+
 }
