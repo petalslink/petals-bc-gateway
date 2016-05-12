@@ -97,7 +97,7 @@ public class ProviderDomain extends AbstractDomain {
     /**
      * lock for manipulating the {@link #services}, {@link #jpd} and {@link #init},
      */
-    private final Lock lock = new ReentrantLock();
+    private final Lock mainLock = new ReentrantLock();
 
     /**
      * Updated by {@link #updatePropagatedServices(TransportedPropagations)}.
@@ -246,7 +246,7 @@ public class ProviderDomain extends AbstractDomain {
     }
 
     public void reload(final JbiProviderDomain newJPD) {
-        lock.lock();
+        mainLock.lock();
         try {
             if (!jpd.getRemoteAuthName().equals(newJPD.getRemoteAuthName())
                     || !jpd.getRemoteIp().equals(newJPD.getRemoteIp())
@@ -259,7 +259,7 @@ public class ProviderDomain extends AbstractDomain {
                 connect();
             }
         } finally {
-            lock.unlock();
+            mainLock.unlock();
         }
     }
 
@@ -268,7 +268,7 @@ public class ProviderDomain extends AbstractDomain {
      * {@link #connect()} has been called).
      */
     public void register() throws PEtALSCDKException {
-        lock.lock();
+        mainLock.lock();
         try {
             for (final Entry<ServiceKey, ServiceData> e : services.entrySet()) {
                 final ServiceKey sk = e.getKey();
@@ -290,7 +290,7 @@ public class ProviderDomain extends AbstractDomain {
 
             throw e;
         } finally {
-            lock.unlock();
+            mainLock.unlock();
         }
     }
 
@@ -301,7 +301,7 @@ public class ProviderDomain extends AbstractDomain {
 
         final List<Exception> exceptions = new ArrayList<>();
 
-        lock.lock();
+        mainLock.lock();
         try {
             init = false;
 
@@ -310,7 +310,7 @@ public class ProviderDomain extends AbstractDomain {
                 deregisterOrStoreOrLog(data, exceptions);
             }
         } finally {
-            lock.unlock();
+            mainLock.unlock();
         }
 
         if (!exceptions.isEmpty()) {
@@ -338,7 +338,7 @@ public class ProviderDomain extends AbstractDomain {
      * In case of reconnection, it can be called again or if there is an update from the other side.
      */
     private void updatePropagatedServices(final Map<ServiceKey, TransportedDocument> propagated) {
-        lock.lock();
+        mainLock.lock();
         try {
             final Set<ServiceKey> oldKeys = new HashSet<>(services.keySet());
 
@@ -396,7 +396,7 @@ public class ProviderDomain extends AbstractDomain {
                 deregisterOrStoreOrLog(data, null);
             }
         } finally {
-            lock.unlock();
+            mainLock.unlock();
         }
     }
 
