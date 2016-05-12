@@ -50,7 +50,7 @@ public interface JbiGatewayTestConstants extends JbiGatewayConstants, JbiConstan
 
     public static final String ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT = "transport";
 
-    public static final String ATTR_SERVICES_CONSUMER_DOMAIN_POLLING_DELAY = "propagation-polling-delay";
+    public static final String ATTR_SERVICES_CONSUMER_DOMAIN_POLLING_DELAY = "propagation-polling-max-delay";
 
     public static final QName EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME = new QName(JG_NS_URI, "auth-name");
 

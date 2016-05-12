@@ -160,29 +160,63 @@ public class ConsumerDomain extends AbstractDomain {
         lock.lock();
         try {
             open = true;
+
             sendPropagations(true);
-            final long propagationPollingDelay = jcd.getPropagationPollingDelay();
-            if (propagationPollingDelay > 0) {
+
+            final long propagationPollingMaxDelay = jcd.getPropagationPollingMaxDelay();
+            if (propagationPollingMaxDelay > 0) {
+                final double propagationPollingAccel = jcd.getPropagationPollingAcceleration();
                 if (logger.isLoggable(Level.CONFIG)) {
-                    logger.config("Propagation refresh polling is enabled (every " + propagationPollingDelay + "ms)");
+                    logger.config(
+                            "Propagation refresh polling is enabled (max delay: " + propagationPollingMaxDelay
+                                    + "ms, acceleration: " + propagationPollingAccel + ")");
                 }
-                // TODO maybe we could have faster polling at beginning and then plateau at a given delay?
-                polling = GlobalEventExecutor.INSTANCE.scheduleWithFixedDelay(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (logger.isLoggable(Level.FINE)) {
-                            logger.fine("Propagation refresh polling (next in " + propagationPollingDelay + "ms)");
-                        }
-                        if (sendPropagations(false)) {
-                            logger.info("Changes in propagations detected: refreshed!");
-                        }
-                    }
-                }, propagationPollingDelay, propagationPollingDelay, TimeUnit.MILLISECONDS);
+                doPolling(5000, propagationPollingAccel, propagationPollingMaxDelay);
             } else {
                 logger.config("Propagation refresh polling is disabled");
             }
         } finally {
             lock.unlock();
+        }
+    }
+
+    private void doPolling(final long currentDelay, final double accel, final long maxDelay) {
+
+        final long nextDelay;
+        final long delay;
+        if (accel > 1) {
+            nextDelay = Math.min((long) (currentDelay * accel), maxDelay);
+            delay = Math.min(currentDelay, maxDelay);
+        } else {
+            nextDelay = maxDelay;
+            delay = maxDelay;
+        }
+
+        final boolean plateau = nextDelay >= maxDelay;
+
+        final Runnable command = new Runnable() {
+            @Override
+            public void run() {
+                if (logger.isLoggable(Level.FINE)) {
+                    logger.fine("Propagation refresh polling (next in " + nextDelay + "ms)");
+                }
+
+                // TODO catch exceptions?!
+                if (sendPropagations(false)) {
+                    logger.info("Changes in propagations detected: refreshed!");
+                }
+
+                if (!plateau) {
+                    doPolling(nextDelay, accel, maxDelay);
+                }
+            }
+        };
+
+        if (plateau) {
+            polling = GlobalEventExecutor.INSTANCE.scheduleWithFixedDelay(command, delay, maxDelay,
+                    TimeUnit.MILLISECONDS);
+        } else {
+            polling = GlobalEventExecutor.INSTANCE.schedule(command, delay, TimeUnit.MILLISECONDS);
         }
     }
 
