@@ -23,7 +23,7 @@ import java.util.logging.Logger;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.easywsdl.wsdl.WSDLFactory;
+import org.ow2.easywsdl.extensions.wsdl4complexwsdl.WSDL4ComplexWsdlFactory;
 import org.ow2.easywsdl.wsdl.api.Binding;
 import org.ow2.easywsdl.wsdl.api.Description;
 import org.ow2.easywsdl.wsdl.api.Endpoint;
@@ -56,7 +56,7 @@ public class JbiGatewayServiceEndpointHelper {
         if (originalDescription != null) {
             // TODO reuse the reader, the instance, or whatever
             try {
-                description = WSDLFactory.newInstance().newWSDLReader().read(originalDescription);
+                description = WSDL4ComplexWsdlFactory.newInstance().newWSDLReader().read(originalDescription);
             } catch (final WSDLException | URISyntaxException e) {
                 final String msg = "Couldn't read the received description for " + originalKey
                         + ", generating a lightweigth description";
