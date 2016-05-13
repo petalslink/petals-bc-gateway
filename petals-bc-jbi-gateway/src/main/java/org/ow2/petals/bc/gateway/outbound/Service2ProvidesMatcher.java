@@ -31,6 +31,9 @@ import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 
 /**
+ * 
+ * The specificity of this class is to take care of <code>null</code> endpointName.
+ * 
  * TODO add tests related to that!
  * 
  * @author vnoel
@@ -45,10 +48,7 @@ public class Service2ProvidesMatcher {
     public Service2ProvidesMatcher(final Collection<Pair<Provides, JbiProvidesConfig>> provides)
             throws PEtALSCDKException {
         for (final Pair<Provides, JbiProvidesConfig> pair : provides) {
-            final Provides p = pair.getA();
-            final JbiProvidesConfig config = pair.getB();
-            assert config != null;
-            addToProvides(p, config);
+            addToProvides(pair.getA(), pair.getB());
         }
 
         // ensure there is no bug in the implementation
@@ -64,9 +64,8 @@ public class Service2ProvidesMatcher {
             provides.put(interfaceName, byServices);
         }
 
-        // can be null
+        // can't be null
         final QName serviceName = config.getProviderServiceName();
-        // null key is accepted in HashMap, it means any service name here!
         Map<String, Provides> byEndpoints = byServices.get(serviceName);
         if (byEndpoints == null) {
             byEndpoints = new HashMap<>();
@@ -76,14 +75,9 @@ public class Service2ProvidesMatcher {
         // can be null
         final String endpointName = config.getProviderEndpointName();
         // null key is accepted in HashMap, it means any endpoint name here!
-        if (byEndpoints.containsKey(endpointName)) {
-            // TODO can be detect that earlier maybe in JbiGatewayJBIHelper
-            throw new PEtALSCDKException(
-                    String.format("Ambiguous provider configuration: duplicate matching service for %s/%s/%s",
-                            interfaceName, serviceName, endpointName));
-        } else {
-            byEndpoints.put(endpointName, p);
-        }
+        final Provides removed = byEndpoints.put(endpointName, p);
+        // this should have been verified by JbiGatewayJBIHelper
+        assert removed == null;
     }
 
     private static boolean validate(final Map<QName, Map<QName, Map<String, Provides>>> provides) {
@@ -94,14 +88,15 @@ public class Service2ProvidesMatcher {
         }
 
         for (final Map<QName, Map<String, Provides>> byServices : provides.values()) {
-            final Map<String, Provides> anyServices = byServices.get(null);
-            if (anyServices != null) {
-                // normally for the any service key, there should only be at most the null key
-                if (anyServices.size() > 1) {
-                    return false;
-                }
-                if (anyServices.size() == 1 && !anyServices.containsKey(null)) {
-                    return false;
+            // there can't be any service
+            if (byServices.containsKey(null)) {
+                return false;
+            }
+            for (final Map<String, Provides> byEndpoints : byServices.values()) {
+                // if there is the null key, then it should be the only one!
+                // normally it should have been checked by JbiGatewayJBIHelper
+                if (byEndpoints.containsKey(null)) {
+                    return byEndpoints.size() == 1;
                 }
             }
         }
@@ -109,19 +104,14 @@ public class Service2ProvidesMatcher {
         return true;
     }
 
+    /**
+     * Note: we know that there aren't any overlapping {@link ServiceKey} sent by the provider partner!
+     */
     public @Nullable Provides getProvides(final ServiceKey key) {
         final Map<QName, Map<String, Provides>> byServices = this.provides.get(key.interfaceName);
         if (byServices != null) {
             final Map<String, Provides> byEndpoints = byServices.get(key.service);
-            if (byEndpoints == null) {
-                // if it doesn't match a specific provides, then maybe we have a generic one!
-                // Note that there can't be any other key possible than null endpoint for a null service
-                final Map<String, Provides> anyServices = byServices.get(null);
-                if (anyServices != null) {
-                    return anyServices.get(null);
-                }
-            } else {
-                // note: key.service can't be null!
+            if (byEndpoints != null) {
                 return byEndpoints.get(key.endpointName);
             }
         }

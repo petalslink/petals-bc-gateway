@@ -81,6 +81,9 @@ public class ProviderDomain extends AbstractDomain {
      * 
      * TODO support multi provides per service (it's complicated because then we have to rething {@link #services} that
      * won't match the received services anymore)
+     * 
+     * TODO support multiple activation of a provides (by changing its endpoint name thus) if multiple
+     * {@link ServiceKey} matches.
      */
     private final Service2ProvidesMatcher service2provides;
 

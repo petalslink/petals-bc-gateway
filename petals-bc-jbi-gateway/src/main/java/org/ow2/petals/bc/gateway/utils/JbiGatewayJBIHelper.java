@@ -544,23 +544,7 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
         }
         final JbiProvidesConfig config = configs.iterator().next();
         assert config != null;
-
-        validate(provides, config);
-
         return config;
-    }
-
-    private static void validate(final Provides provides, final JbiProvidesConfig config) throws PEtALSCDKException {
-
-        final String endpointName = config.getProviderEndpointName();
-        final QName serviceName = config.getProviderServiceName();
-
-        if (serviceName == null && endpointName != null) {
-            throw new PEtALSCDKException(String.format(
-                    "Can't specify a provider endpoint name (%s) if "
-                            + "no provider service name is specified in Provides '%s'",
-                    endpointName, toString(provides)));
-        }
     }
 
     public static Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> getProvidesPerDomain(
@@ -588,8 +572,45 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
             pd2provides.get(jpd).add(new Pair<>(provides, config));
         }
 
+        for (final Entry<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> entry : pd2provides
+                .entrySet()) {
+            validate(entry.getValue(), entry.getKey());
+        }
+
         // let's make that unmodifiable!
         return unmodifiable(pd2provides);
+    }
+
+    /**
+     * This only validates that the configurations are not duplicated or subsuming each others
+     * 
+     * TODO check that CDK already checks that provides are valid (i.e. there is no duplicates)
+     */
+    private static void validate(final Collection<Pair<Provides, JbiProvidesConfig>> provides,
+            final JbiProviderDomain jpd) throws PEtALSCDKException {
+
+        for (final Pair<Provides, JbiProvidesConfig> sp : provides) {
+            final JbiProvidesConfig sc = sp.getB();
+            for (final Pair<Provides, JbiProvidesConfig> gp : provides) {
+                final JbiProvidesConfig gc = gp.getB();
+                // sc is the specific config
+                // gc is the generic config
+                if (sc != gc) {
+                    // careful, they can null, hence the use of Objects
+                    if (Objects.equals(sc.getProviderEndpointName(), gc.getProviderEndpointName())) {
+                        throw new PEtALSCDKException("Provides configuration ambiguity for provider domain "
+                                + jpd.getId() + ": " + toString(gp.getA()) + " and " + toString(sp.getA())
+                                + " are identical");
+                    }
+
+                    if (gc.getProviderEndpointName() == null && sc.getProviderEndpointName() != null) {
+                        throw new PEtALSCDKException("Provides configuration ambiguity for provider domain "
+                                + jpd.getId() + ": " + toString(gp.getA()) + " already covers the more specific "
+                                + toString(sp.getA()));
+                    }
+                }
+            }
+        }
     }
 
     private static <A, B> Map<A, Collection<B>> unmodifiable(final Map<A, Collection<B>> map) {
@@ -640,9 +661,12 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
     }
 
     /**
+     * This validates that consumes are not identical or subsuming each others
+     * 
      * TODO or we could simply ignore (and logs then) the most generic ones?! or the most specific ones?!
      *
-     * TODO check that CDK already checks that consumes are valid...
+     * TODO check that CDK already checks that consumes are valid (i.e. if there is an endpointname, then need a service
+     * name)
      */
     private static void validate(final Collection<Consumes> consumes, final JbiConsumerDomain jcd)
             throws PEtALSCDKException {
@@ -688,7 +712,10 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
     }
 
     public static String toString(final Provides p) {
-        return p.getInterfaceName() + "/" + p.getServiceName() + "/" + p.getEndpointName();
+        final QName i = p.getInterfaceName();
+        final QName s = p.getServiceName();
+        final String e = p.getEndpointName();
+        return i + "/" + s + "/" + e;
     }
 
     private static Collection<String> getConsumerDomains(final @Nullable Consumes consumes) throws PEtALSCDKException {
