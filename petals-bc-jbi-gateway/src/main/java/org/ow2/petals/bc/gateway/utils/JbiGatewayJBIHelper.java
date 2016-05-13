@@ -25,6 +25,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.logging.Logger;
 
@@ -536,12 +537,10 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
 
         final Collection<JbiProvidesConfig> configs = getAll(provides.getAny(), EL_PROVIDER, JbiProvidesConfig.class);
         if (configs.isEmpty()) {
-            throw new PEtALSCDKException(String.format("Missing provider in Provides for '%s/%s/%s'",
-                    provides.getInterfaceName(), provides.getServiceName(), provides.getEndpointName()));
+            throw new PEtALSCDKException("Missing provider in Provides " + toString(provides));
         }
         if (configs.size() > 1) {
-            throw new PEtALSCDKException(String.format("Duplicate provider in Provides for '%s/%s/%s'",
-                    provides.getInterfaceName(), provides.getServiceName(), provides.getEndpointName()));
+            throw new PEtALSCDKException("Duplicate provider in Provides " + toString(provides));
         }
         final JbiProvidesConfig config = configs.iterator().next();
         assert config != null;
@@ -558,23 +557,9 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
 
         if (serviceName == null && endpointName != null) {
             throw new PEtALSCDKException(String.format(
-                    "Can't specify a provider endpoint name (%s)"
-                            + " if no provider service name is specified in Provides for '%s/%s/%s'",
-                    endpointName, provides.getInterfaceName(), provides.getServiceName(), provides.getEndpointName()));
-        }
-
-        if (provides.getServiceName() == null && serviceName != null) {
-            throw new PEtALSCDKException(String.format(
-                    "Can't specify a provider service name (%s)"
-                            + " if no service name is specified in Provides for '%s'",
-                    serviceName, provides.getInterfaceName()));
-        }
-
-        if (provides.getEndpointName() == null && endpointName != null) {
-            throw new PEtALSCDKException(String.format(
-                    "Can't specify a provider endpoint name (%s)"
-                            + " if no endpoint name is specified in Provides for '%s/%s'",
-                    endpointName, provides.getInterfaceName(), provides.getServiceName()));
+                    "Can't specify a provider endpoint name (%s) if "
+                            + "no provider service name is specified in Provides '%s'",
+                    endpointName, toString(provides)));
         }
     }
 
@@ -645,16 +630,72 @@ public class JbiGatewayJBIHelper implements JbiGatewayConstants {
             }
         }
 
+        for (final Entry<JbiConsumerDomain, Collection<Consumes>> entry : cd2consumes.entrySet()) {
+            // we validate PER consumer domain!
+            validate(entry.getValue(), entry.getKey());
+        }
+
         // let's make that unmodifiable!
         return unmodifiable(cd2consumes);
+    }
+
+    /**
+     * TODO or we could simply ignore (and logs then) the most generic ones?! or the most specific ones?!
+     *
+     * TODO check that CDK already checks that consumes are valid...
+     */
+    private static void validate(final Collection<Consumes> consumes, final JbiConsumerDomain jcd)
+            throws PEtALSCDKException {
+        for (final Consumes sc : consumes) {
+            assert sc != null;
+            for (final Consumes gc : consumes) {
+                assert gc != null;
+                // sc is the specific consumes
+                // gc is the generic consumes
+                if (sc != gc) {
+                    // careful service name and endpoint name can be null, hence Objects.equals
+                    if (Objects.equals(sc.getInterfaceName(), gc.getInterfaceName())
+                            && Objects.equals(sc.getServiceName(), gc.getServiceName())
+                            && Objects.equals(sc.getEndpointName(), gc.getEndpointName())) {
+                        throw new PEtALSCDKException("Consumes ambiguity for consumer domain " + jcd.getId() + ": "
+                                + toString(gc) + " and " + toString(sc) + " are identical");
+                    }
+                    if (gc.getEndpointName() == null && sc.getInterfaceName().equals(gc.getInterfaceName())) {
+                        // specific w.r.t. endpoint name
+                        if (sc.getEndpointName() != null
+                                && (gc.getServiceName() == null || gc.getServiceName().equals(sc.getServiceName()))) {
+                            throw new PEtALSCDKException("Consumes ambiguity for consumer domain " + jcd.getId() + ": "
+                                    + toString(gc) + " already covers the more specific " + toString(sc));
+                        }
+
+                        // specific w.r.t. service name
+                        if (sc.getEndpointName() == null && sc.getServiceName() != null
+                                && gc.getServiceName() == null) {
+                            throw new PEtALSCDKException("Consumes ambiguity for consumer domain " + jcd.getId() + ": "
+                                    + toString(gc) + " already covers the more specific " + toString(sc));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public static String toString(final Consumes c) {
+        final QName i = c.getInterfaceName();
+        final QName s = c.getServiceName();
+        final String e = c.getEndpointName();
+        return i.toString() + (s != null ? "/" + s.toString() + (e != null ? "/" + e : "") : "");
+    }
+
+    public static String toString(final Provides p) {
+        return p.getInterfaceName() + "/" + p.getServiceName() + "/" + p.getEndpointName();
     }
 
     private static Collection<String> getConsumerDomains(final @Nullable Consumes consumes) throws PEtALSCDKException {
         assert consumes != null;
         final Collection<JbiConsumesConfig> confs = getAll(consumes.getAny(), EL_CONSUMER, JbiConsumesConfig.class);
         if (confs.isEmpty()) {
-            throw new PEtALSCDKException(String.format("Missing consumer in Provides for '%s/%s/%s'",
-                    consumes.getInterfaceName(), consumes.getServiceName(), consumes.getEndpointName()));
+            throw new PEtALSCDKException("Missing consumer in Consumes " + toString(consumes));
         }
         final List<String> res = new ArrayList<>();
         for (final JbiConsumesConfig conf : confs) {
