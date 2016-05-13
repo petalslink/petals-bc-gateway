@@ -17,6 +17,7 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.Callable;
 import java.util.logging.Level;
@@ -29,6 +30,10 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.RuleChain;
 import org.junit.rules.TestRule;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 import org.ow2.easywsdl.wsdl.api.WSDLException;
 import org.ow2.petals.component.framework.junit.Component;
 import org.ow2.petals.component.framework.junit.impl.ComponentConfiguration;
@@ -48,11 +53,10 @@ import com.jayway.awaitility.Duration;
  * Maybe we could use assertLogContains to remove the logs we expected, and then at the end test that there is no
  * warning nor severe?
  * 
- * TODO and test with specify endpoint!
- * 
  * @author vnoel
  *
  */
+@RunWith(Parameterized.class)
 public class JbiGatewayRefreshTest extends AbstractComponentTest {
 
     private static final QName TEST_INTERFACE = new QName(HELLO_NS, "TestInterface");
@@ -105,6 +109,37 @@ public class JbiGatewayRefreshTest extends AbstractComponentTest {
     @ClassRule
     public static final TestRule chain2 = RuleChain.outerRule(IN_MEMORY_LOG_HANDLER2).around(COMPONENT_UNDER_TEST2);
 
+    @SuppressWarnings("null")
+    @Parameters(name = "{index}: {0},{1},{2},{3}")
+    public static Collection<Object[]> data() {
+        return Arrays.asList(new Object[][] {
+                { false, false, false, 0L },
+                { false, false, false, 1000L },
+                { true, false, false, 0L },
+                { true, false, false, 1000L },
+                { true, true, false, 0L },
+                { true, true, false, 1000L },
+                { false, false, true, 0L },
+                { false, false, true, 1000L },
+                { true, false, true, 0L },
+                { true, false, true, 1000L },
+                { true, true, true, 0L },
+                { true, true, true, 1000L },
+        });
+    };
+
+    @Parameter
+    public boolean specifyService = false;
+    
+    @Parameter(1)
+    public boolean specifyEndpoint = false;
+    
+    @Parameter(2)
+    public boolean withDesc = false;
+
+    @Parameter(3)
+    public long polling = 0L;
+
     /**
      * All log traces must be cleared before starting a unit test (because the log handler is static and lives during
      * the whole suite of tests)
@@ -132,64 +167,144 @@ public class JbiGatewayRefreshTest extends AbstractComponentTest {
         undeployServices(COMPONENT_UNDER_TEST2, IN_MEMORY_LOG_HANDLER2);
     }
 
-    @Test
-    public void testRefreshExplicitWithoutDesc1() throws Exception {
-        testRefreshExplicit(true, false);
-    }
-
-    @Test
-    public void testRefreshExplicitWithoutDesc2() throws Exception {
-        testRefreshExplicit(false, false);
-    }
-
-    @Test
-    public void testRefreshExplicitWitDesc1() throws Exception {
-        testRefreshExplicit(true, true);
-    }
-
-    @Test
-    public void testRefreshExplicitWitDesc2() throws Exception {
-        testRefreshExplicit(false, true);
-    }
-
-    public void testRefreshExplicit(final boolean specifyService, final boolean withDesc) throws Exception {
-
+    @Before
+    public void setup() throws Exception {
         final MockEndpointDirectory ed = COMPONENT_UNDER_TEST.getEndpointDirectory();
 
         // disable propagation polling
         COMPONENT_UNDER_TEST.deployService(SU_CONSUMER_NAME,
-                createConsumes(TEST_INTERFACE, specifyService ? TEST_SERVICE : null, null, null, null, null, 0L));
+                createConsumes(TEST_INTERFACE, specifyService ? TEST_SERVICE : null,
+                        specifyEndpoint ? TEST_ENDPOINT_NAME : null, null, null, null, polling));
 
         COMPONENT_UNDER_TEST2.deployService(SU_PROVIDER_NAME, createProvider());
 
         assertLogContains(IN_MEMORY_LOG_HANDLER2, "AuthAccept", Level.FINE, 1);
 
         assertTrue(ed.resolveEndpoints(TEST_INTERFACE).isEmpty());
+        checkEndpoints(0, 0, 0);
+    }
+
+    @Test
+    public void testRefreshAddRemove() throws Exception {
+
+        final MockEndpointDirectory ed = COMPONENT_UNDER_TEST.getEndpointDirectory();
+
+        if (polling > 0) {
+            assertLogContains("Propagation refresh polling (next in", Level.FINE, 2);
+        }
 
         ed.activateEndpoint(withDesc ? SERVICE_ENDPOINT_WITH_DESC : SERVICE_ENDPOINT);
 
-        getComponent().refreshPropagations();
+        if (polling == 0) {
+            getComponent().refreshPropagations();
+        }
 
-        Awaitility.await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
-            @Override
-            public Boolean call() throws Exception {
-                return hasInterface(TEST_INTERFACE, 1) && hasService(TEST_SERVICE, 1);
-            }
-        });
+        checkEndpoints(1, 1, 0);
+
+        if (polling > 0) {
+            assertLogContains("Propagation refresh polling (next in", Level.FINE, 6);
+            // and check that there was only one change detected from the beginning!
+            assertLogContains("Changes in propagations detected: refreshed", Level.INFO, 1);
+        }
 
         if (!specifyService) {
             ed.activateEndpoint(withDesc ? SERVICE_ENDPOINT_WITH_DESC2 : SERVICE_ENDPOINT2);
 
-            getComponent().refreshPropagations();
+            if (polling == 0) {
+                getComponent().refreshPropagations();
+            }
 
-            Awaitility.await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
-                @Override
-                public Boolean call() throws Exception {
-                    return hasInterface(TEST_INTERFACE, 2) && hasService(TEST_SERVICE, 1)
-                            && hasService(TEST_SERVICE2, 1);
-                }
-            });
+            checkEndpoints(2, 1, 1);
+
+            if (polling > 0) {
+                assertLogContains("Propagation refresh polling (next in", Level.FINE, 10);
+                assertLogContains("Changes in propagations detected: refreshed", Level.INFO, 2);
+            }
         }
+        
+        ed.deactivateEndpoint(withDesc ? SERVICE_ENDPOINT_WITH_DESC : SERVICE_ENDPOINT);
+        
+        if (polling == 0) {
+            getComponent().refreshPropagations();
+        }
+        
+        final int nbService2 = !specifyService ? 1 : 0;
+        checkEndpoints(nbService2, 0, nbService2);
+
+        if (polling > 0) {
+            assertLogContains("Propagation refresh polling (next in", Level.FINE, !specifyService ? 14 : 10);
+            assertLogContains("Changes in propagations detected: refreshed", Level.INFO, !specifyService ? 3 : 2);
+        }
+
+        if (!specifyService) {
+            ed.deactivateEndpoint(withDesc ? SERVICE_ENDPOINT_WITH_DESC2 : SERVICE_ENDPOINT2);
+
+            if (polling == 0) {
+                getComponent().refreshPropagations();
+            }
+
+            checkEndpoints(0, 0, 0);
+
+            if (polling > 0) {
+                assertLogContains("Propagation refresh polling (next in", Level.FINE, 18);
+                assertLogContains("Changes in propagations detected: refreshed", Level.INFO, 4);
+            }
+        }
+    }
+
+    @Test
+    public void testRefreshUpdateDesc() throws Exception {
+
+        if (!specifyService && !withDesc && !specifyEndpoint) {
+            // no test
+            return;
+        }
+
+        final MockEndpointDirectory ed = COMPONENT_UNDER_TEST.getEndpointDirectory();
+
+        if (polling > 0) {
+            assertLogContains("Propagation refresh polling (next in", Level.FINE, 2);
+        }
+
+        ed.activateEndpoint(SERVICE_ENDPOINT);
+
+        if (polling == 0) {
+            getComponent().refreshPropagations();
+        }
+
+        checkEndpoints(1, 1, 0);
+
+        if (polling > 0) {
+            assertLogContains("Propagation refresh polling (next in", Level.FINE, 6);
+            // and check that there was only one change detected from the beginning!
+            assertLogContains("Changes in propagations detected: refreshed", Level.INFO, 1);
+        }
+
+        // the description is present now
+        ed.deactivateEndpoint(SERVICE_ENDPOINT);
+        ed.activateEndpoint(SERVICE_ENDPOINT_WITH_DESC);
+
+        if (polling == 0) {
+            getComponent().refreshPropagations();
+        }
+
+        checkEndpoints(1, 1, 0);
+
+        if (polling > 0) {
+            assertLogContains("Propagation refresh polling (next in", Level.FINE, 10);
+            // and check that there was only one change detected from the beginning!
+            assertLogContains("Changes in propagations detected: refreshed", Level.INFO, 2);
+        }
+    }
+
+    private void checkEndpoints(final int nbInterface, final int nbService, final int nbService1) {
+        Awaitility.await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
+            @Override
+            public Boolean call() throws Exception {
+                return hasInterface(TEST_INTERFACE, nbInterface) && hasService(TEST_SERVICE, nbService)
+                        && hasService(TEST_SERVICE2, nbService1);
+            }
+        });
     }
 
     private boolean hasInterface(final QName interfaceName, final int howMany) {
@@ -202,77 +317,5 @@ public class JbiGatewayRefreshTest extends AbstractComponentTest {
         final Collection<MockServiceEndpoint> endpoints = COMPONENT_UNDER_TEST2.getEndpointDirectory()
                 .resolveEndpointsForService(service);
         return endpoints.size() == howMany;
-    }
-
-    @Test
-    public void testRefreshPollingWithDesc1() throws Exception {
-        testRefreshPolling(true, true);
-    }
-
-    @Test
-    public void testRefreshPollingWithDesc2() throws Exception {
-        testRefreshPolling(false, true);
-    }
-
-    @Test
-    public void testRefreshPollingWithoutDesc1() throws Exception {
-        testRefreshPolling(true, false);
-    }
-
-    @Test
-    public void testRefreshPollingWithoutDesc2() throws Exception {
-        testRefreshPolling(false, false);
-    }
-
-    public void testRefreshPolling(final boolean specifyService, final boolean withDesc)
-            throws Exception {
-
-        final MockEndpointDirectory ed = COMPONENT_UNDER_TEST.getEndpointDirectory();
-
-        // disable propagation polling
-        COMPONENT_UNDER_TEST.deployService(SU_CONSUMER_NAME,
-                createConsumes(TEST_INTERFACE, specifyService ? TEST_SERVICE : null, null, null, null, null, 1000L));
-
-        COMPONENT_UNDER_TEST2.deployService(SU_PROVIDER_NAME, createProvider());
-
-        assertLogContains(IN_MEMORY_LOG_HANDLER2, "AuthAccept", Level.FINE, 1);
-
-        assertTrue(ed.resolveEndpoints(TEST_INTERFACE).isEmpty());
-
-        // let's wait for two of them
-        assertLogContains("Propagation refresh polling (next in", Level.FINE, 2);
-
-        ed.activateEndpoint(withDesc ? SERVICE_ENDPOINT_WITH_DESC : SERVICE_ENDPOINT);
-
-        Awaitility.await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
-            @Override
-            public Boolean call() throws Exception {
-                return hasInterface(TEST_INTERFACE, 1) && hasService(TEST_SERVICE, 1);
-            }
-        });
-
-        // let's wait for some more polling (careful, they are all counted from zero!)
-        assertLogContains("Propagation refresh polling (next in", Level.FINE, 6);
-
-        // and check that there was only one change detected from the beginning!
-        assertLogContains("Changes in propagations detected: refreshed", Level.INFO, 1);
-
-        if (!specifyService) {
-            ed.activateEndpoint(withDesc ? SERVICE_ENDPOINT_WITH_DESC2 : SERVICE_ENDPOINT2);
-
-            Awaitility.await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
-                @Override
-                public Boolean call() throws Exception {
-                    return hasInterface(TEST_INTERFACE, 2) && hasService(TEST_SERVICE, 1)
-                            && hasService(TEST_SERVICE2, 1);
-                }
-            });
-
-            // let's wait for some more polling (careful, they are all counted from zero!)
-            assertLogContains("Propagation refresh polling (next in", Level.FINE, 10);
-
-            // and check that there was only 2 change detected from the beginning!
-            assertLogContains("Changes in propagations detected: refreshed", Level.INFO, 2);
-        }
     }
 }

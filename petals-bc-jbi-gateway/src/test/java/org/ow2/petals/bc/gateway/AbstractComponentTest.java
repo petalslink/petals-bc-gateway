@@ -416,6 +416,7 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
     protected void twoDomainsTest(final boolean specifyService, final boolean specifyEndpoint) throws Exception {
         twoDomainsTest(specifyService, specifyEndpoint, null, null, null, null, null, null, null, null, null);
     }
+
     protected void twoDomainsTest(final boolean specifyService, final boolean specifyEndpoint,
             final @Nullable String clientCertificate, final @Nullable String clientKey,
             final @Nullable String clientRemoteCertificate, final @Nullable String serverCertificate,

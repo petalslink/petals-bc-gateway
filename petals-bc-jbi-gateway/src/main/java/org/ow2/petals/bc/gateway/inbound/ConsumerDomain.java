@@ -53,6 +53,8 @@ import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.w3c.dom.Document;
 
 import io.netty.channel.Channel;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.FutureListener;
 import io.netty.util.concurrent.GlobalEventExecutor;
 import io.netty.util.concurrent.ScheduledFuture;
 
@@ -209,6 +211,7 @@ public class ConsumerDomain extends AbstractDomain {
                     if (sendPropagations(false)) {
                         logger.info("Changes in propagations detected: refreshed!");
                     }
+
                 } finally {
                     try {
                         // in case it was interrupted during the propagation sending
@@ -238,7 +241,17 @@ public class ConsumerDomain extends AbstractDomain {
             delay = maxDelay;
         }
 
-        polling = GlobalEventExecutor.INSTANCE.schedule(command, delay, TimeUnit.MILLISECONDS);
+        polling = (ScheduledFuture<?>) GlobalEventExecutor.INSTANCE.schedule(command, delay, TimeUnit.MILLISECONDS)
+                .addListener(new FutureListener<Object>() {
+                    @Override
+                    public void operationComplete(final @Nullable Future<Object> future) throws Exception {
+                        assert future != null;
+                        if (!future.isSuccess() && !future.isCancelled()) {
+                            logger.log(Level.WARNING, "Error during propagation refresh polling", future.cause());
+                        }
+                    }
+                });
+
     }
 
     public void close() {
@@ -326,42 +339,41 @@ public class ConsumerDomain extends AbstractDomain {
                     assert serviceName != null;
                     final Collection<ServiceEndpoint> endpoints = entry.getValue();
 
-                    final boolean shouldBePropagated = !endpoints.isEmpty();
+                    final TransportedDocument description = getFirstDescription(endpoints);
 
-                    final TransportedDocument description;
-                    if (shouldBePropagated) {
-                        description = getFirstDescription(endpoints);
-                        if (Thread.currentThread().isInterrupted()) {
-                            return false;
-                        }
-                    } else {
-                        description = null;
+                    if (Thread.currentThread().isInterrupted()) {
+                        return false;
                     }
 
                     final ServiceKey service = new ServiceKey(endpointName, serviceName, interfaceName);
 
                     if (!force) {
-                        // careful, the map can contains null for some keys! so containsKey is not the same as get !=
-                        // null!
-                        final boolean wasPropagated = propagations.getPropagations().containsKey(service);
-
-                        if (shouldBePropagated != wasPropagated) {
-                            // if they have different values, then it means something changed
+                        // careful, the map can contains null for some keys!
+                        // so containsKey is not the same as get != null!
+                        if (!propagations.getPropagations().containsKey(service)) {
+                            // it means an endpoint was added/changed
                             changes = true;
-                        } else if (shouldBePropagated && description != null
-                                && propagations.getPropagations().get(service) == null) {
+                        } else if (description != null && propagations.getPropagations().get(service) == null) {
                             // if they have the same value, but the description changed from null to non-null,
                             // then it means something changed too!
                             changes = true;
                         }
                     }
 
-                    if (shouldBePropagated) {
-                        propagated.put(service, description);
-                    }
+                    propagated.put(service, description);
 
                     if (Thread.currentThread().isInterrupted()) {
                         return false;
+                    }
+                }
+            }
+
+            if (!force) {
+                for (ServiceKey prevKey : propagations.getPropagations().keySet()) {
+                    if (!propagated.containsKey(prevKey)) {
+                        // it means endpoints were removed
+                        changes = true;
+                        break;
                     }
                 }
             }
@@ -389,7 +401,24 @@ public class ConsumerDomain extends AbstractDomain {
             }
             c.add(endpoint);
         }
+
+        assert validate(res);
+
         return res;
+    }
+
+    /**
+     * each collection shouldn't be empty!
+     */
+    private static boolean validate(final Map<QName, Collection<ServiceEndpoint>> res) {
+
+        for (final Collection<ServiceEndpoint> c : res.values()) {
+            if (c.isEmpty()) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void sendPropagations(final TransportedPropagations toPropagate) {
