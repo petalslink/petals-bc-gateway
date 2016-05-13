@@ -30,6 +30,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 import javax.jbi.messaging.MessageExchange;
+import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
@@ -54,8 +55,6 @@ import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.ow2.petals.component.framework.util.EndpointUtil;
 import org.ow2.petals.component.framework.util.ServiceEndpointKey;
 import org.w3c.dom.Document;
-
-import com.ebmwebsourcing.easycommons.lang.StringHelper;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -133,14 +132,6 @@ public class ProviderDomain extends AbstractDomain {
 
         this.matcher = matcher;
         this.jpd = jpd;
-
-        for (final Pair<Provides, JbiProvidesConfig> p : provides) {
-            if (StringHelper.isNullOrEmpty(p.getA().getWsdl())) {
-                // TODO maybe later we can do simple mirroring and rewriting w.r.t. the JbiProvidesConfig
-                throw new PEtALSCDKException("The provides " + p.getA().getServiceName() + " must have a WSDL defined");
-            }
-        }
-
         this.service2provides = new Service2ProvidesMatcher(provides);
         this.client = new TransportClient(handler, partialBootstrap, logger, cr, this);
     }
@@ -247,6 +238,7 @@ public class ProviderDomain extends AbstractDomain {
         try {
             final Set<ServiceKey> oldKeys = new HashSet<>(services.keySet());
 
+            // TODO handle exceptions and log them?
             for (final Entry<ServiceKey, TransportedDocument> entry : propagated.entrySet()) {
                 final ServiceKey service = entry.getKey();
                 assert service != null;
@@ -265,11 +257,18 @@ public class ProviderDomain extends AbstractDomain {
                     data = services.get(service);
                     assert data != null;
                     if (document != null && data.description == null) {
-                        data.description = document;
-                        // let's re-register it then!
-                        deregisterOrStoreOrLog(data, null);
-                        register = true;
+                        final Provides p = service2provides.getProvides(service);
+                        if (p != null && p.getWsdl() != null) {
+                            // in this case we deregister and re-register it with the right document
+                            data.description = document;
+                            deregisterOrStoreOrLog(data, null);
+                            register = true;
+                        } else {
+                            // in this case, we anyway use the provides description
+                            register = false;
+                        }
                     } else {
+                        // in this case we don't touch it
                         register = false;
                     }
                 } else {
@@ -316,18 +315,34 @@ public class ProviderDomain extends AbstractDomain {
 
         final Provides p = service2provides.getProvides(sk);
 
+        final ServiceEndpointKey key;
+        final QName interfaceName;
+        final boolean generateDescription;
         if (p != null) {
-            final ServiceEndpointKey key = new ServiceEndpointKey(p);
-            data.key = key;
-            // the description is managed by the ServiceUnitManager, the component will retrieve it
-            // see also the Class constructor that verify that the description is present
-            matcher.register(key, provider);
+            key = new ServiceEndpointKey(p);
+            interfaceName = p.getInterfaceName();
+            if (p.getWsdl() == null) {
+                generateDescription = true;
+            } else {
+                // we will use the description managed by the ServiceUnitManager, the component will retrieve it
+                generateDescription = false;
+            }
         } else {
-            final ServiceEndpointKey key = generateSEK(sk);
-            data.key = key;
+            key = generateSEK(sk);
+            generateDescription = true;
+            interfaceName = sk.interfaceName;
+        }
+        assert interfaceName != null;
+
+        data.key = key;
+
+        if (generateDescription) {
+            // note: data.description can be null!
             final Document description = JbiGatewayServiceEndpointHelper.generateDescription(data.description, sk, key,
-                    logger);
+                    interfaceName, logger);
             matcher.register(key, provider, description);
+        } else {
+            matcher.register(key, provider);
         }
     }
 

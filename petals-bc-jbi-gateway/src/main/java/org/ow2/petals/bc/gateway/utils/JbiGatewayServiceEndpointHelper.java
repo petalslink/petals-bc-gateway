@@ -20,10 +20,14 @@ package org.ow2.petals.bc.gateway.utils;
 import java.net.URISyntaxException;
 import java.util.logging.Logger;
 
+import javax.xml.namespace.QName;
+
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.easywsdl.wsdl.WSDLFactory;
+import org.ow2.easywsdl.wsdl.api.Binding;
 import org.ow2.easywsdl.wsdl.api.Description;
 import org.ow2.easywsdl.wsdl.api.Endpoint;
+import org.ow2.easywsdl.wsdl.api.InterfaceType;
 import org.ow2.easywsdl.wsdl.api.Service;
 import org.ow2.easywsdl.wsdl.api.WSDLException;
 import org.ow2.petals.bc.gateway.commons.messages.ServiceKey;
@@ -44,11 +48,8 @@ public class JbiGatewayServiceEndpointHelper {
         // utility class
     }
 
-    /**
-     * TODO prevent any throw exception?!
-     */
     public static Document generateDescription(final @Nullable Document originalDescription,
-            final ServiceKey originalKey, final ServiceEndpointKey newKey, final Logger logger)
+            final ServiceKey originalKey, final ServiceEndpointKey newKey, final QName newInterfaceName, final Logger logger)
             throws PEtALSCDKException {
 
         Description description = null;
@@ -67,6 +68,10 @@ public class JbiGatewayServiceEndpointHelper {
                 final Service service = description.getService(originalKey.service);
 
                 if (service != null) {
+                    
+                    // it can be different in the case of a Provides
+                    service.setQName(newKey.getServiceName());
+
                     final Endpoint endpoint;
                     if (originalKey.endpointName != null) {
                         endpoint = service.getEndpoint(originalKey.endpointName);
@@ -81,16 +86,34 @@ public class JbiGatewayServiceEndpointHelper {
                     // we always generate the endpoint name!
                     if (endpoint != null) {
                         endpoint.setName(newKey.getEndpointName());
+                        
+                        InterfaceType interfaceType;
+                        try {
+                            interfaceType = getInterfaceFromService(service.getQName(), endpoint.getName(),
+                                    description, logger);
+                        } catch (final WSDLException e) {
+                            interfaceType = null;
+                        }
+
+                        if (interfaceType != null) {
+                            // it can be different in the case of a Provides
+                            interfaceType.setQName(newInterfaceName);
+                        } else {
+                            logger.warning("Couldn't find the interface of " + originalKey
+                                    + " in the received description, generating a lightweigth description");
+                            // TODO should I do that or just keep it... ?
+                            description = null;
+                        }
                     } else {
                         logger.warning("Couldn't find the endpoint of " + originalKey
                                 + " in the received description, generating a lightweigth description");
-                        // TODO should I do that or just keep it...
+                        // TODO should I do that or just keep it... ?
                         description = null;
                     }
                 } else {
                     logger.warning("Couldn't find the service of " + originalKey
                             + " in the received description, generating a lightweigth description");
-                    // TODO should I do that or just keep it...
+                    // TODO should I do that or just keep it... ?
                     description = null;
                 }
             }
@@ -116,6 +139,35 @@ public class JbiGatewayServiceEndpointHelper {
             return desc;
         } catch (final WSDLException e) {
             throw new PEtALSCDKException(e);
+        }
+    }
+
+    /**
+     * TODO Copied from ServiceEndpointHelper from petals-message-exchange, it should be moved to easywsdl normally!
+     */
+    private static @Nullable InterfaceType getInterfaceFromService(final QName serviceName, final String endpointName,
+            final Description description, final Logger logger) throws WSDLException {
+        final Service ss = description.getService(serviceName);
+        if (ss != null) {
+            final Endpoint endpoint = ss.getEndpoint(endpointName);
+            if (endpoint != null) {
+                final Binding binding = endpoint.getBinding();
+                if (binding != null && binding.getInterface() != null) {
+                    return binding.getInterface();
+                } else {
+                    logger.config("No valid binding for endpoint '" + endpointName
+                            + "' in component description for service '" + serviceName
+                            + "', using service's interface");
+                    return ss.getInterface();
+                }
+            } else {
+                logger.config("No endpoint '" + endpointName + "' in component description for service '" + serviceName
+                        + "', using service's interface");
+                return ss.getInterface();
+            }
+        } else {
+            logger.config("No service '" + serviceName + "' in component description");
+            return null;
         }
     }
 }
