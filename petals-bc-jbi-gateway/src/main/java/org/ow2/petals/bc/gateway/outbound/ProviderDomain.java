@@ -17,7 +17,6 @@
  */
 package org.ow2.petals.bc.gateway.outbound;
 
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -33,12 +32,6 @@ import java.util.logging.Logger;
 import javax.jbi.messaging.MessageExchange;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.easywsdl.extensions.wsdl4complexwsdl.WSDL4ComplexWsdlFactory;
-import org.ow2.easywsdl.extensions.wsdl4complexwsdl.api.Description;
-import org.ow2.easywsdl.extensions.wsdl4complexwsdl.api.WSDL4ComplexWsdlException;
-import org.ow2.easywsdl.wsdl.api.Endpoint;
-import org.ow2.easywsdl.wsdl.api.Service;
-import org.ow2.easywsdl.wsdl.api.WSDLException;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.commons.AbstractDomain;
 import org.ow2.petals.bc.gateway.commons.messages.ServiceKey;
@@ -49,6 +42,7 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper.Pair;
 import org.ow2.petals.bc.gateway.utils.JbiGatewayProvideExtFlowStepBeginLogData;
+import org.ow2.petals.bc.gateway.utils.JbiGatewayServiceEndpointHelper;
 import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
@@ -59,7 +53,6 @@ import org.ow2.petals.component.framework.logger.StepLogHelper;
 import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.ow2.petals.component.framework.util.EndpointUtil;
 import org.ow2.petals.component.framework.util.ServiceEndpointKey;
-import org.ow2.petals.component.framework.util.WSDLUtilImpl;
 import org.w3c.dom.Document;
 
 import com.ebmwebsourcing.easycommons.lang.StringHelper;
@@ -329,7 +322,8 @@ public class ProviderDomain extends AbstractDomain {
         } else {
             final ServiceEndpointKey key = generateSEK(sk);
             data.key = key;
-            final Document description = generateDescription(data.description, sk, key);
+            final Document description = JbiGatewayServiceEndpointHelper.generateDescription(data.description, sk, key,
+                    logger);
             matcher.register(key, provider, description);
         }
     }
@@ -354,79 +348,6 @@ public class ProviderDomain extends AbstractDomain {
         }
     }
 
-    /**
-     * TODO prevent any throw exception?!
-     */
-    private Document generateDescription(final @Nullable Document originalDescription,
-            final ServiceKey originalKey, final ServiceEndpointKey newKey) throws PEtALSCDKException {
-
-        Description description = null;
-        if (originalDescription != null) {
-            // TODO reuse the reader, the instance, or whatever
-            try {
-                description = WSDL4ComplexWsdlFactory.newInstance().newWSDLReader().read(originalDescription);
-            } catch (final WSDL4ComplexWsdlException | URISyntaxException e) {
-                final String msg = "Couldn't read the received description for " + originalKey
-                        + ", generating a lightweigth description";
-                logger.warning(msg);
-                logger.log(Level.FINE, msg, e);
-            }
-
-            if (description != null) {
-                final Service service = description.getService(originalKey.service);
-
-                if (service != null) {
-                    final Endpoint endpoint;
-                    if (originalKey.endpointName != null) {
-                        endpoint = service.getEndpoint(originalKey.endpointName);
-                    } else {
-                        // TODO how do I know which endpoint is the right one? maybe the provider domain should send us
-                        // this information on top of the rest?!
-
-                        // for now let's take the first one!
-                        endpoint = service.getEndpoints().isEmpty() ? null : service.getEndpoints().get(0);
-                    }
-
-                    // we always generate the endpoint name!
-                    if (endpoint != null) {
-                        endpoint.setName(newKey.getEndpointName());
-                    } else {
-                        logger.warning("Couldn't find the endpoint of " + originalKey
-                                + " in the received description, generating a lightweigth description");
-                        // TODO should I do that or just keep it...
-                        description = null;
-                    }
-                } else {
-                    logger.warning("Couldn't find the service of " + originalKey
-                            + " in the received description, generating a lightweigth description");
-                    // TODO should I do that or just keep it...
-                    description = null;
-                }
-            }
-        } else {
-            logger.warning("No description received for " + originalKey + ", generating a lightweigth description");
-        }
-
-        if (description == null) {
-            // let's generate a minimal one for now
-            // but we won't store it, in case we get one from the other side later
-            try {
-            description = WSDLUtilImpl.createLightWSDL20Description(originalKey.interfaceName, newKey.getServiceName(),
-                    newKey.getEndpointName());
-            } catch (final WSDLException e) {
-                throw new PEtALSCDKException(e);
-            }
-        }
-        assert description != null;
-
-        try {
-            Document desc = WSDLUtilImpl.convertDescriptionToDocument(description);
-            assert desc != null;
-            return desc;
-        } catch (final WSDLException e) {
-            throw new PEtALSCDKException(e);
-        }
-    }
 
     private static ServiceEndpointKey generateSEK(final ServiceKey sk) {
         // Note: we should not propagate endpoint name, it is local to each domain
