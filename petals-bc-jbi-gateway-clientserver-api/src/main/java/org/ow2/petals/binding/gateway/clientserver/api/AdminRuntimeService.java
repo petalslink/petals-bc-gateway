@@ -28,11 +28,33 @@ import org.ow2.petals.basisapi.exception.PetalsException;
 public interface AdminRuntimeService extends CommonAdminService {
 
     /**
-     * Repropagate endpoints to client domains.
+     * Repropagate endpoints to all consumer domains of a component.
      * 
      * @throws PetalsException
      *             An error occurs during refresh
      */
     public void refreshPropagations() throws PetalsException;
+
+    /**
+     * Repropagate endpoints to all consumer domains of a given Service Unit.
+     * 
+     * @param suName
+     *            the name of the SU to refresh
+     * @throws PetalsException
+     *             An error occurs during refresh
+     */
+    public void refreshPropagations(String suName) throws PetalsException;
+
+    /**
+     * Repropagate endpoints to a given consumer domain.
+     * 
+     * @param suName
+     *            the name of the SU where the consumer domain is declared
+     * @param consumerDomain
+     *            the name of the consumer domain to refresh
+     * @throws PetalsException
+     *             An error occurs during refresh
+     */
+    public void refreshPropagations(String suName, String consumerDomain) throws PetalsException;
 
 }

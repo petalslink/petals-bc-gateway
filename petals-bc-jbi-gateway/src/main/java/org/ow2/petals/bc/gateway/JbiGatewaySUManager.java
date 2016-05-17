@@ -19,6 +19,7 @@ package org.ow2.petals.bc.gateway;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,6 +83,15 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
             cds.addAll(data.consumerDomains.values());
         }
         return cds;
+    }
+
+    public @Nullable Map<String, ConsumerDomain> getConsumerDomains(final String suName) {
+        final SUData data = suDatas.get(suName);
+        if (data != null) {
+            return Collections.unmodifiableMap(data.consumerDomains);
+        } else {
+            return null;
+        }
     }
 
     /**

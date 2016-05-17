@@ -452,6 +452,39 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     }
 
     @Override
+    public void refreshPropagations(final @Nullable String suName) throws PetalsException {
+        assert suName != null;
+
+        final Map<String, ConsumerDomain> cds = getServiceUnitManager().getConsumerDomains(suName);
+        if (cds == null) {
+            throw new PetalsException("Unknown SU '" + suName + "'");
+        }
+
+        for (final ConsumerDomain cd : cds.values()) {
+            cd.refreshPropagations();
+        }
+    }
+
+    @Override
+    public void refreshPropagations(final @Nullable String suName, final @Nullable String consumerDomain)
+            throws PetalsException {
+        assert suName != null;
+        assert consumerDomain != null;
+
+        final Map<String, ConsumerDomain> cds = getServiceUnitManager().getConsumerDomains(suName);
+        if (cds == null) {
+            throw new PetalsException("Unknown SU '" + suName + "'");
+        }
+
+        final ConsumerDomain cd = cds.get(consumerDomain);
+        if (cd == null) {
+            throw new PetalsException("Unknown consumer domain '" + consumerDomain + "'");
+        }
+
+        cd.refreshPropagations();
+    }
+
+    @Override
     public void addTransportListener(final @Nullable String id, final int port) throws PetalsException {
         assert id != null;
 
