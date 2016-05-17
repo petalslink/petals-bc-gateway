@@ -28,6 +28,7 @@ import org.ow2.petals.bc.gateway.utils.JbiGatewayJBIHelper;
 import org.ow2.petals.binding.gateway.clientserver.api.AdminService;
 import org.ow2.petals.component.framework.DefaultBootstrap;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
+import org.ow2.petals.component.framework.mbean.MBeanHelper;
 
 /**
  * There is one instance of this class for the whole component. The class is declared in the jbi.xml.
@@ -37,22 +38,11 @@ import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
  */
 public class JbiGatewayBootstrap extends DefaultBootstrap implements AdminService {
 
-    public static final String METHOD_ADD_TRANSPORT = "addTransportListener";
-
-    public static final String METHOD_SET_TRANSPORT = "setTransportListenerPort";
-
-    public static final String METHOD_REMOVE_TRANSPORT = "removeTransportListener";
-
-    public static final String METHOD_GET_TRANSPORT = "getTransportListeners";
-
     @Override
     public Collection<String> getMBeanOperationsNames() {
         final Collection<String> methods = super.getMBeanOperationsNames();
 
-        methods.add(METHOD_ADD_TRANSPORT);
-        methods.add(METHOD_SET_TRANSPORT);
-        methods.add(METHOD_REMOVE_TRANSPORT);
-        methods.add(METHOD_GET_TRANSPORT);
+        methods.addAll(MBeanHelper.getMethodsNames(AdminService.class));
 
         return methods;
     }

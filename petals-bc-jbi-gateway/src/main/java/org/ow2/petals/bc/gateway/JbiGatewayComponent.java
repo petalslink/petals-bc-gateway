@@ -52,6 +52,7 @@ import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.bc.AbstractBindingComponent;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
+import org.ow2.petals.component.framework.mbean.MBeanHelper;
 import org.ow2.petals.component.framework.su.AbstractServiceUnitManager;
 import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.ow2.petals.component.framework.util.ServiceEndpointKey;
@@ -438,11 +439,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
     public Collection<String> getMBeanOperationsNames() {
         final Collection<String> methods = super.getMBeanOperationsNames();
 
-        methods.add(JbiGatewayBootstrap.METHOD_ADD_TRANSPORT);
-        methods.add(JbiGatewayBootstrap.METHOD_SET_TRANSPORT);
-        methods.add(JbiGatewayBootstrap.METHOD_REMOVE_TRANSPORT);
-        methods.add(JbiGatewayBootstrap.METHOD_GET_TRANSPORT);
-        methods.add("refreshPropagations");
+        methods.addAll(MBeanHelper.getMethodsNames(AdminRuntimeService.class));
 
         return methods;
     }

@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -50,6 +52,7 @@ import org.ow2.petals.bc.gateway.commons.AbstractDomain;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
+import org.ow2.petals.component.framework.AbstractComponent;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.junit.Component;
 import org.ow2.petals.component.framework.junit.RequestMessage;
@@ -181,6 +184,23 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         // any situation
         // JUnit is susceptible to reuse threads apparently
         PetalsExecutionContext.clear();
+    }
+
+    /**
+     * TODO also test the bootstrap one...
+     */
+    @Before
+    public void verifyMBeanOperations() {
+        // let's get a copy
+        final Collection<String> ops = new HashSet<>(getComponent().getMBeanOperationsNames());
+        // this is written by hand on purpose to ensure we exactly know which are the registered operations
+        assertTrue(ops.remove("refreshPropagations"));
+        assertTrue(ops.remove("addTransportListener"));
+        assertTrue(ops.remove("setTransportListenerPort"));
+        assertTrue(ops.remove("removeTransportListener"));
+        assertTrue(ops.remove("getTransportListeners"));
+        assertTrue(ops.remove(AbstractComponent.METHOD_RELOAD_PLACEHOLDERS));
+        assertTrue(ops.isEmpty());
     }
 
     private final List<String> manuallyAddedListeners = new ArrayList<>();
