@@ -46,12 +46,39 @@ public class JbiGatewayClientTest extends AbstractComponentTest {
         COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME,
                 createProvider(TEST_AUTH_NAME, port, null, null, null, 3, 0L));
 
+        // the severe on is the last one!
         assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE, 1);
 
         COMPONENT_UNDER_TEST.undeployAllServices();
 
-        // ensure it has been done only 3 times by checking after undeploy
+        // ensure it has been done only 3 times by checking after undeploy (the warning one is before a retry)
         assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.WARNING, 3, true);
+    }
+
+    @Test
+    public void testCantConnectReconnect() throws Exception {
+        final int port = 1234;
+
+        // there is no listener on this one
+        assertAvailable(port);
+
+        COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME,
+                createProvider(TEST_AUTH_NAME, port, null, null, null, 0, 0L));
+
+        // let's wait for the first error
+        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE, 1);
+
+        getComponent().reconnectDomains(false);
+
+        // and the the error from this connect
+        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE, 2);
+
+        COMPONENT_UNDER_TEST.undeployAllServices();
+
+        // ensure it has been done only 2 times by checking after undeploy
+        assertLogContains("Connecting to " + TEST_PROVIDER_DOMAIN, Level.INFO, 2, true);
+        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE, 2, true);
+
     }
 
     @Test

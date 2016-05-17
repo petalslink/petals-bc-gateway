@@ -178,7 +178,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         final ProviderDomain pd = new ProviderDomain(this, handler, jpd, provides, getSender(), newClientBootstrap(),
                 logger, newClassResolver());
         if (started) {
-            pd.connect();
+            pd.connect(false);
         }
         return pd;
     }
@@ -274,7 +274,7 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
 
         for (final ProviderDomain pd : getServiceUnitManager().getProviderDomains()) {
-            pd.connect();
+            pd.connect(false);
         }
 
         this.started = true;
@@ -482,6 +482,46 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         }
 
         cd.refreshPropagations();
+    }
+
+    @Override
+    public void reconnectDomains(final boolean force) throws PetalsException {
+        for (final ProviderDomain pd : getServiceUnitManager().getProviderDomains()) {
+            pd.connect(force);
+        }
+    }
+
+    @Override
+    public void reconnectDomains(final @Nullable String suName, final boolean force) throws PetalsException {
+        assert suName != null;
+
+        final Map<String, ProviderDomain> pds = getServiceUnitManager().getProviderDomains(suName);
+        if (pds == null) {
+            throw new PetalsException("Unknown SU '" + suName + "'");
+        }
+
+        for (final ProviderDomain pd : pds.values()) {
+            pd.connect(force);
+        }
+    }
+
+    @Override
+    public void reconnectDomains(final @Nullable String suName, final @Nullable String providerDomain,
+            final boolean force) throws PetalsException {
+        assert suName != null;
+        assert providerDomain != null;
+
+        final Map<String, ProviderDomain> pds = getServiceUnitManager().getProviderDomains(suName);
+        if (pds == null) {
+            throw new PetalsException("Unknown SU '" + suName + "'");
+        }
+
+        final ProviderDomain pd = pds.get(providerDomain);
+        if (pd == null) {
+            throw new PetalsException("Unknown provider domain '" + providerDomain + "'");
+        }
+
+        pd.connect(force);
     }
 
     @Override

@@ -77,6 +77,15 @@ public class JbiGatewaySUManager extends AbstractServiceUnitManager {
         return pds;
     }
 
+    public @Nullable Map<String, ProviderDomain> getProviderDomains(final String suName) {
+        final SUData data = suDatas.get(suName);
+        if (data != null) {
+            return Collections.unmodifiableMap(data.providerDomains);
+        } else {
+            return null;
+        }
+    }
+
     public Collection<ConsumerDomain> getConsumerDomains() {
         final List<ConsumerDomain> cds = new ArrayList<>();
         for (final SUData data : suDatas.values()) {

@@ -57,4 +57,37 @@ public interface AdminRuntimeService extends CommonAdminService {
      */
     public void refreshPropagations(String suName, String consumerDomain) throws PetalsException;
 
+    /**
+     * Trigger reconnection to all provider domain of the component.
+     *
+     * @param all
+     *            if <code>true</code>, even connected domain will be reconnected.
+     * @throws PetalsException
+     */
+    public void reconnectDomains(boolean force) throws PetalsException;
+
+    /**
+     * Trigger reconnection to all provider domain of a given Service Unit.
+     *
+     * @param suName
+     *            the name of the SU to reconnect
+     * @param all
+     *            if <code>true</code>, even connected domain will be reconnected.
+     * @throws PetalsException
+     */
+    public void reconnectDomains(String suName, boolean force) throws PetalsException;
+
+    /**
+     * Trigger reconnection to a given provider domain.
+     *
+     * @param suName
+     *            the name of the SU where the provider domain is declared
+     * @param providerDomain
+     *            the name of the provider domain to refresh
+     * @param all
+     *            if <code>true</code>, even connected domain will be reconnected.
+     * @throws PetalsException
+     */
+    public void reconnectDomains(String suName, String providerDomain, boolean force) throws PetalsException;
+
 }

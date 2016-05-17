@@ -199,6 +199,7 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         assertTrue(ops.remove("setTransportListenerPort"));
         assertTrue(ops.remove("removeTransportListener"));
         assertTrue(ops.remove("getTransportListeners"));
+        assertTrue(ops.remove("reconnectDomains"));
         assertTrue(ops.remove(AbstractComponent.METHOD_RELOAD_PLACEHOLDERS));
         assertTrue(ops.isEmpty());
     }

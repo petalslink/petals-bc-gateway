@@ -19,6 +19,8 @@ package org.ow2.petals.bc.gateway.outbound;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 import org.eclipse.jdt.annotation.Nullable;
@@ -47,6 +49,7 @@ import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import io.netty.util.concurrent.Future;
 
 /**
  * This is responsible of connecting to {@link TransportListener}.
@@ -66,12 +69,14 @@ public class TransportClient {
 
     private final Bootstrap bootstrap;
 
+    private final Lock mainLock = new ReentrantLock();
+
     private int retries = 0;
 
     @Nullable
     private Channel channel;
 
-    private boolean reconnect = false;
+    private @Nullable Future<Void> connectOrNext;
 
     public TransportClient(final ServiceUnitDataHandler handler, final Bootstrap partialBootstrap, final Logger logger,
             final ClassResolver cr, final ProviderDomain pd) {
@@ -108,29 +113,46 @@ public class TransportClient {
 
     /**
      * Connect to the provider partner
+     * 
+     * @param force
+     *            if <code>true</code>, then if we are already connected, we will first be disconnected
      */
-    public void connect() {
-        // reset the number of retries
-        retries = 0;
-        reconnect = true;
-        doConnect();
+    public void connect(boolean force) {
+        mainLock.lock();
+        try {
+            if (!force && channel != null && channel.isActive()) {
+                return;
+            }
+
+            // if we were not connected, it won't do anything specific
+            // if we were between retries, it will cancel them
+            // if we were connected, it will disconnect
+            disconnect();
+
+            // reset the number of retries
+            retries = 0;
+
+            // connect and setup reconnect if needed
+            doConnect();
+        } finally {
+            mainLock.unlock();
+        }
     }
 
     private void doConnect() {
-
-        if (!reconnect) {
-            return;
-        }
-
+        final String ip = pd.getJPD().getRemoteIp();
         // it should have been checked already by JbiGatewayJBIHelper
         final int port = Integer.parseInt(pd.getJPD().getRemotePort());
 
-        bootstrap.remoteAddress(pd.getJPD().getRemoteIp(), port).connect().addListener(new ChannelFutureListener() {
+        logger.info("Connecting to " + pd.getJPD().getId() + " (" + ip + ":" + port + ")"
+                + (retries > 0 ? ", retry " + retries + " of " + pd.getJPD().getRetryMax() : ""));
+
+        connectOrNext = bootstrap.remoteAddress(ip, port).connect().addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(final @Nullable ChannelFuture future) throws Exception {
                 assert future != null;
                 if (!future.isSuccess()) {
-                    reconnect(future, false);
+                    setupReconnectIfNeeded(future, false);
                 } else {
                     final Channel _channel = future.channel();
                     channel = _channel;
@@ -138,7 +160,7 @@ public class TransportClient {
                         @Override
                         public void operationComplete(final @Nullable ChannelFuture future) throws Exception {
                             assert future != null;
-                            reconnect(future, true);
+                            setupReconnectIfNeeded(future, true);
                         }
                     });
                 }
@@ -146,45 +168,66 @@ public class TransportClient {
         });
     }
 
-    /**
-     * TODO add tests
-     */
-    private void reconnect(final ChannelFuture future, final boolean closed) {
-        final Channel ch = future.channel();
-        final StringBuilder msg = new StringBuilder("Connection to provider domain ");
-        msg.append(pd.getId());
-        if (closed) {
-            msg.append(" (").append(ch.remoteAddress()).append(") was closed unexpectedly");
-        } else {
-            msg.append(" failed");
-        }
-        final Integer retryMax = pd.getJPD().getRetryMax();
-        // TODO do we really want to log the whole exception for both??
-        // negative means infinite, null or 0 means no retry
-        if (retryMax != null && (retryMax < 0 || (retryMax-retries) > 0)) {
-            retries++;
-            // this can't be null or negative, it was verified at deploy
-            final long retryDelay = pd.getJPD().getRetryDelay();
-            msg.append(", reconnecting in ").append(retryDelay).append("ms");
-            msg.append(" (retry ").append(retries);
-            if (retryMax > 0) {
-                msg.append(" of ").append(retryMax).append(")");
-            } else {
-                msg.append(")");
+    private void setupReconnectIfNeeded(final ChannelFuture future, final boolean closed) {
+        mainLock.lock();
+        try {
+            if (connectOrNext == null) {
+                // disconnected
+                return;
             }
-            // Note: in the case of closed, the cause is null and it's normal
-            logger.log(Level.WARNING, msg.toString(), future.cause());
-            // TODO propose another way to force reconnect, e.g. with an admin command
-            ch.eventLoop().schedule(new Callable<Void>() {
-                @Override
-                public @Nullable Void call() throws Exception {
-                    doConnect();
-                    return null;
+
+            final Channel ch = future.channel();
+            final StringBuilder msg = new StringBuilder("Connection to provider domain ");
+            msg.append(pd.getId());
+            if (closed) {
+                msg.append(" (").append(ch.remoteAddress()).append(") was closed unexpectedly");
+            } else {
+                msg.append(" failed");
+            }
+            final int retryMax = pd.getJPD().getRetryMax();
+            // TODO do we really want to log the whole exception for both??
+            // negative means infinite, 0 means no retry
+            if (retryMax != 0 && (retryMax < 0 || (retryMax - retries) > 0)) {
+                retries++;
+                // this can't be negative, it was verified at deploy
+                final long retryDelay = pd.getJPD().getRetryDelay();
+                msg.append(", reconnecting in ").append(retryDelay).append("ms");
+                msg.append(" (retry ").append(retries);
+                if (retryMax > 0) {
+                    msg.append(" of ").append(retryMax).append(")");
+                } else {
+                    msg.append(")");
                 }
-            }, retryDelay, TimeUnit.MILLISECONDS);
-        } else {
-            // Note: in the case of closed, the cause is null and it's normal
-            logger.log(Level.SEVERE, msg.toString(), future.cause());
+                // Note: in the case of closed, the cause is null and it's normal
+                logger.log(Level.WARNING, msg.toString(), future.cause());
+
+                connectOrNext = ch.eventLoop().schedule(new Callable<Void>() {
+                    @Override
+                    public @Nullable Void call() throws Exception {
+                        reconnectIfNeeded();
+                        return null;
+                    }
+                }, retryDelay, TimeUnit.MILLISECONDS);
+
+            } else {
+                // Note: in the case of closed, the cause is null and it's normal
+                logger.log(Level.SEVERE, msg.toString(), future.cause());
+            }
+        } finally {
+            mainLock.unlock();
+        }
+    }
+
+    private void reconnectIfNeeded() {
+        mainLock.lock();
+        try {
+            if (connectOrNext == null) {
+                // disconnected
+                return;
+            }
+            doConnect();
+        } finally {
+            mainLock.unlock();
         }
     }
 
@@ -192,12 +235,23 @@ public class TransportClient {
      * Disconnect from the provider partner
      */
     public void disconnect() {
-        final Channel _channel = channel;
-        channel = null;
-        reconnect = false;
-        if (_channel != null && _channel.isOpen()) {
-            // Note: this should trigger a call to ProviderDomain.close() as defined in DomainHandler!
-            _channel.close();
+        mainLock.lock();
+        try {
+            final Channel _channel = channel;
+            channel = null;
+
+            final Future<Void> _connectOrNext = connectOrNext;
+            if (_connectOrNext != null) {
+                connectOrNext = null;
+                _connectOrNext.cancel(true);
+            }
+
+            if (_channel != null && _channel.isOpen()) {
+                // Note: this should trigger a call to ProviderDomain.close() as defined in DomainHandler!
+                _channel.close();
+            }
+        } finally {
+            mainLock.unlock();
         }
     }
 

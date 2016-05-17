@@ -151,8 +151,7 @@ public class ProviderDomain extends AbstractDomain {
                     || !jpd.getRemoteCertificate().equals(newJPD.getRemoteCertificate())
                     || !jpd.getKey().equals(newJPD.getKey()) || !jpd.getPassphrase().equals(newJPD.getPassphrase())) {
                 jpd = newJPD;
-                disconnect();
-                connect();
+                connect(true);
             }
         } finally {
             mainLock.unlock();
@@ -405,9 +404,12 @@ public class ProviderDomain extends AbstractDomain {
 
     /**
      * Connect to the provider partner
+     * 
+     * @param force
+     *            if <code>true</code>, then if we are already connected, we will first be disconnected
      */
-    public void connect() {
-        client.connect();
+    public void connect(final boolean force) {
+        client.connect(force);
     }
     
     /**
