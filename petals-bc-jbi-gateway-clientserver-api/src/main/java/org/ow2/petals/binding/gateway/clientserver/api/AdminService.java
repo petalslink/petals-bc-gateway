@@ -17,58 +17,14 @@
  */
 package org.ow2.petals.binding.gateway.clientserver.api;
 
-import java.util.Map;
-
-import org.ow2.petals.basisapi.exception.PetalsException;
-
 /**
  * Client/Server interface of the service 'Administration' part dedicated to the BC Gateway
  * 
  * @author Christophe DENEUX - Linagora
  * 
  */
-public interface AdminService {
+public interface AdminService extends CommonAdminService {
 
-    /**
-     * Add a new transport listener.
-     * 
-     * @param id
-     *            The transport listener identifier
-     * @param port
-     *            The port the new transport listener will listen to for incoming requests
-     * @throws PetalsException
-     *             An error occurs adding the new transport listener
-     */
-    public void addTransportListener(final String id, final int port) throws PetalsException;
 
-    /**
-     * Set the port of a transport listener.
-     * 
-     * @param id
-     *            The transport listener identifier
-     * @param port
-     *            The port the transport listener should listen to for incoming requests
-     * @throws PetalsException
-     *             An error occurs setting the port of the transport listener
-     */
-    public void setTransportListenerPort(final String id, final int port) throws PetalsException;
-
-    /**
-     * Remove a transport listener.
-     * 
-     * @param id
-     *            The identifier of the transport listener to remove
-     * @throws PetalsException
-     *             An error occurs removing the transport listener
-     */
-    public Boolean removeTransportListener(final String id) throws PetalsException;
-
-    /**
-     * @return The transport listeners declared on the current Petals BC Gateway, with, in order in the array: a port
-     *         (Integer), a listening status (Boolean) and an error status (String) potentially empty but not null
-     * @throws PetalsException
-     *             An error occurs getting the transport listeners
-     */
-    public Map<String, Object[]> getTransportListeners() throws PetalsException;
 
 }

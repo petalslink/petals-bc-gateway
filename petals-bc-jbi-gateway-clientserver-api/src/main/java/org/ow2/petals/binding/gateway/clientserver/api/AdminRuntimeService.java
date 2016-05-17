@@ -25,7 +25,7 @@ import org.ow2.petals.basisapi.exception.PetalsException;
  * @author Christophe DENEUX - Linagora
  * 
  */
-public interface AdminRuntimeService extends AdminService {
+public interface AdminRuntimeService extends CommonAdminService {
 
     /**
      * Repropagate endpoints to client domains.
