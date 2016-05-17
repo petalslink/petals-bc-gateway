@@ -51,7 +51,7 @@ public class JbiGatewayClientTest extends AbstractComponentTest {
         COMPONENT_UNDER_TEST.undeployAllServices();
 
         // ensure it has been done only 3 times by checking after undeploy
-        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.WARNING, 3);
+        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.WARNING, 3, true);
     }
 
     @Test

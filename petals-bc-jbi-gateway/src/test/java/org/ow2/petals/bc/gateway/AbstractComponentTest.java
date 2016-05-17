@@ -512,15 +512,20 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
         return null;
     }
 
-    protected static void assertLogContains(final String log, final Level level, final int howMany) {
-        assertLogContains(IN_MEMORY_LOG_HANDLER, log, level, howMany);
-    }
-
     /**
      * Note: the check is not on the number, only the number of time it is printed before we are happy with the result
      */
+    protected static void assertLogContains(final String log, final Level level, final int howMany) {
+        assertLogContains(log, level, howMany, false);
+    }
+
+    protected static void assertLogContains(final String log, final Level level, final int howMany,
+            final boolean exactly) {
+        assertLogContains(IN_MEMORY_LOG_HANDLER, log, level, howMany, exactly);
+    }
+
     protected static void assertLogContains(final InMemoryLogHandler handler, final String log, final Level level,
-            final int howMany) {
+            final int howMany, final boolean exactly) {
         await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
             @Override
             public Boolean call() throws Exception {
@@ -528,9 +533,18 @@ public class AbstractComponentTest extends AbstractTest implements JbiGatewayTes
                 for (final LogRecord lr : handler.getAllRecords(level)) {
                     if (lr.getMessage().contains(log)) {
                         count++;
+                        if (!exactly && count >= howMany) {
+                            return true;
+                        }
                     }
                 }
-                return count == howMany;
+
+                if (!exactly) {
+                    // it should have returned in the loop
+                    return false;
+                } else {
+                    return count == howMany;
+                }
             }
         });
     }

@@ -178,7 +178,7 @@ public class JbiGatewayRefreshTest extends AbstractComponentTest {
 
         COMPONENT_UNDER_TEST2.deployService(SU_PROVIDER_NAME, createProvider());
 
-        assertLogContains(IN_MEMORY_LOG_HANDLER2, "AuthAccept", Level.FINE, 1);
+        assertLogContains(IN_MEMORY_LOG_HANDLER2, "AuthAccept", Level.FINE, 1, false);
 
         assertTrue(ed.resolveEndpoints(TEST_INTERFACE).isEmpty());
         checkEndpoints(0, 0, 0);
