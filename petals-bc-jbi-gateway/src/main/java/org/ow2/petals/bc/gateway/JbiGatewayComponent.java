@@ -141,11 +141,9 @@ public class JbiGatewayComponent extends AbstractBindingComponent implements Pro
         // we don't create connections often
         bossGroup = new NioEventLoopGroup(1,
                 new DefaultThreadFactory(componentName + " - Transports Acceptor - netty"));
-        // TODO choose a specific number of threads, knowing that they are only for very small tasks
         // This represents the number of thread concurrently usable by all the incoming connections
         workerGroup = new NioEventLoopGroup(cdMaxPoolSize,
                 new DefaultThreadFactory(componentName + " - Consumer Domains - netty"));
-        // TODO choose a specific number of threads, knowing that they are only for very small tasks
         // This represents the number of thread concurrently usable by all the outgoing connections
         clientsGroup = new NioEventLoopGroup(pdMaxPoolSize,
                 new DefaultThreadFactory(componentName + " - Provider Domains - netty"));
