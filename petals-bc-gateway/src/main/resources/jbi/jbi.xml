@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ Copyright (c) 2015-2016 Linagora
+
+ This program/library is free software: you can redistribute it and/or modify
+ it under the terms of the GNU Lesser General Public License as published by
+ the Free Software Foundation, either version 2.1 of the License, or (at your
+ option) any later version.
+
+ This program/library is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License
+ for more details.
+
+ You should have received a copy of the GNU Lesser General Public License
+ along with this program/library; If not, see <http://www.gnu.org/licenses/>
+ for the GNU Lesser General Public License version 2.1.
+-->
+<jbi:jbi xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:cdk="http://petals.ow2.org/components/extensions/version-5"
+   xmlns:jbi="http://java.sun.com/xml/ns/jbi" version="1.0"
+   xmlns:g="http://petals.ow2.org/components/petals-bc-gateway/version-1.0">
+
+   <jbi:component type="binding-component">
+      <jbi:identification>
+         <jbi:name>petals-bc-gateway</jbi:name>
+         <jbi:description>Petals BC Gateway</jbi:description>
+      </jbi:identification>
+      <jbi:component-class-name>org.ow2.petals.bc.gateway.BcGatewayComponent</jbi:component-class-name>
+      <jbi:component-class-path>
+         <jbi:path-element />
+      </jbi:component-class-path>
+      <jbi:bootstrap-class-name>org.ow2.petals.bc.gateway.BcGatewayBootstrap</jbi:bootstrap-class-name>
+      <jbi:bootstrap-class-path>
+         <jbi:path-element />
+      </jbi:bootstrap-class-path>
+      
+      <!-- CDK specific fields -->
+      <cdk:acceptor-pool-size />
+      <cdk:acceptor-retry-number />
+      <cdk:acceptor-retry-wait />
+      <cdk:acceptor-stop-max-wait />
+      <!-- Netty handles most of the concurrency, we don't need so much threads -->
+      <cdk:processor-pool-size>1</cdk:processor-pool-size>
+      <cdk:processor-max-pool-size>6</cdk:processor-max-pool-size>
+      <cdk:processor-keep-alive-time />
+      <cdk:processor-stop-max-wait />
+      <cdk:time-beetween-async-cleaner-runs />
+      <cdk:properties-file />
+      <cdk:monitoring-sampling-period />
+
+      <cdk:jbi-listener-class-name>org.ow2.petals.bc.gateway.BcGatewayJBIListener</cdk:jbi-listener-class-name>
+      
+      <!-- Component specific configuration -->
+      <g:consumer-domains-max-pool-size />
+      <g:provider-domains-max-pool-size />
+      
+   </jbi:component>
+</jbi:jbi>

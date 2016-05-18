@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jbi:jbi version="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:jbi="http://java.sun.com/xml/ns/jbi"
+   xmlns:cdk="http://petals.ow2.org/components/extensions/version-5" xmlns:g="http://petals.ow2.org/components/petals-bc-gateway/version-1.0"
+   xmlns:hello="http://petals.ow2.org">
+
+   <jbi:services binding-component="true">
+
+      <jbi:consumes interface-name="hello:HelloInterface" service-name="hello:HelloService">
+         
+         <!-- CDK specific elements -->
+         <cdk:mep xsi:nil="true" />
+
+         <!-- Component specific elements -->
+         <g:consumer domain="domain1" />
+
+      </jbi:consumes>
+
+      <g:consumer-domain id="domain1" transport="default">
+         <g:auth-name>${domain1.consumer.auth-name}</g:auth-name>
+      </g:consumer-domain>
+
+   </jbi:services>
+</jbi:jbi>

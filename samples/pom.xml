@@ -29,32 +29,32 @@
    </parent>
 
    <groupId>org.ow2.petals.samples</groupId>
-   <artifactId>petals-jbi-gateway-samples-parent</artifactId>
-   <name>Petals ESB - Samples - BC JBI Gateway</name>
+   <artifactId>petals-bc-gateway-samples-parent</artifactId>
+   <name>Petals ESB - Samples - BC Gateway</name>
    <version>5.0.0-SNAPSHOT</version>
    <packaging>pom</packaging>
 
    <properties>
       <sonar.skip>true</sonar.skip>
-      <petals-bc-jg.version>0.0.1-SNAPSHOT</petals-bc-jg.version>
+      <petals-bc-gateway.version>0.0.5-SNAPSHOT</petals-bc-gateway.version>
    </properties>
 
    <modules>
-      <module>su-jbi-gateway-hello-consumes</module>
-      <module>sa-jbi-gateway-hello-domain0</module>
-      <module>su-jbi-gateway-hello-provides</module>
-      <module>sa-jbi-gateway-hello-domain1</module>
+      <module>su-gateway-hello-consumes</module>
+      <module>sa-gateway-hello-domain0</module>
+      <module>su-gateway-hello-provides</module>
+      <module>sa-gateway-hello-domain1</module>
 
    </modules>
 
    <dependencyManagement>
       <dependencies>
          <dependency>
-            <artifactId>petals-bc-jbi-gateway</artifactId>
+            <artifactId>petals-bc-gateway</artifactId>
             <groupId>org.ow2.petals</groupId>
             <scope>provided</scope>
             <type>jbi-component</type>
-            <version>${petals-bc-jg.version}</version>
+            <version>${petals-bc-gateway.version}</version>
          </dependency>
       </dependencies>
    </dependencyManagement>
@@ -73,7 +73,7 @@
    </build>
 
    <scm>
-      <connection>scm:git:https://github.com/petalslink/petals-bc-jbi-gateway.git</connection>
+      <connection>scm:git:https://github.com/petalslink/petals-bc-gateway.git</connection>
       <developerConnection>${project.scm.connection}</developerConnection>
    </scm>
 </project>
