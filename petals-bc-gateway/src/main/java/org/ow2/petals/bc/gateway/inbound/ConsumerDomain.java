@@ -451,6 +451,7 @@ public class ConsumerDomain extends AbstractDomain {
             // we remember the step of the consumer partner through the correlated flow attributes
             logger.log(Level.MONIT, "",
                     new BcGatewayConsumeExtFlowStepBeginLogData(PetalsExecutionContext.getFlowAttributes(),
+                            // TODO id unique inside the SU, not the component
                             m.provideExtStep, getId()));
         }
     }

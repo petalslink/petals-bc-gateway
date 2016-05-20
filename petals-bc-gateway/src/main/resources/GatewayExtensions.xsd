@@ -184,7 +184,7 @@
 <!--       <xs:complexContent> -->
 <!--          <xs:extension base="jbi:Provides"> -->
 <!--             <xs:sequence> -->
-<!--                <xs:element name="provider-mapping" type="g:JbiProviderMapping" minOccurs="0" /> -->
+<!--                <xs:element name="provider" type="g:JbiProvidesConfig" /> -->
 <!--             </xs:sequence> -->
 <!--          </xs:extension> -->
 <!--       </xs:complexContent> -->
@@ -209,7 +209,7 @@
 <!--       <xs:complexContent> -->
 <!--          <xs:extension base="jbi:Consumes"> -->
 <!--             <xs:sequence> -->
-<!--                <xs:element name="consumer-mapping" type="g:JbiConsumerMapping" maxOccurs="unbounded" /> -->
+<!--                <xs:element name="consumer" type="g:JbiConsumesConfig" maxOccurs="unbounded" /> -->
 <!--             </xs:sequence> -->
 <!--          </xs:extension> -->
 <!--       </xs:complexContent> -->
