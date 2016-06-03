@@ -179,7 +179,7 @@ public class BcGatewayJbiHelper implements BcGatewayJbiConstants {
         e.setAttribute("id", id);
 
         final Element eP = doc.createElementNS(GATEWAY_NS_URI, "port");
-        eP.setTextContent("" + port);
+        eP.setTextContent(Integer.toString(port));
         e.appendChild(eP);
 
         // let's ensure it is correct
@@ -203,7 +203,7 @@ public class BcGatewayJbiHelper implements BcGatewayJbiConstants {
             if (jtl != null && jtl.getId().equals(id)) {
                 
                 // let's update the underlying element
-                e.getElementsByTagNameNS(GATEWAY_NS_URI, "port").item(0).setTextContent("" + port);
+                e.getElementsByTagNameNS(GATEWAY_NS_URI, "port").item(0).setTextContent(Integer.toString(port));
                 
                 // and get the new object
                 final JbiTransportListener newJtl = asObject(e, EL_TRANSPORT_LISTENER, JbiTransportListener.class);
