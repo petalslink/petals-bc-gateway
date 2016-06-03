@@ -34,8 +34,8 @@ import javax.jbi.servicedesc.ServiceEndpoint;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.BcGatewaySUManager;
+import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.commons.AbstractDomain;
 import org.ow2.petals.bc.gateway.commons.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.commons.messages.TransportedDocument;
@@ -258,12 +258,15 @@ public class ConsumerDomain extends AbstractDomain {
         mainLock.lock();
         try {
             open = false;
-            synchronized (pollingLock) {
+            pollingLock.lock();
+            try {
                 if (polling != null) {
                     // interruption will stop any current sending
                     polling.cancel(true);
                     polling = null;
                 }
+            } finally {
+                pollingLock.unlock();
             }
             sendPropagations(TransportedPropagations.EMPTY);
         } finally {
