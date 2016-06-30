@@ -25,6 +25,7 @@ import java.util.logging.Logger;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.commons.handlers.AuthenticatorSSLHandler;
+import org.ow2.petals.bc.gateway.commons.handlers.AuthenticatorSSLHandler.AuthRefuseException;
 import org.ow2.petals.bc.gateway.commons.handlers.AuthenticatorSSLHandler.DomainHandlerBuilder;
 import org.ow2.petals.bc.gateway.commons.handlers.HandlerConstants;
 import org.ow2.petals.bc.gateway.commons.handlers.LastLoggingHandler;
@@ -50,6 +51,7 @@ import io.netty.handler.codec.serialization.ObjectEncoder;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.FutureListener;
 
 /**
  * This is responsible of connecting to {@link TransportListener}.
@@ -73,8 +75,7 @@ public class TransportClient {
 
     private int retries = 0;
 
-    @Nullable
-    private Channel channel;
+    private @Nullable Channel channel;
 
     private @Nullable Future<Void> connectOrNext;
 
@@ -96,8 +97,8 @@ public class TransportClient {
                 p.addFirst(HandlerConstants.LOG_DEBUG_HANDLER, debugs);
                 p.addLast(objectEncoder);
                 p.addLast(new ObjectDecoder(cr));
-                p.addLast(HandlerConstants.DOMAIN_HANDLER,
-                        new AuthenticatorSSLHandler(pd, logger, new DomainHandlerBuilder<ProviderDomain>() {
+                p.addLast(HandlerConstants.DOMAIN_HANDLER, new AuthenticatorSSLHandler(pd, logger,
+                        new DomainHandlerBuilder<ProviderDomain>() {
                             @Override
                             public ChannelHandler build(final ProviderDomain domain) {
                                 assert domain == pd;
@@ -151,16 +152,35 @@ public class TransportClient {
             @Override
             public void operationComplete(final @Nullable ChannelFuture future) throws Exception {
                 assert future != null;
+                final Channel ch = future.channel();
+                assert ch != null;
                 if (!future.isSuccess()) {
-                    setupReconnectIfNeeded(future, false);
+                    // here the connect itself failed, the cause will most certainly be non-null
+                    setupReconnectIfNeeded(ch, future.cause(), false);
                 } else {
-                    final Channel _channel = future.channel();
-                    channel = _channel;
-                    _channel.closeFuture().addListener(new ChannelFutureListener() {
+                    // here the connect succeeded, but maybe the authentication will fail
+                    final AuthenticatorSSLHandler authenticator = ch.pipeline().get(AuthenticatorSSLHandler.class);
+                    authenticator.authenticationFuture().addListener(new FutureListener<Channel>() {
                         @Override
-                        public void operationComplete(final @Nullable ChannelFuture future) throws Exception {
+                        public void operationComplete(final @Nullable Future<Channel> future) throws Exception {
                             assert future != null;
-                            setupReconnectIfNeeded(future, true);
+                            if (future.isSuccess()) {
+                                // we set it only once we are sure everything went well
+                                channel = ch;
+                                // now we can setup reconnect for close
+                                ch.closeFuture().addListener(new ChannelFutureListener() {
+                                    @Override
+                                    public void operationComplete(final @Nullable ChannelFuture future)
+                                            throws Exception {
+                                        assert future != null;
+                                        // here the channel was closed, the cause will most certainly be null
+                                        setupReconnectIfNeeded(ch, future.cause(), true);
+                                    }
+                                });
+                            } else {
+                                // in that case, authentication failed, the cause will most certainly be non-null
+                                setupReconnectIfNeeded(ch, future.cause(), false);
+                            }
                         }
                     });
                 }
@@ -168,64 +188,86 @@ public class TransportClient {
         });
     }
 
-    private void setupReconnectIfNeeded(final ChannelFuture future, final boolean closed) {
+    private void setupReconnectIfNeeded(final Channel ch, final @Nullable Throwable cause, final boolean closed) {
         mainLock.lock();
         try {
+            // let's close it in case it is not already the case
+            ch.close();
+
             if (connectOrNext == null) {
-                // disconnected
+                // we are explicitly disconnected
                 return;
             }
 
-            final Channel ch = future.channel();
-            final StringBuilder msg = new StringBuilder("Connection to provider domain ");
-            msg.append(pd.getId());
-            if (closed) {
-                msg.append(" (").append(ch.remoteAddress()).append(") was closed unexpectedly");
-            } else {
-                msg.append(" failed");
-            }
             final int retryMax = pd.getJPD().getRetryMax();
-            // TODO do we really want to log the whole exception for both??
+
             // negative means infinite, 0 means no retry
-            if (retryMax != 0 && (retryMax < 0 || (retryMax - retries) > 0)) {
+            final boolean shouldRetry = retryMax != 0 && (retryMax < 0 || (retryMax - retries) > 0);
+
+            final StringBuilder msg;
+            final Throwable error;
+            if ((shouldRetry && logger.isLoggable(Level.WARNING))
+                    || (!shouldRetry && logger.isLoggable(Level.SEVERE))) {
+                msg = new StringBuilder("Connection to provider domain ");
+                msg.append(pd.getId());
+                if (closed) {
+                    msg.append(" (").append(ch.remoteAddress()).append(") was closed unexpectedly.");
+                } else {
+                    msg.append(" failed.");
+                }
+                // TODO is there other causes where we don't want to bother with the whole stacktrace?
+                if (cause instanceof AuthRefuseException) {
+                    msg.append(" Reason was: " + cause.getMessage() + ".");
+                    error = null;
+                } else {
+                    error = cause;
+                }
+            } else {
+                msg = null;
+                error = cause;
+            }
+
+            if (shouldRetry) {
                 retries++;
+
                 // this can't be negative, it was verified at deploy
                 final long retryDelay = pd.getJPD().getRetryDelay();
-                msg.append(", reconnecting in ").append(retryDelay).append("ms");
-                msg.append(" (retry ").append(retries);
-                if (retryMax > 0) {
-                    msg.append(" of ").append(retryMax).append(")");
-                } else {
-                    msg.append(")");
+
+                if (logger.isLoggable(Level.WARNING)) {
+                    assert msg != null;
+                    msg.append(" Reconnecting in ").append(retryDelay).append("ms");
+                    msg.append(" (retry ").append(retries);
+                    if (retryMax > 0) {
+                        msg.append(" of ").append(retryMax).append(")");
+                    } else {
+                        msg.append(")");
+                    }
+                    logger.log(Level.WARNING, msg.toString(), error);
                 }
-                // Note: in the case of closed, the cause is null and it's normal
-                logger.log(Level.WARNING, msg.toString(), future.cause());
 
                 connectOrNext = ch.eventLoop().schedule(new Callable<Void>() {
                     @Override
                     public @Nullable Void call() throws Exception {
-                        reconnectIfNeeded();
-                        return null;
+                        mainLock.lock();
+                        try {
+                            if (connectOrNext == null) {
+                                // we are explicitly disconnected
+                                return null;
+                            }
+                            doConnect();
+                            return null;
+                        } finally {
+                            mainLock.unlock();
+                        }
                     }
                 }, retryDelay, TimeUnit.MILLISECONDS);
 
             } else {
-                // Note: in the case of closed, the cause is null and it's normal
-                logger.log(Level.SEVERE, msg.toString(), future.cause());
+                if (logger.isLoggable(Level.SEVERE)) {
+                    assert msg != null;
+                    logger.log(Level.SEVERE, msg.toString(), error);
+                }
             }
-        } finally {
-            mainLock.unlock();
-        }
-    }
-
-    private void reconnectIfNeeded() {
-        mainLock.lock();
-        try {
-            if (connectOrNext == null) {
-                // disconnected
-                return;
-            }
-            doConnect();
         } finally {
             mainLock.unlock();
         }

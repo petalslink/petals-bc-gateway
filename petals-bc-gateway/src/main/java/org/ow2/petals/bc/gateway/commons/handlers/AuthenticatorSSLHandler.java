@@ -21,7 +21,6 @@ import java.io.Serializable;
 import java.util.logging.Logger;
 
 import javax.net.ssl.SSLException;
-import javax.net.ssl.SSLHandshakeException;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.commons.AbstractDomain;
@@ -38,7 +37,6 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.handler.codec.DecoderException;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.ClientAuth;
@@ -46,6 +44,8 @@ import io.netty.handler.ssl.IdentityCipherSuiteFilter;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslProvider;
+import io.netty.util.concurrent.DefaultPromise;
+import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.FutureListener;
 
@@ -130,6 +130,15 @@ public class AuthenticatorSSLHandler extends SimpleChannelInboundHandler<Authent
         }
     }
 
+    public static class AuthRefuseException extends Exception {
+
+        private static final long serialVersionUID = 2741816195480769061L;
+
+        public AuthRefuseException(final String msg) {
+            super(msg);
+        }
+    }
+
     private final Either<ProviderDomain, ConsumerAuthenticator> pdOrAuth;
 
     /**
@@ -139,6 +148,14 @@ public class AuthenticatorSSLHandler extends SimpleChannelInboundHandler<Authent
     private Logger logger;
 
     private final DomainHandlerBuilder<AbstractDomain> dhb;
+
+    /**
+     * Can be used to know the reason of the close
+     */
+    private final LazyChannelPromise authenticationFuture = new LazyChannelPromise();
+
+    @Nullable
+    private volatile ChannelHandlerContext ctx;
 
     /**
      * For the client
@@ -167,12 +184,33 @@ public class AuthenticatorSSLHandler extends SimpleChannelInboundHandler<Authent
     }
 
     @Override
+    public void handlerAdded(final @Nullable ChannelHandlerContext ctx) throws Exception {
+        assert ctx != null;
+        this.ctx = ctx;
+
+        // if we were added after the channel was active
+        if (ctx.channel().isActive()) {
+            authenticate(ctx);
+        }
+    }
+
+    @Override
     public void channelActive(final @Nullable ChannelHandlerContext ctx) throws Exception {
         assert ctx != null;
 
-        if (pdOrAuth.isA()) {
-            // the client must first send a request
+        authenticate(ctx);
 
+        // maybe another handler needs to know about this
+        ctx.fireChannelActive();
+    }
+
+    public Future<Channel> authenticationFuture() {
+        return authenticationFuture;
+    }
+
+    private void authenticate(final ChannelHandlerContext ctx) {
+        // if we are client, we initiate the authentication process
+        if (pdOrAuth.isA()) {
             final JbiProviderDomain jpd = pdOrAuth.getA().getJPD();
 
             final String remoteCertificate = jpd.getRemoteCertificate();
@@ -194,23 +232,6 @@ public class AuthenticatorSSLHandler extends SimpleChannelInboundHandler<Authent
             }
 
             ctx.writeAndFlush(msg);
-        }
-
-        // maybe another handler needs to know about this
-        ctx.fireChannelActive();
-    }
-
-    @Override
-    public void exceptionCaught(final @Nullable ChannelHandlerContext ctx, final @Nullable Throwable cause)
-            throws Exception {
-        if (cause instanceof DecoderException && cause.getCause() instanceof SSLHandshakeException) {
-            // let's log this one, TODO how to discernate expected exception in that case from non expected ones?
-            // I wouldn't want to hide important exception from log by logging them as fine...
-            if (logger.isLoggable(Level.FINE)) {
-                logger.log(Level.FINE, "TLS handshake exception", cause);
-            }
-        } else {
-            super.exceptionCaught(ctx, cause);
         }
     }
 
@@ -239,10 +260,11 @@ public class AuthenticatorSSLHandler extends SimpleChannelInboundHandler<Authent
             if (cd == null) {
                 if (logger.isLoggable(Level.FINE)) {
                     logger.fine("Sending (" + ctx.channel().remoteAddress()
-                            + ") an AuthRefuse because I don't know the auth name " + req.authName);
+                            + ") an AuthRefuse because I don't recognise the auth name " + req.authName);
                 }
-                ctx.writeAndFlush(new AuthRefuse("unknown auth-name '" + req.authName + "'"));
-                ctx.close();
+                final String m = "unknown auth-name '" + req.authName + "'";
+                ctx.writeAndFlush(new AuthRefuse(m));
+                authenticationFuture.setFailure(new AuthRefuseException(m));
                 return;
             }
 
@@ -278,9 +300,9 @@ public class AuthenticatorSSLHandler extends SimpleChannelInboundHandler<Authent
                     logger.fine("Sending (" + ctx.channel().remoteAddress() + ") an AuthRefuse because I'm " + error);
                 }
                 ctx.writeAndFlush(new AuthRefuse(error));
-                ctx.close();
+                authenticationFuture.setFailure(new AuthRefuseException(error));
             } else {
-                setUpHandlers(ctx, cd, certificate, jcd.getKey(), jcd.getPassphrase(), remoteCertificate);
+                setUpSslHandlers(ctx, cd, certificate, jcd.getKey(), jcd.getPassphrase(), remoteCertificate);
             }
         } else if (pdOrAuth.isA() && msg instanceof AuthAccept) {
             // if the client receives an accept, it can setup the handlers (ssl or not, and domain handler)
@@ -293,24 +315,18 @@ public class AuthenticatorSSLHandler extends SimpleChannelInboundHandler<Authent
 
             final JbiProviderDomain jpd = pd.getJPD();
 
-            setUpHandlers(ctx, pd, jpd.getCertificate(), jpd.getKey(), jpd.getPassphrase(), jpd.getRemoteCertificate());
+            setUpSslHandlers(ctx, pd, jpd.getCertificate(), jpd.getKey(), jpd.getPassphrase(), jpd.getRemoteCertificate());
 
         } else if (pdOrAuth.isA() && msg instanceof AuthRefuse) {
-            // if the client receives a refuse, he closes the connection
-
-            // TODO improve error msg
-            logger.severe("Can't connect to the provider domain " + pdOrAuth.getA().getId() + " (server said: "
-                    + ((AuthRefuse) msg).message + "): fix the problem and either stop/start the component, "
-                    + "undeploy/deploy the SU or fix/reload the placeholders if it applies");
-
-            ctx.close();
+            // if the client receives a refuse, it simply notifies the future
+            this.authenticationFuture.setFailure(new AuthRefuseException(((AuthRefuse) msg).message));
         } else {
             throw new IllegalArgumentException(
                     "Impossible case: client=" + pdOrAuth.isA() + " and msg type is " + msg.getClass().getName());
         }
     }
 
-    private void setUpHandlers(final ChannelHandlerContext ctx, final AbstractDomain domain,
+    private void setUpSslHandlers(final ChannelHandlerContext ctx, final AbstractDomain domain,
             final @Nullable String certificate, final @Nullable String key, final @Nullable String passphrase,
             final @Nullable String remoteCertificate) throws SSLException {
 
@@ -374,18 +390,12 @@ public class AuthenticatorSSLHandler extends SimpleChannelInboundHandler<Authent
                 public void operationComplete(final @Nullable Future<Channel> future) throws Exception {
                     assert future != null;
                     if (!future.isSuccess()) {
-                        if (logger.isLoggable(Level.WARNING)) {
-                            // the exception will be logged by exceptionCaught below
-                            logger.log(Level.WARNING,
-                                    "TLS handshake failed for " + (pdOrAuth.isA() ? "provider" : "consumer")
-                                            + " domain " + domain.getId() + " (" + ctx.channel().remoteAddress() + "): "
-                                            + future.cause());
-                        }
-                        ctx.close();
+                        authenticationFuture.setFailure(future.cause());
                     } else {
                         // I must keep the handler here until now in case there is an exception so that I can log it
                         ctx.pipeline().replace(HandlerConstants.DOMAIN_HANDLER, HandlerConstants.DOMAIN_HANDLER,
                                 dhb.build(domain));
+                        authenticationFuture.setSuccess(ctx.channel());
                     }
                 }
             });
@@ -398,14 +408,46 @@ public class AuthenticatorSSLHandler extends SimpleChannelInboundHandler<Authent
                 logger.fine("Sending an Accept (" + ctx.channel().remoteAddress() + ")");
             }
 
-            // this must be sent before the handler is replaced next (if not using ssl), because the new one will send
-            // something and it must arrive AFTER our Accept
+            // this must be sent after the ssh handler is replaced (when using ssl) so that we are ready to receive ssl data right away
+            // but this must be sent before the domain handler is replaced (when not using ssl), because it will send
+            // data and it must arrive AFTER our Accept
             ctx.writeAndFlush(new AuthAccept());
         }
 
         // else it is done in the FutureListener
         if (sslHandler == null) {
             ctx.pipeline().replace(HandlerConstants.DOMAIN_HANDLER, HandlerConstants.DOMAIN_HANDLER, dhb.build(domain));
+            authenticationFuture.setSuccess(ctx.channel());
+        }
+    }
+
+    /**
+     * inspired from {@link SslHandler}
+     */
+    private final class LazyChannelPromise extends DefaultPromise<Channel> {
+
+        @Override
+        protected EventExecutor executor() {
+            final ChannelHandlerContext ctx2 = ctx;
+            if (ctx2 != null) {
+                return ctx2.executor();
+            } else {
+                throw new IllegalStateException();
+            }
+        }
+
+        @Override
+        protected void checkDeadLock() {
+            if (ctx == null) {
+                // If ctx is null the handlerAdded(...) callback was not called, in this case the checkDeadLock()
+                // method was called from another Thread then the one that is used by ctx.executor(). We need to
+                // guard against this as a user can see a race if handshakeFuture().sync() is called but the
+                // handlerAdded(..) method was not yet as it is called from the EventExecutor of the
+                // ChannelHandlerContext. If we not guard against this super.checkDeadLock() would cause an
+                // IllegalStateException when trying to call executor().
+                return;
+            }
+            super.checkDeadLock();
         }
     }
 }

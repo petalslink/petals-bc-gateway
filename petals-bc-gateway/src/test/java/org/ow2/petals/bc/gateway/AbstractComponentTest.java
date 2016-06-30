@@ -513,6 +513,10 @@ public class AbstractComponentTest extends AbstractTest implements BcGatewayJbiT
         return null;
     }
 
+    protected static void assertLogContains(final String log, final Level level, final @Nullable Class<?> exception) {
+        assertLogContains(log, level, 1, false, exception);
+    }
+
     /**
      * Note: the check is not on the number, only the number of time it is printed before we are happy with the result
      */
@@ -522,17 +526,27 @@ public class AbstractComponentTest extends AbstractTest implements BcGatewayJbiT
 
     protected static void assertLogContains(final String log, final Level level, final int howMany,
             final boolean exactly) {
-        assertLogContains(IN_MEMORY_LOG_HANDLER, log, level, howMany, exactly);
+        assertLogContains(log, level, howMany, exactly, null);
+    }
+
+    protected static void assertLogContains(final String log, final Level level, final int howMany,
+            final boolean exactly, final @Nullable Class<?> exception) {
+        assertLogContains(IN_MEMORY_LOG_HANDLER, log, level, howMany, exactly, exception);
     }
 
     protected static void assertLogContains(final InMemoryLogHandler handler, final String log, final Level level,
             final int howMany, final boolean exactly) {
+        assertLogContains(handler, log, level, howMany, exactly, null);
+    }
+
+    protected static void assertLogContains(final InMemoryLogHandler handler, final String log, final Level level,
+            final int howMany, final boolean exactly, final @Nullable Class<?> exception) {
         await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
             @Override
             public Boolean call() throws Exception {
                 int count = 0;
                 for (final LogRecord lr : handler.getAllRecords(level)) {
-                    if (lr.getMessage().contains(log)) {
+                    if (lr.getMessage().contains(log) && (exception == null || exception.isInstance(lr.getThrown()))) {
                         count++;
                         if (!exactly && count >= howMany) {
                             return true;

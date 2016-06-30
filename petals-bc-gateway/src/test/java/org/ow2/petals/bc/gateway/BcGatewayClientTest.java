@@ -17,6 +17,7 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import java.net.ConnectException;
 import java.util.logging.Level;
 
 import org.junit.Test;
@@ -33,7 +34,8 @@ public class BcGatewayClientTest extends AbstractComponentTest {
         COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME,
                 createProvider(TEST_AUTH_NAME, port, null, null, null, 0, 0L));
 
-        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE, 1);
+        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE,
+                ConnectException.class);
     }
 
     @Test
@@ -47,12 +49,14 @@ public class BcGatewayClientTest extends AbstractComponentTest {
                 createProvider(TEST_AUTH_NAME, port, null, null, null, 3, 0L));
 
         // the severe on is the last one!
-        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE, 1);
+        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE,
+                ConnectException.class);
 
         COMPONENT_UNDER_TEST.undeployAllServices();
 
         // ensure it has been done only 3 times by checking after undeploy (the warning one is before a retry)
-        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.WARNING, 3, true);
+        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.WARNING, 3, true,
+                ConnectException.class);
     }
 
     @Test
@@ -66,18 +70,21 @@ public class BcGatewayClientTest extends AbstractComponentTest {
                 createProvider(TEST_AUTH_NAME, port, null, null, null, 0, 0L));
 
         // let's wait for the first error
-        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE, 1);
+        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE,
+                ConnectException.class);
 
         getComponent().reconnectDomains(false);
 
-        // and the the error from this connect
-        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE, 2);
+        // and at least the error from this connect
+        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE, 2, false,
+                ConnectException.class);
 
         COMPONENT_UNDER_TEST.undeployAllServices();
 
         // ensure it has been done only 2 times by checking after undeploy
         assertLogContains("Connecting to " + TEST_PROVIDER_DOMAIN, Level.INFO, 2, true);
-        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE, 2, true);
+        assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE, 2, true,
+                ConnectException.class);
 
     }
 
@@ -95,7 +102,7 @@ public class BcGatewayClientTest extends AbstractComponentTest {
 
         COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createProvider(TEST_AUTH_NAME, port));
 
-        assertLogContains("unknown auth-name '" + TEST_AUTH_NAME + "'", Level.SEVERE, 1);
+        assertLogContains("unknown auth-name '" + TEST_AUTH_NAME + "'", Level.WARNING, 1);
 
         removeTransportListener(id);
     }
@@ -107,7 +114,7 @@ public class BcGatewayClientTest extends AbstractComponentTest {
         final String authName = "INCORRECT";
         COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME, createProvider(authName, TEST_TRANSPORT_PORT));
 
-        assertLogContains("unknown auth-name '" + authName + "'", Level.SEVERE, 1);
+        assertLogContains("unknown auth-name '" + authName + "'", Level.WARNING, 1);
         // TODO we should also test that the connection is closed
     }
 }
