@@ -210,17 +210,16 @@ public abstract class AbstractDomain {
                     // Careful because if we reconnect, I guess the channel is not the same one?!?!
                     final Throwable cause = future.cause();
                     // TODO is the channel notified of the error too?
-                    if (m instanceof TransportedMessage && !((TransportedMessage) m).last
-                            && cause instanceof Exception) {
+                    if (m instanceof TransportedMessage && !((TransportedMessage) m).last) {
                         final TransportedMessage tm = (TransportedMessage) m;
-                        tm.exchange.setError((Exception) cause);
+                        tm.exchange.setError(new MessagingException(cause));
                         // TODO what about the other side waiting for this exchange?! it should be removed there... but
                         // if there is a connection problem, then maybe it is simply that it was stopped?
                         logger.log(Level.WARNING,
                                 "Can't send message over the channel, sending back the error over the NMR: " + m,
                                 cause);
-                        // TODO there will be double copy of the error in the exchange again by the JBI Sender...
-                        // improve that!
+                        // TODO we have to wrap the modification in a transported message even though it hasn't been
+                        // so there may be extra useless operations... improve that!
                         receiveFromChannel(ctx, TransportedMessage.lastMessage(tm, tm.exchange));
                     } else {
                         logger.log(Level.WARNING, "Can't send message over the channel but nothing I can do now: " + m,
