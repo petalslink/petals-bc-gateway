@@ -201,6 +201,7 @@ public class BcGatewayJBISender extends AbstractListener implements JBISender {
             updateProperties(hisMex, exchange.getMessageExchange());
 
             if (hisMex.getStatus() == ExchangeStatus.ERROR) {
+                // let's set it by hand too if the error is null
                 exchange.setErrorStatus();
                 exchange.setError(hisMex.getError());
             } else if (hisMex.getStatus() == ExchangeStatus.DONE) {
@@ -231,6 +232,7 @@ public class BcGatewayJBISender extends AbstractListener implements JBISender {
 
         // Note: we do not verify the validity of the state/mep transitions!
         if (exchange.isErrorStatus()) {
+            // let's set it by hand too if the error is null
             hisMex.setStatus(ExchangeStatus.ERROR);
             hisMex.setError(exchange.getError());
         } else if (exchange.isDoneStatus()) {
