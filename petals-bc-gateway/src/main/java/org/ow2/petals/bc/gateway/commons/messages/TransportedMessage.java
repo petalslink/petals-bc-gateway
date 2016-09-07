@@ -58,11 +58,8 @@ public class TransportedMessage extends TransportedForExchange {
     /**
      * This contains the exchange that one side received via the NMR and that the other side must use to fill its own
      * version of the exchange that he stored (or must create in case of {@link TransportedNewMessage}).
-     * 
-     * Note: {@link MessageExchange} is not serializable as an interface, but we know its implementation is in Petals.
      */
-    @SuppressWarnings("squid:S1948")
-    public final MessageExchange exchange;
+    public final TransportedMessageExchange exchange;
 
     /**
      * The attributes of the flow step handled by the gateway as consumer partner and used as a correlated flow by the
@@ -84,7 +81,7 @@ public class TransportedMessage extends TransportedForExchange {
         this.service = service;
         this.step = step;
         this.last = last;
-        this.exchange = exchange;
+        this.exchange = new TransportedMessageExchange(exchange);
     }
 
     protected TransportedMessage(final TransportedMessage m, final boolean last, final MessageExchange exchange) {
