@@ -79,6 +79,8 @@ public class TransportClient {
 
     private @Nullable Future<Void> connectOrNext;
 
+    private @Nullable Future<Channel> authenticationFuture;
+
     public TransportClient(final ServiceUnitDataHandler handler, final Bootstrap partialBootstrap, final Logger logger,
             final ClassResolver cr, final ProviderDomain pd) {
         this.logger = logger;
@@ -97,14 +99,16 @@ public class TransportClient {
                 p.addFirst(HandlerConstants.LOG_DEBUG_HANDLER, debugs);
                 p.addLast(objectEncoder);
                 p.addLast(new ObjectDecoder(cr));
-                p.addLast(HandlerConstants.DOMAIN_HANDLER, new AuthenticatorSSLHandler(pd, logger,
+                final AuthenticatorSSLHandler authHandler = new AuthenticatorSSLHandler(pd, logger,
                         new DomainHandlerBuilder<ProviderDomain>() {
                             @Override
                             public ChannelHandler build(final ProviderDomain domain) {
                                 assert domain == pd;
                                 return new DomainHandler();
                             }
-                        }));
+                        });
+                authenticationFuture = authHandler.authenticationFuture();
+                p.addLast(HandlerConstants.DOMAIN_HANDLER, authHandler);
                 p.addLast(HandlerConstants.LOG_ERRORS_HANDLER, errors);
             }
         });
@@ -148,6 +152,8 @@ public class TransportClient {
         logger.info("Connecting to " + pd.getJPD().getId() + " (" + ip + ":" + port + ")"
                 + (retries > 0 ? ", retry " + retries + " of " + pd.getJPD().getRetryMax() : ""));
 
+        // it will be set by the channel initializer during connect!
+        authenticationFuture = null;
         connectOrNext = bootstrap.remoteAddress(ip, port).connect().addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(final @Nullable ChannelFuture future) throws Exception {
@@ -159,8 +165,8 @@ public class TransportClient {
                     setupReconnectIfNeeded(ch, future.cause(), false);
                 } else {
                     // here the connect succeeded, but maybe the authentication will fail
-                    final AuthenticatorSSLHandler authenticator = ch.pipeline().get(AuthenticatorSSLHandler.class);
-                    authenticator.authenticationFuture().addListener(new FutureListener<Channel>() {
+                    assert authenticationFuture != null;
+                    authenticationFuture.addListener(new FutureListener<Channel>() {
                         @Override
                         public void operationComplete(final @Nullable Future<Channel> future) throws Exception {
                             assert future != null;
@@ -281,6 +287,7 @@ public class TransportClient {
         try {
             final Channel _channel = channel;
             channel = null;
+            authenticationFuture = null;
 
             final Future<Void> _connectOrNext = connectOrNext;
             if (_connectOrNext != null) {
