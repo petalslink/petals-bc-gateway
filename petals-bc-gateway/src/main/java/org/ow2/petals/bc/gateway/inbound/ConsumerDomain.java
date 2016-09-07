@@ -449,23 +449,33 @@ public class ConsumerDomain extends AbstractDomain {
 
     @Override
     protected void logAfterReceivingFromChannel(final TransportedMessage m) {
-        // acting as a provider partner, a new consumes ext starts here
+        // acting as a provider partner, i.e. we are going to consume a service
+        // a new consumes ext starts here
         if (m.step == 1) {
+            final FlowAttributes consumeExtStep = PetalsExecutionContext.initFlowAttributes();
+
+            final FlowAttributes provideExtStep = m.provideExtStep;
+            assert provideExtStep != null;
+
             // we remember the step of the consumer partner through the correlated flow attributes
             logger.log(Level.MONIT, "",
-                    new BcGatewayConsumeExtFlowStepBeginLogData(PetalsExecutionContext.getFlowAttributes(),
+                    new BcGatewayConsumeExtFlowStepBeginLogData(consumeExtStep,
+                            // this is a correlated flow id
+                            provideExtStep,
                             // TODO id unique inside the SU, not the component
-                            m.provideExtStep, getId()));
+                            getId()));
         }
     }
 
     @Override
     protected void logBeforeSendingToChannel(final TransportedMessage m) {
+
+        final FlowAttributes consumeExtStep = PetalsExecutionContext.getFlowAttributes();
+        // it was set by the CDK
+        assert consumeExtStep != null;
+
         // the end of the one started in ConsumerDomain.logBeforeSendingToNMR
         if (m.step == 2) {
-            final FlowAttributes consumeExtStep = PetalsExecutionContext.getFlowAttributes();
-            // it was set by the CDK
-            assert consumeExtStep != null;
             StepLogHelper.addMonitExtEndOrFailureTrace(logger, m.exchange, consumeExtStep, true);
         }
     }

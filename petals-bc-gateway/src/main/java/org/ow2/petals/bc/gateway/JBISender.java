@@ -17,6 +17,11 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import java.net.URI;
+
+import javax.jbi.messaging.MessagingException;
+import javax.xml.namespace.QName;
+
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.commons.DomainContext;
 import org.ow2.petals.component.framework.api.message.Exchange;
@@ -28,5 +33,8 @@ import org.ow2.petals.component.framework.api.message.Exchange;
  */
 public interface JBISender {
 
-    void sendToNMR(DomainContext ctx, @Nullable Exchange exchange);
+    void sendToNMR(DomainContext ctx, Exchange exchange) throws MessagingException;
+
+    Exchange createExchange(@Nullable QName interfaceName, @Nullable QName serviceName, @Nullable String endpointName,
+            URI mep) throws MessagingException;
 }

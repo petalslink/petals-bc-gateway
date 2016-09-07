@@ -24,7 +24,9 @@ public class TransportedException extends TransportedForExchange {
     public final Throwable cause;
 
     public TransportedException(final TransportedMessage m, final Exception cause) {
-        super(m.provideExtStep, m.exchangeId);
+        super(m.exchangeId);
+        assert m.senderExtStep != null;
+        this.senderExtStep = m.senderExtStep;
         this.cause = cause;
     }
 }

@@ -72,12 +72,7 @@ public class BcGatewayJBIListener extends AbstractJBIListener {
         assert asyncExchange != null;
         if (asyncContext instanceof BcGatewaySenderAsyncContext) {
             final BcGatewaySenderAsyncContext context = (BcGatewaySenderAsyncContext) asyncContext;
-            try {
-                context.handleAnswer(asyncExchange);
-            } catch (final MessagingException e) {
-                asyncExchange.setError(e);
-                return true;
-            }
+            context.handleAnswer(asyncExchange);
             return false;
         } else {
             asyncExchange.setError(new MessagingException(

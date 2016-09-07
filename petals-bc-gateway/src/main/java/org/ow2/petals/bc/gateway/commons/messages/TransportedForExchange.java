@@ -17,6 +17,7 @@
  */
 package org.ow2.petals.bc.gateway.commons.messages;
 
+import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.commons.messages.Transported.TransportedToConsumer;
 import org.ow2.petals.bc.gateway.commons.messages.Transported.TransportedToProvider;
 import org.ow2.petals.commons.log.FlowAttributes;
@@ -32,13 +33,15 @@ public abstract class TransportedForExchange implements TransportedToProvider, T
     public final String exchangeId;
 
     /**
-     * The attributes of the flow step handled by the gateway as consumer partner and used as a correlated flow by the
-     * provider partner
+     * This contains the flow step attributes of the sender: for the PD it is the ProvideExtStep and for the CD it is
+     * the ConsumeExtStep.
+     * 
+     * It is updated before each send
      */
-    public final FlowAttributes provideExtStep;
+    @Nullable
+    public FlowAttributes senderExtStep;
 
-    public TransportedForExchange(final FlowAttributes provideExtStep, final String exchangeId) {
+    public TransportedForExchange(final String exchangeId) {
         this.exchangeId = exchangeId;
-        this.provideExtStep = provideExtStep;
     }
 }

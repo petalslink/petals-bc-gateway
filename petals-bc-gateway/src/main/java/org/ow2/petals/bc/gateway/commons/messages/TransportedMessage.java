@@ -19,6 +19,7 @@ package org.ow2.petals.bc.gateway.commons.messages;
 
 import javax.jbi.messaging.MessageExchange;
 
+import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
@@ -63,9 +64,22 @@ public class TransportedMessage extends TransportedForExchange {
     @SuppressWarnings("squid:S1948")
     public final MessageExchange exchange;
 
-    protected TransportedMessage(final ServiceKey service, final FlowAttributes provideExtStep, final String exchangeId,
-            final MessageExchange exchange, final int step, final boolean last) {
-        super(provideExtStep, exchangeId);
+    /**
+     * The attributes of the flow step handled by the gateway as consumer partner and used as a correlated flow by the
+     * provider partner.
+     * 
+     * Note: this can contain the same information as {@link TransportedForExchange#senderExtStep} but it is needed so
+     * that the PD can always know the ProvideExtStep (because the PD stores the ProvideStep, while the CD stores the
+     * ConsumeExtStep directly).
+     * 
+     * It is set the first time by the PD and then propagated to each message.
+     */
+    @Nullable
+    public FlowAttributes provideExtStep;
+
+    protected TransportedMessage(final ServiceKey service, final String exchangeId, final MessageExchange exchange,
+            final int step, final boolean last) {
+        super(exchangeId);
         assert step > 0;
         this.service = service;
         this.step = step;
@@ -74,14 +88,14 @@ public class TransportedMessage extends TransportedForExchange {
     }
 
     protected TransportedMessage(final TransportedMessage m, final boolean last, final MessageExchange exchange) {
-        this(m.service, m.provideExtStep, m.exchangeId, exchange, m.step + 1, last);
+        this(m.service, m.exchangeId, exchange, m.step + 1, last);
         assert !m.last;
         assert m.step > 0;
+        this.provideExtStep = m.provideExtStep;
     }
 
-    public static TransportedMessage newMessage(final ServiceKey service, final FlowAttributes provideExtStep,
-            final MessageExchange exchange) {
-        return new TransportedMessage(service, provideExtStep, exchange.getExchangeId(), exchange, 1, false);
+    public static TransportedMessage newMessage(final ServiceKey service, final MessageExchange exchange) {
+        return new TransportedMessage(service, exchange.getExchangeId(), exchange, 1, false);
     }
 
     public static TransportedMessage middleMessage(final TransportedMessage m, final MessageExchange exchange) {

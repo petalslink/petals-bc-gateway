@@ -21,11 +21,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 
-import javax.jbi.messaging.MessageExchange;
 import javax.jbi.messaging.MessagingException;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
+import org.ow2.petals.bc.gateway.commons.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.commons.messages.TransportedException;
 import org.ow2.petals.bc.gateway.commons.messages.TransportedForExchange;
 import org.ow2.petals.bc.gateway.commons.messages.TransportedMessage;
@@ -76,42 +76,53 @@ public abstract class AbstractDomain {
 
     protected abstract void logAfterReceivingFromChannel(TransportedMessage m);
 
+    /**
+     * TODO add tests about flow attributes
+     */
     public void receiveFromChannel(final ChannelHandlerContext ctx, final TransportedForExchange m) {
         // in all case where I receive something, I remove the exchange I stored before!
         // if it has to come back (e.g., for InOptOut fault after out) it will be put back
         final Pair<Exchange, FlowAttributes> stored = exchangesInProgress.remove(m.exchangeId);
 
-        // let's get the flow attribute from the received exchange and put them in context as soon as we get it
-        // TODO add tests!
-        if (stored != null) {
-            PetalsExecutionContext.putFlowAttributes(stored.getB());
-        } else {
-            PetalsExecutionContext.initFlowAttributes();
-        }
-
         if (m instanceof TransportedException) {
-            assert stored != null;
+            final TransportedException te = (TransportedException) m;
+            // in case of exception, we get back the step we sent before
+            PetalsExecutionContext.putFlowAttributes(te.senderExtStep);
+            // we receive exception only if we sent a non-active exchange (which are not stored)
+            assert stored == null;
+
             logger.log(Level.WARNING,
                     "Received an exception from the other side, this is purely informative, we can't do anything about it",
-                    ((TransportedException) m).cause);
+                    te.cause);
         } else if (m instanceof TransportedMessage) {
             final TransportedMessage tm = (TransportedMessage) m;
 
             assert tm.step == 1 ^ stored != null;
 
-            // this will do logs
+            // do logs for starting the consumeExtStep of CD or provideExtStepEnd of PD
             logAfterReceivingFromChannel(tm);
 
-            sendToNMR(ctx, tm, stored != null ? stored.getA() : null);
+            // this corresponds for CD to consumeExtStep and for PD to provideStep
+            if (stored != null) {
+                assert tm.step > 1;
+                PetalsExecutionContext.putFlowAttributes(stored.getB());
+            }
+
+            try {
+                // this gives us either the stored exchange updated or a new one (for step==1)
+                final Exchange exchange = ExchangeHelper.updateStoredExchange(stored != null ? stored.getA() : null, tm,
+                        this.sender);
+
+                this.sender.sendToNMR(getContext(this, ctx, tm), exchange);
+            } catch (final MessagingException e) {
+                // if we couldn't update the exchange: it must have been in a wrong state... TODO is this a bug then?
+                // if there was a problem sending the exchange: this is not a bug!!
+                // in all case, we will reuse the exchange from the transported message
+                sendErrorToChannel(ctx, tm, e);
+            }
         } else {
             throw new IllegalArgumentException("Impossible case");
         }
-    }
-
-    private void sendToNMR(final ChannelHandlerContext ctx, final TransportedMessage m,
-            final @Nullable Exchange exchange) {
-
-        this.sender.sendToNMR(getContext(this, ctx, m), exchange);
     }
 
     private static DomainContext getContext(final AbstractDomain domain, final ChannelHandlerContext ctx,
@@ -119,66 +130,37 @@ public abstract class AbstractDomain {
         return new DomainContext() {
             @Override
             public void sendToChannel(final Exchange exchange) {
-                domain.sendFromNMRToChannel(ctx, m, exchange);
-            }
-
-            @Override
-            public void sendToChannel(final Exception e) {
-                domain.sendFromNMRToChannel(ctx, m, e);
+                assert !m.last;
+                domain.sendFromNMRToChannel(ctx, m.service, m, exchange);
             }
 
             @Override
             public void sendTimeoutToChannel() {
-                domain.sendTimeoutFromNMRToChannel(ctx, m);
-            }
-
-            @Override
-            public TransportedMessage getMessage() {
-                return m;
+                // in this case, note that we will reuse the exchange that was received from the channel
+                // because the one we sent to the NMR (which timed out) can't be modified anymore
+                domain.sendErrorToChannel(ctx, m, TIMEOUT_EXCEPTION);
             }
         };
     }
 
-    private void sendFromNMRToChannel(final ChannelHandlerContext ctx, final TransportedMessage m,
-            final Exception e) {
-
+    private void sendErrorToChannel(final ChannelHandlerContext ctx, final TransportedMessage m, final Exception e) {
         logger.log(Level.FINE, "Exception caught", e);
 
-        final TransportedForExchange msg;
         if (m.last) {
-            msg = new TransportedException(m, e);
+            sendToChannel(ctx, new TransportedException(m, e));
         } else {
             m.exchange.setError(e);
-            msg = TransportedMessage.lastMessage(m, m.exchange);
+            //
+            sendToChannel(ctx, TransportedMessage.lastMessage(m, m.exchange));
         }
-
-        sendToChannel(ctx, msg);
     }
 
-    private void sendFromNMRToChannel(final ChannelHandlerContext ctx, final TransportedMessage m,
-            final Exchange exchange) {
-        assert !m.last;
+    protected void sendFromNMRToChannel(final ChannelHandlerContext ctx, final ServiceKey service,
+            final @Nullable TransportedMessage om, final Exchange exchange) {
 
-        final TransportedMessage msg;
-        final MessageExchange mex = exchange.getMessageExchange();
-        assert mex != null;
+        final TransportedMessage m = ExchangeHelper.updateTransportedExchange(om, service,
+                exchange.getMessageExchange());
 
-        if (exchange.isActiveStatus()) {
-            // we will be expecting an answer
-            msg = TransportedMessage.middleMessage(m, mex);
-        } else {
-            msg = TransportedMessage.lastMessage(m, mex);
-        }
-
-        sendToChannel(ctx, msg, exchange);
-    }
-
-    private void sendTimeoutFromNMRToChannel(final ChannelHandlerContext ctx, final TransportedMessage m) {
-        m.exchange.setError(TIMEOUT_EXCEPTION);
-        sendToChannel(ctx, TransportedMessage.lastMessage(m, m.exchange));
-    }
-
-    protected void sendToChannel(final ChannelHandlerContext ctx, final TransportedMessage m, final Exchange exchange) {
         if (!m.last) {
             // the current flow is either the provide step or the consume ext step
             final FlowAttributes fa = PetalsExecutionContext.getFlowAttributes();
@@ -197,7 +179,9 @@ public abstract class AbstractDomain {
     private void sendToChannel(final ChannelHandlerContext ctx, final TransportedForExchange m) {
 
         if (m instanceof TransportedMessage) {
-            logBeforeSendingToChannel((TransportedMessage) m);
+            final TransportedMessage tm = (TransportedMessage) m;
+            logBeforeSendingToChannel(tm);
+            m.senderExtStep = PetalsExecutionContext.getFlowAttributes();
         }
 
         ctx.writeAndFlush(m).addListener(new ChannelFutureListener() {
@@ -210,11 +194,13 @@ public abstract class AbstractDomain {
                     // Careful because if we reconnect, I guess the channel is not the same one?!?!
                     final Throwable cause = future.cause();
                     // TODO is the channel notified of the error too?
+                    // see https://groups.google.com/d/msg/netty/yWMRRS6zaQ0/2MYNvRZQAQAJ
                     if (m instanceof TransportedMessage && !((TransportedMessage) m).last) {
                         final TransportedMessage tm = (TransportedMessage) m;
                         tm.exchange.setError(new MessagingException(cause));
                         // TODO what about the other side waiting for this exchange?! it should be removed there... but
                         // if there is a connection problem, then maybe it is simply that it was stopped?
+                        // we could take note of which exchangeId failed and send them on reconnect for cleaning?
                         logger.log(Level.WARNING,
                                 "Can't send message over the channel, sending back the error over the NMR: " + m,
                                 cause);

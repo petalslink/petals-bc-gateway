@@ -29,7 +29,6 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
-import javax.jbi.messaging.MessageExchange;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
@@ -379,27 +378,13 @@ public class ProviderDomain extends AbstractDomain {
      * 3rd is taken care of by {@link AbstractDomain}.
      */
     private void sendToChannel(final ServiceKey service, final Exchange exchange) {
-        final MessageExchange mex = exchange.getMessageExchange();
-        assert mex != null;
-
-        // current provide step
-        final FlowAttributes provideStep = PetalsExecutionContext.getFlowAttributes();
-        // step for the external call
-        final FlowAttributes provideExtStep = PetalsExecutionContext.nextFlowStepId();
-
-        // we cheat a bit and come back to the previous one for the following
-        // and will switch to the ext one just before sending over the channel
-        PetalsExecutionContext.putFlowAttributes(provideStep);
-
-        assert provideExtStep != null;
-        final TransportedMessage m = TransportedMessage.newMessage(service, provideExtStep, mex);
-
         // let's use the context of the client
         final ChannelHandlerContext ctx = client.getDomainContext();
         // it can't be null because it would mean that the component is stopped and in that case we
         // wouldn't be receiving messages!
         assert ctx != null;
-        sendToChannel(ctx, m, exchange);
+
+        sendFromNMRToChannel(ctx, service, null, exchange);
     }
 
     /**
@@ -430,31 +415,32 @@ public class ProviderDomain extends AbstractDomain {
 
     @Override
     protected void logAfterReceivingFromChannel(final TransportedMessage m) {
-        if (m.step == 2) {
-            // the message contains the FA we created before sending it as a TransportedNewMessage in send
+        // can't happen in provider domain
+        assert m.step > 1;
 
+        PetalsExecutionContext.putFlowAttributes(m.provideExtStep);
+
+        if (m.step == 2) {
             // this is the end of provides ext that started in ProviderDomain.send
             StepLogHelper.addMonitExtEndOrFailureTrace(logger, m.exchange, m.provideExtStep, false);
         }
-
-        // TODO for now, when the exchange is received from the channel, we set the flow attributes in the context to
-        // the one of the provide and not the one of the provide ext, but the TRACE is done using the provide ext flow
-        // attribute: this is ok because only the instance is really important when logging, but who knows if in the
-        // future things won't be different?!
-
     }
 
     @Override
     protected void logBeforeSendingToChannel(final TransportedMessage m) {
-
-        final FlowAttributes provideStep = PetalsExecutionContext.getFlowAttributes();
-
-        // this is the step of the provide ext
-        PetalsExecutionContext.putFlowAttributes(m.provideExtStep);
-
         if (m.step == 1) {
+            // current provide step
+            final FlowAttributes provideStep = PetalsExecutionContext.getFlowAttributes();
+            // step for the external call
+            final FlowAttributes provideExtStep = PetalsExecutionContext.nextFlowStepId();
+
+            // it will be used by the ConsumerDomain.logAfterReceivingFromChannel
+            m.provideExtStep = provideExtStep;
+
             logger.log(Level.MONIT, "",
-                    new BcGatewayProvideExtFlowStepBeginLogData(m.provideExtStep, provideStep, jpd.getId()));
+                    new BcGatewayProvideExtFlowStepBeginLogData(provideExtStep, provideStep, jpd.getId()));
+        } else {
+            PetalsExecutionContext.putFlowAttributes(m.provideExtStep);
         }
     }
 }

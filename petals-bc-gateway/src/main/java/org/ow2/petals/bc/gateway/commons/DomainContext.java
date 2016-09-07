@@ -17,7 +17,6 @@
  */
 package org.ow2.petals.bc.gateway.commons;
 
-import org.ow2.petals.bc.gateway.commons.messages.TransportedMessage;
 import org.ow2.petals.component.framework.api.message.Exchange;
 
 public interface DomainContext {
@@ -28,15 +27,8 @@ public interface DomainContext {
     void sendToChannel(Exchange exchange);
 
     /**
-     * For error during send
-     */
-    void sendToChannel(Exception e);
-
-    /**
      * For timeout after send
      */
     void sendTimeoutToChannel();
-
-    TransportedMessage getMessage();
 
 }
