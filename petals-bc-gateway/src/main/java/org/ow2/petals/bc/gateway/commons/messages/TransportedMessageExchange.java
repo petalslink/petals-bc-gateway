@@ -33,7 +33,17 @@ import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.component.framework.api.message.Exchange;
+import org.ow2.petals.component.framework.logger.StepLogHelper;
 
+/**
+ * This wraps a MessageExchange by copying only what should be sent over the channel.
+ * 
+ * We don't really need to implement {@link MessageExchange} but it is useful to reuse common utilities such as
+ * {@link StepLogHelper}.
+ * 
+ * @author vnoel
+ *
+ */
 public class TransportedMessageExchange implements MessageExchange, Serializable {
 
     private static final long serialVersionUID = 2296933924867966793L;

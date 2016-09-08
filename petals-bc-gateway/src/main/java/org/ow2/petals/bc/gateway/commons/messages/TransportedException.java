@@ -17,6 +17,16 @@
  */
 package org.ow2.petals.bc.gateway.commons.messages;
 
+/**
+ * {@link TransportedException} are only used as an answer to a {@link TransportedMessage} that is the last one of an
+ * exchange.
+ * 
+ * It is only informative and not usable by the other side: the idea is to be able to keep some logs of problems on both
+ * sides when possible.
+ * 
+ * @author vnoel
+ *
+ */
 public class TransportedException extends TransportedForExchange {
 
     private static final long serialVersionUID = -6316196934605106284L;
@@ -25,6 +35,7 @@ public class TransportedException extends TransportedForExchange {
 
     public TransportedException(final TransportedMessage m, final Exception cause) {
         super(m.exchangeId);
+        assert m.last;
         assert m.senderExtStep != null;
         this.senderExtStep = m.senderExtStep;
         this.cause = cause;
