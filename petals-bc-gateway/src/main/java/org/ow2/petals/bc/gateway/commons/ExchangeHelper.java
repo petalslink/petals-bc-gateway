@@ -29,10 +29,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.commons.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.commons.messages.TransportedMessage;
-import org.ow2.petals.commons.log.FlowAttributesExchangeHelper;
 import org.ow2.petals.component.framework.api.message.Exchange;
-import org.ow2.petals.component.framework.process.MessageExchangeProcessor;
-import org.ow2.petals.component.framework.process.async.AsyncMessageManager;
 
 public class ExchangeHelper {
 
@@ -146,13 +143,11 @@ public class ExchangeHelper {
     }
 
     /**
-     * TODO find a better solution than ignoring some properties!!
+     * This must be ignored because it is meant to be tied to a given send and the Gateway will create new exchanges.
+     * 
+     * See PETALSDISTRIB-282 for some details on this question.
      */
     private static boolean ignoreProperty(final String prop) {
-        return prop.startsWith("org.ow2.petals.microkernel.jbi.messaging.exchange.DeliveryChannelImpl.")
-                || prop.startsWith(AsyncMessageManager.ASYNC_MESSAGE_PROPERTY_PREFIX)
-                || prop.startsWith(MessageExchangeProcessor.PROVIDER_FLOWATTRIBUTES_PREFIX)
-                || prop.startsWith(FlowAttributesExchangeHelper.DEFAULT_PREFIX)
-                || prop.equals("javax.jbi.messaging.sendSync");
+        return prop.equals("javax.jbi.messaging.sendSync");
     }
 }
