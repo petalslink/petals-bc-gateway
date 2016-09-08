@@ -46,9 +46,7 @@ public class TransportedMessageExchange implements MessageExchange, Serializable
 
     private Status status;
 
-    /**
-     * TODO is that nullable?
-     */
+    @Nullable
     private final QName operation;
 
     private final URI pattern;
@@ -160,6 +158,7 @@ public class TransportedMessageExchange implements MessageExchange, Serializable
     }
 
     @Override
+    @Nullable
     public QName getOperation() {
         return this.operation;
     }
