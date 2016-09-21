@@ -21,7 +21,7 @@
    <parent>
       <artifactId>petals-bc-gateway-samples-parent</artifactId>
       <groupId>org.ow2.petals.samples</groupId>
-      <version>1.0.0-1.0.0</version>
+      <version>1.0.0-1.0.1-SNAPSHOT</version>
    </parent>
 
    <artifactId>sa-gateway-hello-domain1</artifactId>
@@ -81,6 +81,6 @@
    <scm>
       <connection>scm:git:https://github.com/petalslink/petals-bc-gateway.git</connection>
       <developerConnection>${project.scm.connection}</developerConnection>
-     <tag>petals-samples-gateway-1.0.0-1.0.0</tag>
+     <tag>HEAD</tag>
   </scm>
 </project>
