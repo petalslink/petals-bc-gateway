@@ -24,7 +24,7 @@
    <parent>
       <artifactId>petals-parent</artifactId>
       <groupId>org.ow2.petals</groupId>
-      <version>20.2.4</version>
+      <version>20.2.5</version>
       <relativePath />
    </parent>
 
@@ -36,7 +36,7 @@
 
    <properties>
       <sonar.skip>true</sonar.skip>
-      <petals-bc-gateway.version>1.0.0-SNAPSHOT</petals-bc-gateway.version>
+      <petals-bc-gateway.version>1.0.0</petals-bc-gateway.version>
    </properties>
 
    <modules>
