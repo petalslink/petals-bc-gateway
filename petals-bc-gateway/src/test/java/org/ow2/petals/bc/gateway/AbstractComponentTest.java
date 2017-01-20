@@ -480,7 +480,7 @@ public class AbstractComponentTest extends AbstractTest implements BcGatewayJbiT
                 createProvider(TEST_AUTH_NAME, TEST_TRANSPORT_PORT, clientCertificate, clientKey,
                         clientRemoteCertificate, retryMax, retryDelay));
 
-        Awaitility.await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
+        Awaitility.await().atMost(Duration.TEN_SECONDS).until(new Callable<Boolean>() {
             @Override
             public Boolean call() throws Exception {
                 return getNotExternalEndpoint() != null;
