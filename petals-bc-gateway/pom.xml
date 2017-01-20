@@ -137,7 +137,7 @@
       <dependency>
          <groupId>org.ow2.petals</groupId>
          <artifactId>petals-message-exchange</artifactId>
-         <version>1.2.5</version>
+         <version>1.2.6-SNAPSHOT</version>
          <scope>test</scope>
       </dependency>
       <dependency>
