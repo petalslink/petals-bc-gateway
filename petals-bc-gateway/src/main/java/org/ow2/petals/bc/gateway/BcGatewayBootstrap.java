@@ -24,6 +24,7 @@ import java.util.Map;
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.basisapi.exception.PetalsException;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
+import org.ow2.petals.bc.gateway.utils.BcGatewayJbiConstants;
 import org.ow2.petals.bc.gateway.utils.BcGatewayJbiHelper;
 import org.ow2.petals.binding.gateway.clientserver.api.AdminService;
 import org.ow2.petals.component.framework.DefaultBootstrap;
@@ -36,7 +37,7 @@ import org.ow2.petals.component.framework.mbean.MBeanHelper;
  * @author vnoel
  *
  */
-public class BcGatewayBootstrap extends DefaultBootstrap implements AdminService {
+public class BcGatewayBootstrap extends DefaultBootstrap implements AdminService, BcGatewayJbiConstants {
 
     @Override
     public Collection<String> getMBeanOperationsNames() {
@@ -45,6 +46,36 @@ public class BcGatewayBootstrap extends DefaultBootstrap implements AdminService
         methods.addAll(MBeanHelper.getMethodsNames(AdminService.class));
 
         return methods;
+    }
+
+    @Override
+    public Collection<String> getMBeanAttributesNames() {
+        final Collection<String> attributes = super.getMBeanAttributesNames();
+
+        attributes.add("consumerDomainsMaxPoolSize");
+        attributes.add("providerDomainsMaxPoolSize");
+
+        return attributes;
+    }
+
+    /**
+     * TODO merge that with the code in {@link BcGatewayJbiHelper}? Because for it, the default value is in the xsd,
+     * while here it is hardcoded...
+     */
+    public int getConsumerDomainsMaxPoolSize() {
+        return this.getParamAsInteger(EL_CONSUMER_DOMAINS_MAX_POOL_SIZE.getLocalPart(), 6);
+    }
+
+    public void setConsumerDomainsMaxPoolSize(int value) {
+        this.setParam(EL_CONSUMER_DOMAINS_MAX_POOL_SIZE.getLocalPart(), Integer.toString(value));
+    }
+
+    public int getProviderDomainsMaxPoolSize() {
+        return this.getParamAsInteger(EL_PROVIDER_DOMAINS_MAX_POOL_SIZE.getLocalPart(), 6);
+    }
+
+    public void setProviderDomainsMaxPoolSize(int value) {
+        this.setParam(EL_PROVIDER_DOMAINS_MAX_POOL_SIZE.getLocalPart(), Integer.toString(value));
     }
 
     /**
