@@ -46,7 +46,11 @@ public interface BcGatewayJbiConstants {
     public static final QName EL_CONSUMER_DOMAINS_MAX_POOL_SIZE = new QName(GATEWAY_NS_URI,
             "consumer-domains-max-pool-size");
 
+    public static final int DEFAULT_CONSUMER_DOMAINS_MAX_POOL_SIZE = 6;
+
     public static final QName EL_PROVIDER_DOMAINS_MAX_POOL_SIZE = new QName(GATEWAY_NS_URI,
             "provider-domains-max-pool-size");
+
+    public static final int DEFAULT_PROVIDER_DOMAINS_MAX_POOL_SIZE = 6;
 
 }

@@ -63,7 +63,8 @@ public class BcGatewayBootstrap extends DefaultBootstrap implements AdminService
      * while here it is hardcoded...
      */
     public int getConsumerDomainsMaxPoolSize() {
-        return this.getParamAsInteger(EL_CONSUMER_DOMAINS_MAX_POOL_SIZE.getLocalPart(), 6);
+        return this.getParamAsInteger(EL_CONSUMER_DOMAINS_MAX_POOL_SIZE.getLocalPart(),
+                DEFAULT_CONSUMER_DOMAINS_MAX_POOL_SIZE);
     }
 
     public void setConsumerDomainsMaxPoolSize(int value) {
@@ -71,7 +72,8 @@ public class BcGatewayBootstrap extends DefaultBootstrap implements AdminService
     }
 
     public int getProviderDomainsMaxPoolSize() {
-        return this.getParamAsInteger(EL_PROVIDER_DOMAINS_MAX_POOL_SIZE.getLocalPart(), 6);
+        return this.getParamAsInteger(EL_PROVIDER_DOMAINS_MAX_POOL_SIZE.getLocalPart(),
+                DEFAULT_PROVIDER_DOMAINS_MAX_POOL_SIZE);
     }
 
     public void setProviderDomainsMaxPoolSize(int value) {

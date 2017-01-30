@@ -53,7 +53,6 @@ import org.ow2.petals.component.framework.jbidescriptor.generated.Component;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Services;
-import org.ow2.petals.component.framework.jbidescriptor.generated.Settablepositivestrictint;
 import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.ow2.petals.component.framework.util.ServiceUnitUtil;
 import org.w3c.dom.Document;
@@ -234,35 +233,6 @@ public class BcGatewayJbiHelper implements BcGatewayJbiConstants {
         }
 
         return null;
-    }
-
-    public static int getConsumerDomainsMaxPoolSize(final @Nullable Component component) throws PEtALSCDKException {
-        return getMaxPoolSize(component, EL_CONSUMER_DOMAINS_MAX_POOL_SIZE);
-    }
-
-    public static int getProviderDomainsMaxPoolSize(final @Nullable Component component) throws PEtALSCDKException {
-        return getMaxPoolSize(component, EL_PROVIDER_DOMAINS_MAX_POOL_SIZE);
-    }
-
-    private static int getMaxPoolSize(final @Nullable Component component, final QName element)
-            throws PEtALSCDKException {
-        assert component != null;
-
-        final Collection<Settablepositivestrictint> res = getAll(component.getAny(), element,
-                Settablepositivestrictint.class);
-        if (res.isEmpty()) {
-            throw new PEtALSCDKException("Missing parameter " + element.getLocalPart());
-        }
-        if (res.size() > 1) {
-            throw new PEtALSCDKException("Duplicate parameter " + element.getLocalPart());
-        }
-
-        final Settablepositivestrictint maxPoolSize = res.iterator().next();
-        if (maxPoolSize == null) {
-            throw new PEtALSCDKException("Missing value for parameter " + element.getLocalPart());
-        }
-
-        return maxPoolSize.getValue();
     }
 
     public static Collection<JbiTransportListener> getTransportListeners(final @Nullable Component component)

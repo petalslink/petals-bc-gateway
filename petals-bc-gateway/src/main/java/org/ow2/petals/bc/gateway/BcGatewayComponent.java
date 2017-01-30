@@ -45,6 +45,7 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.bc.gateway.outbound.ProviderMatcher;
 import org.ow2.petals.bc.gateway.outbound.ProviderService;
+import org.ow2.petals.bc.gateway.utils.BcGatewayJbiConstants;
 import org.ow2.petals.bc.gateway.utils.BcGatewayJbiHelper;
 import org.ow2.petals.bc.gateway.utils.BcGatewayJbiHelper.Pair;
 import org.ow2.petals.binding.gateway.clientserver.api.AdminRuntimeService;
@@ -127,10 +128,14 @@ public class BcGatewayComponent extends AbstractBindingComponent implements Prov
 
         final String componentName = getJbiComponentDescriptor().getComponent().getIdentification().getName();
 
-        final int cdMaxPoolSize = BcGatewayJbiHelper
-                .getConsumerDomainsMaxPoolSize(getJbiComponentDescriptor().getComponent());
-        final int pdMaxPoolSize = BcGatewayJbiHelper
-                .getProviderDomainsMaxPoolSize(getJbiComponentDescriptor().getComponent());
+        final int cdMaxPoolSize = this.getParameterAsPositiveInteger(
+                BcGatewayJbiConstants.EL_CONSUMER_DOMAINS_MAX_POOL_SIZE.getLocalPart(),
+                BcGatewayJbiConstants.DEFAULT_CONSUMER_DOMAINS_MAX_POOL_SIZE);
+        final int pdMaxPoolSize = this
+                .getParameterAsPositiveInteger(BcGatewayJbiConstants.EL_PROVIDER_DOMAINS_MAX_POOL_SIZE.getLocalPart(),
+                        BcGatewayJbiConstants.DEFAULT_PROVIDER_DOMAINS_MAX_POOL_SIZE);
+        this.getLogger().config("Max pool size of consumer domains: " + cdMaxPoolSize);
+        this.getLogger().config("Max pool size of provider domains: " + cdMaxPoolSize);
 
         // this is needed to rename the the global event executor (global to this component because global to this
         // classloader) used for executing propagation pooling
