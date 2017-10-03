@@ -21,7 +21,7 @@
    <parent>
       <artifactId>petals-bc-gateway-samples-parent</artifactId>
       <groupId>org.ow2.petals.samples</groupId>
-      <version>1.0.0-1.0.1-SNAPSHOT</version>
+      <version>1.0.1-1.0.0-SNAPSHOT</version>
    </parent>
 
    <artifactId>su-gateway-hello-consumes</artifactId>
