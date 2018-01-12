@@ -23,7 +23,7 @@
    <parent>
       <artifactId>petals-parent</artifactId>
       <groupId>org.ow2.petals</groupId>
-      <version>20.2.6-SNAPSHOT</version>
+      <version>20.2.6</version>
       <relativePath />
    </parent>
 
@@ -35,7 +35,7 @@
 
    <properties>
       <sonar.skip>true</sonar.skip>
-      <petals-bc-gateway.version>1.0.1-SNAPSHOT</petals-bc-gateway.version>
+      <petals-bc-gateway.version>1.0.1</petals-bc-gateway.version>
    </properties>
 
    <modules>
@@ -64,7 +64,7 @@
             <plugin>
                <artifactId>petals-maven-plugin</artifactId>
                <groupId>org.ow2.petals</groupId>
-               <version>3.0.1-SNAPSHOT</version>
+               <version>3.0.1</version>
                <extensions>true</extensions>
             </plugin>
          </plugins>
