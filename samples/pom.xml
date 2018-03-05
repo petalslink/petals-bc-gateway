@@ -27,7 +27,7 @@
       <relativePath />
    </parent>
 
-   <groupId>org.ow2.petals.samples</groupId>
+   <groupId>org.ow2.petals.samples.gateway</groupId>
    <artifactId>petals-bc-gateway-samples-parent</artifactId>
    <name>Petals ESB - Samples - BC Gateway</name>
    <version>1.1.0-1.0.0-SNAPSHOT</version>
@@ -64,7 +64,7 @@
             <plugin>
                <artifactId>petals-maven-plugin</artifactId>
                <groupId>org.ow2.petals</groupId>
-               <version>3.0.1</version>
+               <version>3.1.0-SNAPSHOT</version>
                <extensions>true</extensions>
             </plugin>
          </plugins>
