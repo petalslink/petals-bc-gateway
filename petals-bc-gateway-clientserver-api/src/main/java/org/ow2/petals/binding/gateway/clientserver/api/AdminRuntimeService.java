@@ -60,7 +60,7 @@ public interface AdminRuntimeService extends CommonAdminService {
     /**
      * Trigger reconnection to all provider domain of the component.
      *
-     * @param all
+     * @param force
      *            if <code>true</code>, even connected domain will be reconnected.
      * @throws PetalsException
      */
@@ -71,7 +71,7 @@ public interface AdminRuntimeService extends CommonAdminService {
      *
      * @param suName
      *            the name of the SU to reconnect
-     * @param all
+     * @param force
      *            if <code>true</code>, even connected domain will be reconnected.
      * @throws PetalsException
      */
@@ -84,7 +84,7 @@ public interface AdminRuntimeService extends CommonAdminService {
      *            the name of the SU where the provider domain is declared
      * @param providerDomain
      *            the name of the provider domain to refresh
-     * @param all
+     * @param force
      *            if <code>true</code>, even connected domain will be reconnected.
      * @throws PetalsException
      */

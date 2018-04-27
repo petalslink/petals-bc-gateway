@@ -65,7 +65,7 @@ import io.netty.handler.codec.serialization.ClassResolver;
  * 
  * It maintains the list of Provides we should create on our side (based on the Consumes propagated)
  *
- * {@link #connect()} and {@link #disconnect()} corresponds to components start and stop. {@link #connect()} should
+ * {@link #connect(boolean)} and {@link #disconnect()} corresponds to components start and stop. {@link #connect(boolean)} should
  * trigger {@link #updatePropagatedServices(TransportedPropagations)} by the {@link Channel} normally.
  * 
  * {@link #register()} and {@link #deregister()} corresponds to SU init and shutdown.
@@ -159,7 +159,7 @@ public class ProviderDomain extends AbstractDomain {
 
     /**
      * Register propagated consumes for the JBI listener, can be called after or before the component has started (i.e.,
-     * {@link #connect()} has been called).
+     * {@link #connect(boolean)} has been called).
      */
     public void register() throws PEtALSCDKException {
         mainLock.lock();

@@ -59,14 +59,14 @@ import io.netty.util.concurrent.FutureListener;
  * <li>if it's ok
  * <ul>
  * <li>a {@link SslHandler} is setup if needed</li>
- * <li>an acceptation is sent to the client
+ * <li>an acceptation is sent to the client</li>
  * <li>the client setup its {@link SslHandler} if needed</li>
  * <li>the ssl handshake takes place</li>
  * <li>when it's done, client and server set up their handler</li>
  * </ul>
  * </li>
- * <li>else it sends an error back to the client and close the connection</li></li>
- * </ol>
+ * <li>else it sends an error back to the client and close the connection</li>
+ * </ol></li>
  * </ul>
  * 
  * @author vnoel

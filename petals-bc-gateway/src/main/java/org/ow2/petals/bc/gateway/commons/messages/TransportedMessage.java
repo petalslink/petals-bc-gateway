@@ -57,7 +57,7 @@ public class TransportedMessage extends TransportedForExchange {
 
     /**
      * This contains the exchange that one side received via the NMR and that the other side must use to fill its own
-     * version of the exchange that he stored (or must create in case of {@link TransportedNewMessage}).
+     * version of the exchange that he stored.
      */
     public final TransportedMessageExchange exchange;
 
