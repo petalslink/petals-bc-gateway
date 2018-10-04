@@ -35,7 +35,7 @@
 
    <properties>
       <sonar.skip>true</sonar.skip>
-      <petals-bc-gateway.version>1.1.0</petals-bc-gateway.version>
+      <petals-bc-gateway.version>1.1.1-SNAPSHOT</petals-bc-gateway.version>
    </properties>
 
    <modules>
