@@ -34,6 +34,7 @@ import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.message.Exchange;
+import org.ow2.petals.component.framework.monitoring.MonitTraceLogger;
 import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 
 import io.netty.channel.ChannelFuture;
@@ -55,6 +56,8 @@ public abstract class AbstractDomain {
 
     protected final ServiceUnitDataHandler handler;
 
+    protected final MonitTraceLogger monitTraceLogger;
+
     private final JBISender sender;
 
     /**
@@ -62,9 +65,11 @@ public abstract class AbstractDomain {
      */
     private final ConcurrentMap<String, Pair<Exchange, FlowAttributes>> exchangesInProgress = new ConcurrentHashMap<>();
 
-    public AbstractDomain(final JBISender sender, final ServiceUnitDataHandler handler, final Logger logger) {
+    public AbstractDomain(final JBISender sender, final ServiceUnitDataHandler handler,
+            final MonitTraceLogger monitTraceLogger, final Logger logger) {
         this.sender = sender;
         this.handler = handler;
+        this.monitTraceLogger = monitTraceLogger;
         this.logger = logger;
     }
 
@@ -74,7 +79,7 @@ public abstract class AbstractDomain {
 
     public abstract String getId();
 
-    protected abstract void logAfterReceivingFromChannel(TransportedMessage m);
+    protected abstract void logAfterReceivingFromChannel(final TransportedMessage m);
 
     /**
      * TODO add tests about flow attributes

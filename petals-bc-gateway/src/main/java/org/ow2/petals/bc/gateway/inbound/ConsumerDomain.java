@@ -48,6 +48,7 @@ import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
+import org.ow2.petals.component.framework.logger.AbstractFlowLogData;
 import org.ow2.petals.component.framework.logger.StepLogHelper;
 import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.w3c.dom.Document;
@@ -110,7 +111,7 @@ public class ConsumerDomain extends AbstractDomain {
     public ConsumerDomain(final ServiceUnitDataHandler handler, final TransportListener tl,
             final BcGatewaySUManager sum, final JbiConsumerDomain jcd, final Collection<Consumes> consumes,
             final JBISender sender, final Logger logger) throws PEtALSCDKException {
-        super(sender, handler, logger);
+        super(sender, handler, sum.getComponent(), logger);
         this.tl = tl;
         this.sum = sum;
         this.jcd = jcd;
@@ -435,7 +436,7 @@ public class ConsumerDomain extends AbstractDomain {
     private @Nullable TransportedDocument getFirstDescription(final Collection<ServiceEndpoint> endpoints) {
         for (final ServiceEndpoint endpoint : endpoints) {
             try {
-                Document desc = sum.getComponent().getContext().getEndpointDescriptor(endpoint);
+                final Document desc = sum.getComponent().getContext().getEndpointDescriptor(endpoint);
                 if (desc != null) {
                     return new TransportedDocument(desc);
                 }
@@ -458,7 +459,7 @@ public class ConsumerDomain extends AbstractDomain {
             assert provideExtStep != null;
 
             // we remember the step of the consumer partner through the correlated flow attributes
-            logger.log(Level.MONIT, "",
+            this.logMonitTrace(m,
                     new BcGatewayConsumeExtFlowStepBeginLogData(consumeExtStep,
                             // this is a correlated flow id
                             provideExtStep,
@@ -476,7 +477,33 @@ public class ConsumerDomain extends AbstractDomain {
 
         // the end of the one started in ConsumerDomain.logBeforeSendingToNMR
         if (m.step == 2) {
-            StepLogHelper.addMonitExtEndOrFailureTrace(logger, m.exchange, consumeExtStep, true);
+            this.logMonitTrace(m,
+                    StepLogHelper.getMonitExtEndOrFailureTrace(m.exchange, consumeExtStep, true));
+        }
+    }
+
+    /**
+     * <p>
+     * Log a MONIT trace if needed, according to the parameters 'activate-flow-tracing' defined at the level of the
+     * message exchange received from outside, service unit level and component level.
+     * </p>
+     * 
+     * @param m
+     *            The message that will be received or sent from/to the channel. Not {@code null}.
+     * @param monitTrace
+     *            The MONIT trace to log if needed.
+     * 
+     */
+    private void logMonitTrace(final TransportedMessage m, final AbstractFlowLogData monitTrace) {
+        
+        final ServiceKey service = m.service;
+        final Consumes currentConsumes = this.sum.getConsumesFromDestination(service.endpointName, service.service,
+                service.interfaceName, m.exchange.getOperation());
+        if (currentConsumes != null) {
+            this.monitTraceLogger.logMonitTrace(currentConsumes, monitTrace);
+        } else {
+            this.monitTraceLogger.logMonitTrace(monitTrace);
+
         }
     }
 }

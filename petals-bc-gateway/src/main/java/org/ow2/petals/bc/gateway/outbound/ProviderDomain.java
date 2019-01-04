@@ -32,6 +32,7 @@ import java.util.logging.Logger;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.BcGatewayComponent;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.commons.AbstractDomain;
 import org.ow2.petals.bc.gateway.commons.messages.ServiceKey;
@@ -49,6 +50,7 @@ import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
+import org.ow2.petals.component.framework.logger.AbstractFlowLogData;
 import org.ow2.petals.component.framework.logger.StepLogHelper;
 import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.ow2.petals.component.framework.util.EndpointUtil;
@@ -123,13 +125,13 @@ public class ProviderDomain extends AbstractDomain {
         }
     }
 
-    public ProviderDomain(final ProviderMatcher matcher, final ServiceUnitDataHandler handler,
+    public ProviderDomain(final BcGatewayComponent component, final ServiceUnitDataHandler handler,
             final JbiProviderDomain jpd, final Collection<Pair<Provides, JbiProvidesConfig>> provides,
             final JBISender sender, final Bootstrap partialBootstrap, final Logger logger, final ClassResolver cr)
             throws PEtALSCDKException {
-        super(sender, handler, logger);
+        super(sender, handler, component, logger);
 
-        this.matcher = matcher;
+        this.matcher = component;
         this.jpd = jpd;
         this.service2provides = new Service2ProvidesMatcher(provides);
         this.client = new TransportClient(handler, partialBootstrap, logger, cr, this);
@@ -222,7 +224,7 @@ public class ProviderDomain extends AbstractDomain {
 
     /**
      * 
-     * This registers and initialises the consumes being declared in the provider domain that we mirror on this side.
+     * This registers and initializes the consumes being declared in the provider domain that we mirror on this side.
      * 
      * We receive this notification once we are connected to the other side, i.e., just after component start (and of
      * course after SU deploy)
@@ -422,7 +424,8 @@ public class ProviderDomain extends AbstractDomain {
 
         if (m.step == 2) {
             // this is the end of provides ext that started in ProviderDomain.send
-            StepLogHelper.addMonitExtEndOrFailureTrace(logger, m.exchange, m.provideExtStep, false);
+            this.logMonitTrace(m,
+                    StepLogHelper.getMonitExtEndOrFailureTrace(m.exchange, m.provideExtStep, false));
         }
     }
 
@@ -437,10 +440,32 @@ public class ProviderDomain extends AbstractDomain {
             // it will be used by the ConsumerDomain.logAfterReceivingFromChannel
             m.provideExtStep = provideExtStep;
 
-            logger.log(Level.MONIT, "",
+            this.logMonitTrace(m,
                     new BcGatewayProvideExtFlowStepBeginLogData(provideExtStep, provideStep, jpd.getId()));
         } else {
             PetalsExecutionContext.putFlowAttributes(m.provideExtStep);
         }
+    }
+
+    /**
+     * <p>
+     * Log a MONIT trace if needed, according to the parameters 'activate-flow-tracing' defined at message exchange
+     * level, service unit level and component level.
+     * </p>
+     * 
+     * @param m
+     *            The message that will be received or sent from/to the channel. Not {@code null}.
+     * @param provides
+     *            The service unit provider for which the flow tracing activation will be checked if needed. Can be
+     *            {@code null}.
+     * @param monitTrace
+     *            The MONIT trace to log if needed.
+     * 
+     */
+    private void logMonitTrace(final TransportedMessage m, final AbstractFlowLogData monitTrace) {
+        assert m != null;
+
+        final Provides provides = this.service2provides.getProvides(m.service);
+        this.monitTraceLogger.logMonitTrace(m.exchange, provides, monitTrace);
     }
 }

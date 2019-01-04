@@ -21,7 +21,7 @@ import java.net.URL;
 
 import org.junit.Rule;
 import org.junit.rules.ExpectedException;
-import org.ow2.petals.component.framework.junit.Assert;
+import org.ow2.petals.component.framework.test.Assert;
 
 public class AbstractTest extends Assert {
 
