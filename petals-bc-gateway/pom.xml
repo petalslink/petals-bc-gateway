@@ -146,7 +146,7 @@
       </dependency>
       <dependency>
          <groupId>org.ow2.petals</groupId>
-         <artifactId>petals-junit-external-resources</artifactId>
+         <artifactId>petals-junit-inmemoryloghandler</artifactId>
       </dependency>
       <dependency>
          <groupId>com.jayway.awaitility</groupId>
