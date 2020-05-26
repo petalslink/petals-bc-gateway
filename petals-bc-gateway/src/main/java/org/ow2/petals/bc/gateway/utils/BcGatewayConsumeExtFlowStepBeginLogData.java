@@ -18,6 +18,7 @@
 package org.ow2.petals.bc.gateway.utils;
 
 import org.ow2.petals.commons.log.FlowAttributes;
+import org.ow2.petals.commons.log.FlowLogData;
 import org.ow2.petals.component.framework.logger.ConsumeExtFlowStepBeginLogData;
 
 public class BcGatewayConsumeExtFlowStepBeginLogData extends ConsumeExtFlowStepBeginLogData {
@@ -26,23 +27,11 @@ public class BcGatewayConsumeExtFlowStepBeginLogData extends ConsumeExtFlowStepB
 
     public static final String CONSUMER_KEY = "consumer-domain";
 
-    /**
-     * Name of the MONIT trace attribute containing the instance identifier of the flow on the other domain initiating
-     * the request.
-     */
-    public static final String CORRELATED_FLOW_INSTANCE_ID_KEY = "correlatedFlowInstanceId";
-
-    /**
-     * Name of the MONIT trace attribute containing the step identifier of the flow on the other domain initiating the
-     * request.
-     */
-    public static final String CORRELATED_FLOW_STEP_ID_KEY = "correlatedFlowStepId";
-
     public BcGatewayConsumeExtFlowStepBeginLogData(final FlowAttributes fa, final FlowAttributes correlated,
             final String consumer) {
         super(fa.getFlowInstanceId(), fa.getFlowStepId());
-        putData(CORRELATED_FLOW_INSTANCE_ID_KEY, correlated.getFlowInstanceId());
-        putData(CORRELATED_FLOW_STEP_ID_KEY, correlated.getFlowStepId());
+        putData(FlowLogData.CORRELATED_FLOW_INSTANCE_ID_PROPERTY_NAME, correlated.getFlowInstanceId());
+        putData(FlowLogData.CORRELATED_FLOW_STEP_ID_PROPERTY_NAME, correlated.getFlowStepId());
         putData(CONSUMER_KEY, consumer);
     }
 
