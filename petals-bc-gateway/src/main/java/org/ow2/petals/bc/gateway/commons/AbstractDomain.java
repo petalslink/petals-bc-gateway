@@ -34,7 +34,6 @@ import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.api.message.Exchange;
-import org.ow2.petals.component.framework.monitoring.MonitTraceLogger;
 import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 
 import io.netty.channel.ChannelFuture;
@@ -56,8 +55,6 @@ public abstract class AbstractDomain {
 
     protected final ServiceUnitDataHandler handler;
 
-    protected final MonitTraceLogger monitTraceLogger;
-
     private final JBISender sender;
 
     /**
@@ -65,11 +62,9 @@ public abstract class AbstractDomain {
      */
     private final ConcurrentMap<String, Pair<Exchange, FlowAttributes>> exchangesInProgress = new ConcurrentHashMap<>();
 
-    public AbstractDomain(final JBISender sender, final ServiceUnitDataHandler handler,
-            final MonitTraceLogger monitTraceLogger, final Logger logger) {
+    public AbstractDomain(final JBISender sender, final ServiceUnitDataHandler handler, final Logger logger) {
         this.sender = sender;
         this.handler = handler;
-        this.monitTraceLogger = monitTraceLogger;
         this.logger = logger;
     }
 
@@ -104,19 +99,29 @@ public abstract class AbstractDomain {
 
             assert tm.step == 1 ^ stored != null;
 
-            // do logs for starting the consumeExtStep of CD or provideExtStepEnd of PD
+            // do logs for starting the consumeExtStepBegin of CD or provideExtStepEnd of PD
             logAfterReceivingFromChannel(tm);
 
-            // this corresponds for CD to consumeExtStep and for PD to provideStep
-            if (stored != null) {
-                assert tm.step > 1;
-                PetalsExecutionContext.putFlowAttributes(stored.getB());
-            }
-
             try {
-                // this gives us either the stored exchange updated or a new one (for step==1)
-                final Exchange exchange = ExchangeHelper.updateStoredExchange(stored != null ? stored.getA() : null, tm,
-                        this.sender);
+
+                final Exchange exchange;
+                if (stored != null) {
+                    // this corresponds for CD to consumeExtStep and for PD to provideStep
+                    assert tm.step > 1;
+                    PetalsExecutionContext.putFlowAttributes(stored.getB());
+
+                    // This gives us the stored exchange updated (for step>1), restoring the flow tracing activation
+                    // state at message exchange level because it can be replaced by its
+                    // provider domain side according to its flow tracing propagation configuration.
+                    exchange = ExchangeHelper.updateStoredExchange(stored.getA(), tm, this.sender, true,
+                            tm.initialExternalFlowTracingActivation);
+
+                } else {
+                    assert tm.step == 1;
+                    // this gives us a new exchange (for step==1)
+                    exchange = ExchangeHelper.updateStoredExchange(null, tm, this.sender,
+                            this.isFlowTracingActivationPropagated(tm), this.isFlowTracingActivated(tm));
+                }
 
                 this.sender.sendToNMR(getContext(this, ctx, tm), exchange);
             } catch (final MessagingException e) {
@@ -129,6 +134,30 @@ public abstract class AbstractDomain {
             throw new IllegalArgumentException("Impossible case");
         }
     }
+
+    /**
+     * <p>
+     * Should flow tracing activation be propagated, according to the parameters 'propagate-flow-tracing' defined at
+     * service unit level and component level ?
+     * </p>
+     * 
+     * @param m
+     *            The message that will be received from the channel. Not {@code null}.
+     * 
+     */
+    protected abstract boolean isFlowTracingActivationPropagated(final TransportedMessage m);
+
+    /**
+     * <p>
+     * Is flow tracing activated, according to the parameters 'activate-flow-tracing' defined at the level of the
+     * message exchange received from outside, service unit level and component level ?
+     * </p>
+     * 
+     * @param m
+     *            The message that will be received from the channel. Can be {@code null}.
+     * 
+     */
+    protected abstract boolean isFlowTracingActivated(final @Nullable TransportedMessage m);
 
     private static DomainContext getContext(final AbstractDomain domain, final ChannelHandlerContext ctx,
             final TransportedMessage m) {

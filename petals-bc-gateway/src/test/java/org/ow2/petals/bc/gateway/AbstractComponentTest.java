@@ -19,9 +19,6 @@ package org.ow2.petals.bc.gateway;
 
 import static com.jayway.awaitility.Awaitility.await;
 
-import java.io.File;
-import java.io.IOException;
-import java.net.Socket;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -39,11 +36,9 @@ import javax.jbi.servicedesc.ServiceEndpoint;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
-import org.junit.rules.ExternalResource;
 import org.junit.rules.RuleChain;
 import org.junit.rules.TestRule;
 import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
@@ -60,8 +55,6 @@ import org.ow2.petals.component.framework.junit.helpers.MessageChecks;
 import org.ow2.petals.component.framework.junit.helpers.ServiceProviderImplementation;
 import org.ow2.petals.component.framework.junit.helpers.SimpleComponent;
 import org.ow2.petals.component.framework.junit.impl.ComponentConfiguration;
-import org.ow2.petals.component.framework.junit.impl.ConsumesServiceConfiguration;
-import org.ow2.petals.component.framework.junit.impl.ServiceConfiguration;
 import org.ow2.petals.component.framework.junit.impl.message.RequestToProviderMessage;
 import org.ow2.petals.component.framework.junit.rule.ComponentUnderTest;
 import org.ow2.petals.junit.rules.log.handler.InMemoryLogHandler;
@@ -72,49 +65,7 @@ import com.ebmwebsourcing.easycommons.lang.reflect.ReflectionHelper;
 import com.jayway.awaitility.Awaitility;
 import com.jayway.awaitility.Duration;
 
-public class AbstractComponentTest extends AbstractTest implements BcGatewayJbiTestConstants {
-
-    protected static final String FAULT = "<c/>";
-
-    protected static final String OUT = "<b/>";
-
-    protected static final String IN = "<a/>";
-
-    protected static final Exception ERROR = new Exception("exchange arriving too late");
-    static {
-        // we don't really care about the stacktrace
-        ERROR.setStackTrace(new StackTraceElement[0]);
-    }
-
-    protected static final String SU_CONSUMER_NAME = "suc";
-
-    protected static final String SU_PROVIDER_NAME = "sup";
-
-    protected static final String HELLO_NS = "http://petals.ow2.org";
-
-    protected static final QName HELLO_INTERFACE = new QName(HELLO_NS, "HelloInterface");
-
-    protected static final QName HELLO_SERVICE = new QName(HELLO_NS, "HelloService");
-
-    protected static final QName HELLO_OPERATION = new QName(HELLO_NS, "sayHello");
-
-    protected static final String EXTERNAL_HELLO_ENDPOINT = "externalHelloEndpoint";
-
-    protected static final String HELLO_ENDPOINT_NAME = "helloEndpoint";
-
-    protected static final int TEST_TRANSPORT_PORT = 7501;
-
-    protected static final String TEST_TRANSPORT_NAME = "test-transport";
-
-    protected static final String TEST_TRANSPORT2_NAME = "test-transport-default-port";
-
-    protected static final String TEST_CONSUMER_DOMAIN = "test-consumer-domain";
-
-    protected static final String TEST_AUTH_NAME = "test-auth-name";
-
-    protected static final String TEST_PROVIDER_DOMAIN = "test-provider-domain";
-
-    protected static final long DEFAULT_TIMEOUT_FOR_COMPONENT_SEND = 2000;
+public class AbstractComponentTest extends AbstractEnvironmentTest implements BcGatewayJbiTestConstants {
 
     protected static final InMemoryLogHandler IN_MEMORY_LOG_HANDLER = new InMemoryLogHandler();
 
@@ -141,24 +92,6 @@ public class AbstractComponentTest extends AbstractTest implements BcGatewayJbiT
             .setParameter(new QName(CDK_NAMESPACE_URI, "time-beetween-async-cleaner-runs"), "100")
             .addLogHandler(IN_MEMORY_LOG_HANDLER.getHandler())
             .registerExternalServiceProvider(EXTERNAL_HELLO_ENDPOINT, HELLO_SERVICE, HELLO_INTERFACE);
-
-    private static class EnsurePortsAreOK extends ExternalResource {
-        @Override
-        protected void before() throws Throwable {
-            // used by TEST_TRANSPORT_NAME
-            assertAvailable(TEST_TRANSPORT_PORT);
-            // used by TEST_TRANSPORT2_NAME
-            assertAvailable(DEFAULT_PORT);
-        }
-
-        @Override
-        protected void after() {
-            // used by TEST_TRANSPORT_NAME
-            assertAvailable(TEST_TRANSPORT_PORT);
-            // used by TEST_TRANSPORT2_NAME
-            assertAvailable(DEFAULT_PORT);
-        }
-    }
 
     /**
      * We use a class rule (i.e. static) so that the component lives during all the tests, this enables to test also
@@ -279,161 +212,6 @@ public class AbstractComponentTest extends AbstractTest implements BcGatewayJbiT
         }
     }
 
-    protected static ServiceConfiguration createProvider() {
-        return createProvider(TEST_AUTH_NAME, TEST_TRANSPORT_PORT);
-    }
-
-    protected static ServiceConfiguration createProvider(final String authName, final int port) {
-        return createProvider(authName, port, null, null, null, null, null);
-    }
-
-    protected static ServiceConfiguration createProvider(final String authName, final int port,
-            final @Nullable String certificate, final @Nullable String key, final @Nullable String remoteCertificate,
-            final @Nullable Integer retryMax, final @Nullable Long retryDelay) {
-        final ServiceConfiguration provides = new ServiceConfiguration() {
-            @Override
-            protected void extraJBIConfiguration(final @Nullable Document jbiDocument) {
-                assert jbiDocument != null;
-
-                final Element services = getOrCreateServicesElement(jbiDocument);
-
-                final Element pDomain = addElement(jbiDocument, services, EL_PROVIDER_DOMAIN);
-                pDomain.setAttribute(ATTR_SERVICES_PROVIDER_DOMAIN_ID, TEST_PROVIDER_DOMAIN);
-                if (retryMax != null) {
-                    pDomain.setAttribute(ATTR_SERVICES_PROVIDER_DOMAIN_RETRY_MAX, "" + retryMax);
-                }
-                if (retryDelay != null) {
-                    pDomain.setAttribute(ATTR_SERVICES_PROVIDER_DOMAIN_RETRY_DELAY, "" + retryDelay);
-                }
-                addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_IP).setTextContent("localhost");
-                addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_PORT).setTextContent("" + port);
-                addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_AUTH_NAME).setTextContent(authName);
-                if (certificate != null) {
-                    addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_CRT)
-                            .setTextContent(new File(certificate).getName());
-                }
-                if (key != null) {
-                    addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_KEY)
-                            .setTextContent(new File(key).getName());
-                }
-                if (remoteCertificate != null) {
-                    addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_REMOTE_CRT)
-                            .setTextContent(new File(remoteCertificate).getName());
-                }
-            }
-        };
-
-        if (certificate != null) {
-            provides.addResource(AbstractComponentTest.class.getResource(certificate));
-        }
-        if (key != null) {
-            provides.addResource(AbstractComponentTest.class.getResource(key));
-        }
-        if (remoteCertificate != null) {
-            provides.addResource(AbstractComponentTest.class.getResource(remoteCertificate));
-        }
-
-        return provides;
-    }
-
-    protected static ConsumesServiceConfiguration createHelloConsumes(final boolean specifyService,
-            final boolean specifyEndpoint) {
-        return createHelloConsumes(specifyService, specifyEndpoint, null, null, null, null);
-    }
-
-    protected static ConsumesServiceConfiguration createHelloConsumes(final boolean specifyService,
-            final boolean specifyEndpoint, final @Nullable String certificate, final @Nullable String key,
-            final @Nullable String remoteCertificate, final @Nullable Long pollingDelay) {
-
-        // can't have endpoint specified without service
-        assert !specifyEndpoint || specifyService;
-
-        return createConsumes(HELLO_INTERFACE, specifyService ? HELLO_SERVICE : null,
-                specifyEndpoint ? EXTERNAL_HELLO_ENDPOINT : null, certificate, key, remoteCertificate, pollingDelay);
-    }
-
-    protected static ConsumesServiceConfiguration createConsumes(final QName interfaceName,
-            final @Nullable QName service, final @Nullable String endpoint, final @Nullable String certificate,
-            final @Nullable String key, final @Nullable String remoteCertificate, final @Nullable Long pollingDelay) {
-
-        final ConsumesServiceConfiguration consumes = new ConsumesServiceConfiguration(interfaceName, service,
-                endpoint) {
-            @Override
-            protected void extraServiceConfiguration(final @Nullable Document jbiDocument,
-                    final @Nullable Element service) {
-                assert jbiDocument != null;
-                assert service != null;
-
-                final Element mapping = addElement(jbiDocument, service, EL_CONSUMER);
-                mapping.setAttribute(ATTR_CONSUMES_CONSUMER_DOMAIN, TEST_CONSUMER_DOMAIN);
-            }
-
-            @Override
-            protected void extraJBIConfiguration(final @Nullable Document jbiDocument) {
-                assert jbiDocument != null;
-
-                final Element services = getOrCreateServicesElement(jbiDocument);
-
-                final Element cDomain = addElement(jbiDocument, services, EL_CONSUMER_DOMAIN);
-                cDomain.setAttribute(ATTR_SERVICES_CONSUMER_DOMAIN_ID, TEST_CONSUMER_DOMAIN);
-                cDomain.setAttribute(ATTR_SERVICES_CONSUMER_DOMAIN_TRANSPORT, TEST_TRANSPORT_NAME);
-                if (pollingDelay != null) {
-                    cDomain.setAttribute(ATTR_SERVICES_CONSUMER_DOMAIN_POLLING_DELAY, "" + pollingDelay);
-                }
-
-                addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME, TEST_AUTH_NAME);
-                if (certificate != null) {
-                    addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_CRT)
-                            .setTextContent(new File(certificate).getName());
-                }
-                if (key != null) {
-                    addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_KEY)
-                            .setTextContent(new File(key).getName());
-                }
-                if (remoteCertificate != null) {
-                    addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_REMOTE_CRT)
-                            .setTextContent(new File(remoteCertificate).getName());
-                }
-            }
-        };
-
-        if (certificate != null) {
-            consumes.addResource(AbstractComponentTest.class.getResource(certificate));
-        }
-        if (key != null) {
-            consumes.addResource(AbstractComponentTest.class.getResource(key));
-        }
-        if (remoteCertificate != null) {
-            consumes.addResource(AbstractComponentTest.class.getResource(remoteCertificate));
-        }
-
-        // let's use a smaller timeout time by default
-        consumes.setTimeout(DEFAULT_TIMEOUT_FOR_COMPONENT_SEND);
-
-        return consumes;
-    }
-
-    protected static void assertAvailable(final int port) {
-        assertAvailable(port, true);
-    }
-
-    protected static void assertNotAvailable(final int port) {
-        assertAvailable(port, false);
-    }
-
-    protected static void assertAvailable(final int port, final boolean is) {
-        Awaitility.waitAtMost(Duration.ONE_SECOND).until(new Callable<Boolean>() {
-            @Override
-            public Boolean call() throws Exception {
-                try (final Socket ignored = new Socket("localhost", port)) {
-                    return false;
-                } catch (IOException ignored) {
-                    return true;
-                }
-            }
-        }, Matchers.is(is));
-    }
-
     protected void twoDomainsTest(final boolean specifyService, final boolean specifyEndpoint) throws Exception {
         twoDomainsTest(specifyService, specifyEndpoint, null, null, null, null, null, null, null, null, null);
     }
@@ -480,14 +258,15 @@ public class AbstractComponentTest extends AbstractTest implements BcGatewayJbiT
                 createProvider(TEST_AUTH_NAME, TEST_TRANSPORT_PORT, clientCertificate, clientKey,
                         clientRemoteCertificate, retryMax, retryDelay));
 
-        Awaitility.await().atMost(Duration.TEN_SECONDS).until(new Callable<Boolean>() {
+        Awaitility.await("External endpoint not propagated !").atMost(Duration.TEN_SECONDS)
+                .until(new Callable<Boolean>() {
             @Override
             public Boolean call() throws Exception {
-                return getNotExternalEndpoint() != null;
+                return getPropagatedServiceEndpoint() != null;
             }
         });
 
-        final ServiceEndpoint endpoint = getNotExternalEndpoint();
+        final ServiceEndpoint endpoint = getPropagatedServiceEndpoint();
         assert endpoint != null;
         return endpoint;
     }
@@ -497,20 +276,8 @@ public class AbstractComponentTest extends AbstractTest implements BcGatewayJbiT
                 endpoint.getServiceName(), null, HELLO_OPERATION, pattern, IN);
     }
 
-    protected static @Nullable ServiceEndpoint getNotExternalEndpoint() {
-        return getNotEndpoint(HELLO_INTERFACE, HELLO_SERVICE, EXTERNAL_HELLO_ENDPOINT);
-    }
-
-    protected static @Nullable ServiceEndpoint getNotEndpoint(final QName interfaceName, final QName serviceName,
-            final String notEndpointName) {
-        for (final ServiceEndpoint endpoint : COMPONENT_UNDER_TEST.getEndpointDirectory()
-                .resolveEndpointsForService(serviceName)) {
-            if (!endpoint.getEndpointName().equals(notEndpointName)) {
-                return endpoint;
-            }
-        }
-
-        return null;
+    protected static @Nullable ServiceEndpoint getPropagatedServiceEndpoint() {
+        return getPropagatedServiceEndpoint(COMPONENT_UNDER_TEST);
     }
 
     protected static void assertLogContains(final String log, final Level level, final @Nullable Class<?> exception) {

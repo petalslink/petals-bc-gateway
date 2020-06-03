@@ -21,16 +21,28 @@
    <wsdl:types>
       <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="http://petals.ow2.org"
          xmlns:hello="http://petals.ow2.org">
+         <xsd:element name="printHello" type="hello:printHello" />
          <xsd:element name="sayHello" type="hello:sayHello" />
          <xsd:element name="sayHelloResponse" type="hello:sayHelloResponse" />
+         <xsd:element name="invalidMessage" type="hello:invalidMessage" />
          <xsd:complexType name="sayHello">
             <xsd:sequence>
-               <xsd:element minOccurs="0" name="arg0" type="xs:string" />
+               <xsd:element minOccurs="0" name="arg0" type="xsd:string" />
             </xsd:sequence>
          </xsd:complexType>
          <xsd:complexType name="sayHelloResponse">
             <xsd:sequence>
-               <xsd:element minOccurs="0" name="return" type="xs:string" />
+               <xsd:element minOccurs="0" name="return" type="xsd:string" />
+            </xsd:sequence>
+         </xsd:complexType>
+         <xsd:complexType name="printHello">
+            <xsd:sequence>
+               <xsd:element minOccurs="0" name="arg0" type="xsd:string" />
+            </xsd:sequence>
+         </xsd:complexType>
+         <xsd:complexType name="invalidMessage">
+            <xsd:sequence>
+               <xsd:element minOccurs="0" name="return" type="xsd:string" />
             </xsd:sequence>
          </xsd:complexType>
       </xsd:schema>
@@ -40,6 +52,11 @@
       <wsdl:operation name="sayHello" pattern="http://www.w3.org/ns/wsdl/in-out" style="http://www.w3.org/ns/wsdl/style/iri">
          <wsdl:input messageLabel="In" element="hello:sayHello" />
          <wsdl:output messageLabel="Out" element="hello:sayHelloResponse" />
+         <wsdl:fault messageLabel="invalidMessage" element="hello:invalidMessage" />
+      </wsdl:operation>
+      <wsdl:operation name="printHello" pattern="http://www.w3.org/ns/wsdl/in-out" style="http://www.w3.org/ns/wsdl/style/iri">
+         <wsdl:input messageLabel="In" element="hello:printHello" />
+         <wsdl:fault messageLabel="invalidMessage" element="hello:invalidMessage" />
       </wsdl:operation>
    </wsdl:interface>
 

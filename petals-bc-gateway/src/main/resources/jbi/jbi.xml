@@ -47,6 +47,8 @@
       <cdk:time-beetween-async-cleaner-runs />
       <cdk:properties-file />
       <cdk:monitoring-sampling-period />
+      <cdk:activate-flow-tracing />
+      <cdk:propagate-flow-tracing-activation />
 
       <cdk:jbi-listener-class-name>org.ow2.petals.bc.gateway.BcGatewayJBIListener</cdk:jbi-listener-class-name>
       

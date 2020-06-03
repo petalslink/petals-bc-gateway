@@ -29,6 +29,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.commons.messages.ServiceKey;
 import org.ow2.petals.bc.gateway.commons.messages.TransportedMessage;
+import org.ow2.petals.component.framework.api.Message;
 import org.ow2.petals.component.framework.api.message.Exchange;
 
 public class ExchangeHelper {
@@ -57,26 +58,31 @@ public class ExchangeHelper {
     }
 
     public static Exchange updateStoredExchange(final @Nullable Exchange exchange, final TransportedMessage m,
-            final JBISender sender) throws MessagingException {
+            final JBISender sender, final Boolean isFlowTracingActivationPropagated,
+            final Boolean isFlowTracingActivated) throws MessagingException {
+        final Exchange result;
         if (m.step == 1) {
             assert exchange == null;
+            assert isFlowTracingActivationPropagated != null;
+            assert isFlowTracingActivated != null;
 
             // this is a Consumes I propagated on the other side
             // TODO should I rely on information sent by the other side or should I keep a map somewhere for security
             // reasons?
             final ServiceKey service = m.service;
 
-            final Exchange result = sender.createExchange(service.interfaceName, service.service, service.endpointName,
+            result = sender.createExchange(service.interfaceName, service.service,
+                    service.endpointName,
                     m.exchange.getPattern());
 
             setProperties(m.exchange, result.getMessageExchange());
+
             result.setOperation(m.exchange.getOperation());
             result.setInMessage(m.exchange.getMessage(Exchange.IN_MESSAGE_NAME));
 
-            return result;
         } else if (!m.last) {
             assert exchange != null;
-            
+
             updateProperties(m.exchange, exchange.getMessageExchange());
 
             final NormalizedMessage out = m.exchange.getMessage(Exchange.OUT_MESSAGE_NAME);
@@ -85,8 +91,8 @@ public class ExchangeHelper {
             } else if (m.exchange.getFault() != null && exchange.getFault() == null) {
                 exchange.setFault(m.exchange.getFault());
             }
-            
-            return exchange;
+
+            result = exchange;
         } else {
             assert exchange != null;
             assert m.exchange.getStatus() != ExchangeStatus.ACTIVE;
@@ -100,9 +106,16 @@ public class ExchangeHelper {
             } else if (m.exchange.getStatus() == ExchangeStatus.DONE) {
                 exchange.setDoneStatus();
             }
-            
-            return exchange;
+
+            result = exchange;
         }
+
+        if (isFlowTracingActivationPropagated.booleanValue()) {
+            result.setProperty(Message.FLOW_TRACING_ACTIVATION_MSGEX_PROP, isFlowTracingActivated);
+        } else {
+            result.setProperty(Message.FLOW_TRACING_ACTIVATION_MSGEX_PROP, null);
+        }
+        return result;
     }
 
     private static void updateProperties(final @Nullable MessageExchange from, final @Nullable MessageExchange to) {

@@ -22,6 +22,7 @@ import javax.jbi.messaging.MessageExchange;
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
 import org.ow2.petals.commons.log.FlowAttributes;
+import org.ow2.petals.component.framework.api.Message;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 
 /**
@@ -62,6 +63,13 @@ public class TransportedMessage extends TransportedForExchange {
     public final TransportedMessageExchange exchange;
 
     /**
+     * Flow tracing activation state defined at JBI message level when invoking the service provider on consumer domain.
+     */
+    public final Boolean initialExternalFlowTracingActivation;
+
+    public Boolean externalFlowTracingActivation = null;
+
+    /**
      * The attributes of the flow step handled by the gateway as consumer partner and used as a correlated flow by the
      * provider partner.
      * 
@@ -74,18 +82,25 @@ public class TransportedMessage extends TransportedForExchange {
     @Nullable
     public FlowAttributes provideExtStep;
 
-    protected TransportedMessage(final ServiceKey service, final String exchangeId, final MessageExchange exchange,
-            final int step, final boolean last) {
+    private TransportedMessage(final ServiceKey service, final String exchangeId, final MessageExchange exchange,
+            final int step, final boolean last, final Boolean initialExternalFlowTracingActivation) {
         super(exchangeId);
         assert step > 0;
         this.service = service;
         this.step = step;
         this.last = last;
         this.exchange = new TransportedMessageExchange(exchange);
+        this.initialExternalFlowTracingActivation = initialExternalFlowTracingActivation;
+    }
+
+    protected TransportedMessage(final ServiceKey service, final String exchangeId, final MessageExchange exchange,
+            final int step, final boolean last) {
+        this(service, exchangeId, exchange, step, last,
+                (Boolean) exchange.getProperty(Message.FLOW_TRACING_ACTIVATION_MSGEX_PROP));
     }
 
     protected TransportedMessage(final TransportedMessage m, final boolean last, final MessageExchange exchange) {
-        this(m.service, m.exchangeId, exchange, m.step + 1, last);
+        this(m.service, m.exchangeId, exchange, m.step + 1, last, m.initialExternalFlowTracingActivation);
         assert !m.last;
         assert m.step > 0;
         this.provideExtStep = m.provideExtStep;
@@ -96,10 +111,14 @@ public class TransportedMessage extends TransportedForExchange {
     }
 
     public static TransportedMessage middleMessage(final TransportedMessage m, final MessageExchange exchange) {
-        return new TransportedMessage(m, false, exchange);
+        final TransportedMessage tm = new TransportedMessage(m, false, exchange);
+        tm.externalFlowTracingActivation = m.externalFlowTracingActivation;
+        return tm;
     }
 
     public static TransportedMessage lastMessage(final TransportedMessage m, final MessageExchange exchange) {
-        return new TransportedMessage(m, true, exchange);
+        final TransportedMessage tm = new TransportedMessage(m, true, exchange);
+        tm.externalFlowTracingActivation = m.externalFlowTracingActivation;
+        return tm;
     }
 }

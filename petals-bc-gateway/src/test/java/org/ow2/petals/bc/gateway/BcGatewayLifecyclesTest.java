@@ -21,6 +21,7 @@ import static com.jayway.awaitility.Awaitility.await;
 import static com.jayway.awaitility.Awaitility.to;
 import static com.jayway.awaitility.Duration.TWO_SECONDS;
 import static org.hamcrest.Matchers.equalTo;
+import static org.ow2.petals.bc.gateway.EnsurePortsAreOK.assertNotAvailable;
 
 import javax.jbi.servicedesc.ServiceEndpoint;
 

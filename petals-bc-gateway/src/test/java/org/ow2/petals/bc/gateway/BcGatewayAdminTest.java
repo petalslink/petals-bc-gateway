@@ -17,6 +17,9 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import static org.ow2.petals.bc.gateway.EnsurePortsAreOK.assertAvailable;
+import static org.ow2.petals.bc.gateway.EnsurePortsAreOK.assertNotAvailable;
+
 import org.junit.Test;
 import org.ow2.petals.basisapi.exception.PetalsException;
 import org.ow2.petals.commons.log.Level;

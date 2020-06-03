@@ -190,6 +190,14 @@ public class TransportedMessageExchange implements MessageExchange, Serializable
         return this.properties.keySet();
     }
 
+    public void removeProperty(final String name) {
+        this.properties.remove(name);
+    }
+
+    public void putProperty(final String name, final Serializable value) {
+        this.properties.put(name, value);
+    }
+
     @Override
     public ExchangeStatus getStatus() {
         return toExchangeStatus(this.status);

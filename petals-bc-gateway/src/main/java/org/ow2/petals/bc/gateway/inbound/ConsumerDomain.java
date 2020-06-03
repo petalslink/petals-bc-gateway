@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
@@ -103,15 +104,15 @@ public class ConsumerDomain extends AbstractDomain {
     private final Lock pollingLock = new ReentrantLock();
 
     /**
-     * Access is controlled by {@link #pollingLock} (except for the first poll that is controlled by {@link #mainLock} in
-     * {@link #open()}).
+     * Access is controlled by {@link #pollingLock} (except for the first poll that is controlled by {@link #mainLock}
+     * in {@link #open()}).
      */
     private @Nullable ScheduledFuture<?> polling = null;
 
     public ConsumerDomain(final ServiceUnitDataHandler handler, final TransportListener tl,
             final BcGatewaySUManager sum, final JbiConsumerDomain jcd, final Collection<Consumes> consumes,
             final JBISender sender, final Logger logger) throws PEtALSCDKException {
-        super(sender, handler, sum.getComponent(), logger);
+        super(sender, handler, logger);
         this.tl = tl;
         this.sum = sum;
         this.jcd = jcd;
@@ -179,9 +180,8 @@ public class ConsumerDomain extends AbstractDomain {
             if (propagationPollingMaxDelay > 0) {
                 final double propagationPollingAccel = jcd.getPropagationPollingAcceleration();
                 if (logger.isLoggable(Level.CONFIG)) {
-                    logger.config(
-                            "Propagation refresh polling is enabled (max delay: " + propagationPollingMaxDelay
-                                    + "ms, acceleration: " + propagationPollingAccel + ")");
+                    logger.config("Propagation refresh polling is enabled (max delay: " + propagationPollingMaxDelay
+                            + "ms, acceleration: " + propagationPollingAccel + ")");
                 }
                 scheduleNextPolling(5000, propagationPollingAccel, propagationPollingMaxDelay);
             } else {
@@ -459,12 +459,11 @@ public class ConsumerDomain extends AbstractDomain {
             assert provideExtStep != null;
 
             // we remember the step of the consumer partner through the correlated flow attributes
-            this.logMonitTrace(m,
-                    new BcGatewayConsumeExtFlowStepBeginLogData(consumeExtStep,
-                            // this is a correlated flow id
-                            provideExtStep,
-                            // TODO id unique inside the SU, not the component
-                            getId()));
+            this.logMonitTrace(m, new BcGatewayConsumeExtFlowStepBeginLogData(consumeExtStep,
+                    // this is a correlated flow id
+                    provideExtStep,
+                    // TODO id unique inside the SU, not the component
+                    getId()));
         }
     }
 
@@ -477,9 +476,32 @@ public class ConsumerDomain extends AbstractDomain {
 
         // the end of the one started in ConsumerDomain.logBeforeSendingToNMR
         if (m.step == 2) {
-            this.logMonitTrace(m,
-                    StepLogHelper.getMonitExtEndOrFailureTrace(m.exchange, consumeExtStep, true));
+            this.logMonitTrace(m, StepLogHelper.getMonitExtEndOrFailureTrace(m.exchange, consumeExtStep, true));
         }
+    }
+
+    @Override
+    protected boolean isFlowTracingActivationPropagated(final @Nullable TransportedMessage m) {
+        // m cannot be null because received from the consumer domain.
+        assert m != null;
+
+        final Consumes currentConsumes = retrieveConsumes(m);
+        final Optional<Boolean> isFlowTracingActivationPropagated = this.sum.getSUDataHandler(currentConsumes)
+                .isFlowTracingActivationPropagated(currentConsumes);
+        if (isFlowTracingActivationPropagated.isPresent()) {
+            return isFlowTracingActivationPropagated.get();
+        } else {
+            return this.sum.getComponent().isFlowTracingActivationPropagated();
+        }
+    }
+
+    @Override
+    protected boolean isFlowTracingActivated(final TransportedMessage m) {
+        assert m != null;
+
+        final Consumes currentConsumes = this.retrieveConsumes(m);
+        return this.sum.getComponent().isFlowTracingActivated(Optional.ofNullable(m.externalFlowTracingActivation),
+                currentConsumes);
     }
 
     /**
@@ -495,15 +517,32 @@ public class ConsumerDomain extends AbstractDomain {
      * 
      */
     private void logMonitTrace(final TransportedMessage m, final AbstractFlowLogData monitTrace) {
-        
-        final ServiceKey service = m.service;
-        final Consumes currentConsumes = this.sum.getConsumesFromDestination(service.endpointName, service.service,
-                service.interfaceName, m.exchange.getOperation());
-        if (currentConsumes != null) {
-            this.monitTraceLogger.logMonitTrace(currentConsumes, monitTrace);
-        } else {
-            this.monitTraceLogger.logMonitTrace(monitTrace);
+        assert m != null;
 
+        final Consumes currentConsumes = this.retrieveConsumes(m);
+
+        final Optional<Boolean> externalFlowTracingActivation = Optional.ofNullable(m.externalFlowTracingActivation);
+        this.sum.getComponent().logMonitTrace(externalFlowTracingActivation, currentConsumes, monitTrace);
+    }
+
+    /**
+     * Retrieve a service consumer definition from a transported message
+     * 
+     * @param m
+     *            The transported message. Not {@code null}
+     * @return The service consumer definition matching the transported message
+     */
+    private Consumes retrieveConsumes(final TransportedMessage m) {
+        assert m != null;
+
+        final ServiceKey service = m.service;
+        final Consumes currentConsumes = this.sum.getConsumesFromDestination(service.endpointName,
+                service.service,
+                service.interfaceName, m.exchange.getOperation());
+        if (currentConsumes == null) {
+            return this.sum.getConsumesFromDestination(service.endpointName, service.service, service.interfaceName);
+        } else {
+            return currentConsumes;
         }
     }
 }

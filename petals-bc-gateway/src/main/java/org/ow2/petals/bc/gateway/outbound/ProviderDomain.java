@@ -47,6 +47,7 @@ import org.ow2.petals.bc.gateway.utils.BcGatewayServiceEndpointHelper;
 import org.ow2.petals.commons.log.FlowAttributes;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
+import org.ow2.petals.component.framework.AbstractComponent;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
@@ -107,6 +108,8 @@ public class ProviderDomain extends AbstractDomain {
      */
     private final Map<ServiceKey, ServiceData> services = new HashMap<>();
 
+    private final AbstractComponent component;
+
     /**
      * Not final because it can be updated by {@link #reload(JbiProviderDomain)}.
      */
@@ -129,9 +132,10 @@ public class ProviderDomain extends AbstractDomain {
             final JbiProviderDomain jpd, final Collection<Pair<Provides, JbiProvidesConfig>> provides,
             final JBISender sender, final Bootstrap partialBootstrap, final Logger logger, final ClassResolver cr)
             throws PEtALSCDKException {
-        super(sender, handler, component, logger);
+        super(sender, handler, logger);
 
         this.matcher = component;
+        this.component = component;
         this.jpd = jpd;
         this.service2provides = new Service2ProvidesMatcher(provides);
         this.client = new TransportClient(handler, partialBootstrap, logger, cr, this);
@@ -442,8 +446,28 @@ public class ProviderDomain extends AbstractDomain {
 
             this.logMonitTrace(m,
                     new BcGatewayProvideExtFlowStepBeginLogData(provideExtStep, provideStep, jpd.getId()));
+
+            this.propagateFlowTracing(m);
+
         } else {
             PetalsExecutionContext.putFlowAttributes(m.provideExtStep);
+        }
+    }
+
+    @Override
+    protected boolean isFlowTracingActivationPropagated(final TransportedMessage m) {
+
+        return this.component.isFlowTracingActivationPropagated();
+    }
+
+    @Override
+    protected boolean isFlowTracingActivated(final TransportedMessage m) {
+        assert m != null;
+
+        if (m.initialExternalFlowTracingActivation == null) {
+            return this.component.isFlowTracingActivated();
+        } else {
+            return m.initialExternalFlowTracingActivation;
         }
     }
 
@@ -465,7 +489,18 @@ public class ProviderDomain extends AbstractDomain {
     private void logMonitTrace(final TransportedMessage m, final AbstractFlowLogData monitTrace) {
         assert m != null;
 
-        final Provides provides = this.service2provides.getProvides(m.service);
-        this.monitTraceLogger.logMonitTrace(m.exchange, provides, monitTrace);
+        if (this.isFlowTracingActivated(m)) {
+            this.component.getLogger().log(Level.MONIT, "", monitTrace);
+        }
+    }
+
+    private void propagateFlowTracing(final TransportedMessage m) {
+        assert m != null;
+
+        if (this.component.isFlowTracingActivationPropagated()) {
+            m.externalFlowTracingActivation = this.isFlowTracingActivated(m);
+        } else {
+            m.externalFlowTracingActivation = null;
+        }
     }
 }
