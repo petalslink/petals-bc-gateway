@@ -17,10 +17,9 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import org.awaitility.core.ConditionTimeoutException;
 import org.eclipse.jdt.annotation.Nullable;
 import org.junit.Test;
-
-import com.jayway.awaitility.core.ConditionTimeoutException;
 
 public class BcGatewaySSLTest extends AbstractComponentTest {
 

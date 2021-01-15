@@ -17,9 +17,10 @@
  */
 package org.ow2.petals.bc.gateway;
 
-import static com.jayway.awaitility.Awaitility.await;
+import static org.awaitility.Awaitility.await;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -35,6 +36,7 @@ import javax.jbi.messaging.ExchangeStatus;
 import javax.jbi.servicedesc.ServiceEndpoint;
 import javax.xml.namespace.QName;
 
+import org.awaitility.Awaitility;
 import org.eclipse.jdt.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -62,8 +64,6 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import com.ebmwebsourcing.easycommons.lang.reflect.ReflectionHelper;
-import com.jayway.awaitility.Awaitility;
-import com.jayway.awaitility.Duration;
 
 public class AbstractComponentTest extends AbstractEnvironmentTest implements BcGatewayJbiTestConstants {
 
@@ -258,7 +258,7 @@ public class AbstractComponentTest extends AbstractEnvironmentTest implements Bc
                 createProvider(TEST_AUTH_NAME, TEST_TRANSPORT_PORT, clientCertificate, clientKey,
                         clientRemoteCertificate, retryMax, retryDelay));
 
-        Awaitility.await("External endpoint not propagated !").atMost(Duration.TEN_SECONDS)
+        Awaitility.await("External endpoint not propagated !").atMost(Duration.ofSeconds(10))
                 .until(new Callable<Boolean>() {
             @Override
             public Boolean call() throws Exception {
@@ -308,7 +308,7 @@ public class AbstractComponentTest extends AbstractEnvironmentTest implements Bc
 
     protected static void assertLogContains(final InMemoryLogHandler handler, final String log, final Level level,
             final int howMany, final boolean exactly, final @Nullable Class<?> exception) {
-        await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
+        await().atMost(Duration.ofSeconds(5)).until(new Callable<Boolean>() {
             @Override
             public Boolean call() throws Exception {
                 int count = 0;

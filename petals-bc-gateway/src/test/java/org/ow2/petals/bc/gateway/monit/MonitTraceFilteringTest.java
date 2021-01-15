@@ -20,6 +20,7 @@ package org.ow2.petals.bc.gateway.monit;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -34,6 +35,7 @@ import javax.xml.bind.Marshaller;
 import javax.xml.namespace.QName;
 
 import org.apache.mina.util.AvailablePortFinder;
+import org.awaitility.Awaitility;
 import org.eclipse.jdt.annotation.Nullable;
 import org.junit.Rule;
 import org.junit.Test;
@@ -82,9 +84,6 @@ import org.supercsv.io.ICsvBeanReader;
 import org.supercsv.prefs.CsvPreference;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
-
-import com.jayway.awaitility.Awaitility;
-import com.jayway.awaitility.Duration;
 
 /**
  * <p>
@@ -336,7 +335,7 @@ public class MonitTraceFilteringTest extends AbstractMonitTraceFilteringTestForS
         this.cutConsumerDomain.deployService(AbstractEnvironmentTest.SU_PROVIDER_NAME,
                 AbstractEnvironmentTest.createProvider(AbstractEnvironmentTest.TEST_AUTH_NAME, TRANSPORT_PORT));
 
-        Awaitility.await().atMost(Duration.TEN_SECONDS).until(new Callable<Boolean>() {
+        Awaitility.await().atMost(Duration.ofSeconds(10)).until(new Callable<Boolean>() {
             @Override
             public Boolean call() throws Exception {
                 return AbstractEnvironmentTest.getPropagatedServiceEndpoint(cutConsumerDomain) != null;
@@ -439,7 +438,7 @@ public class MonitTraceFilteringTest extends AbstractMonitTraceFilteringTestForS
      */
     private void stopAndUndeploySUs() {
         this.cutConsumerDomain.undeployService(AbstractEnvironmentTest.SU_PROVIDER_NAME);
-        Awaitility.await().atMost(Duration.TEN_SECONDS).until(new Callable<Boolean>() {
+        Awaitility.await().atMost(Duration.ofSeconds(10)).until(new Callable<Boolean>() {
             @Override
             public Boolean call() throws Exception {
                 return AbstractEnvironmentTest.getPropagatedServiceEndpoint(cutConsumerDomain) == null;

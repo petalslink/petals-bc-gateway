@@ -19,13 +19,12 @@ package org.ow2.petals.bc.gateway;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.time.Duration;
 import java.util.concurrent.Callable;
 
+import org.awaitility.Awaitility;
 import org.hamcrest.Matchers;
 import org.junit.rules.ExternalResource;
-
-import com.jayway.awaitility.Awaitility;
-import com.jayway.awaitility.Duration;
 
 public class EnsurePortsAreOK extends ExternalResource {
 
@@ -65,7 +64,7 @@ public class EnsurePortsAreOK extends ExternalResource {
 
     protected static void assertAvailable(final int port, final boolean is) {
         Awaitility.await(is ? String.format("Port %d not available", port) : String.format("Port %d available", port))
-                .atMost(Duration.ONE_SECOND).until(new Callable<Boolean>() {
+                .atMost(Duration.ofSeconds(1)).until(new Callable<Boolean>() {
                     @Override
                     public Boolean call() throws Exception {
                         try (final Socket ignored = new Socket("localhost", port)) {

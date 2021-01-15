@@ -17,6 +17,7 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.Callable;
@@ -24,6 +25,7 @@ import java.util.logging.Level;
 
 import javax.xml.namespace.QName;
 
+import org.awaitility.Awaitility;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -43,9 +45,6 @@ import org.ow2.petals.component.framework.junit.rule.ComponentUnderTest;
 import org.ow2.petals.component.framework.util.WSDLUtilImpl;
 import org.ow2.petals.jbi.servicedesc.endpoint.Location;
 import org.ow2.petals.junit.rules.log.handler.InMemoryLogHandler;
-
-import com.jayway.awaitility.Awaitility;
-import com.jayway.awaitility.Duration;
 
 /**
  * TODO also test that there is no warning in the log w.r.t. descriptions!
@@ -298,7 +297,7 @@ public class BcGatewayRefreshTest extends AbstractComponentTest {
     }
 
     private void checkEndpoints(final int nbInterface, final int nbService, final int nbService1) {
-        Awaitility.await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
+        Awaitility.await().atMost(Duration.ofSeconds(5)).until(new Callable<Boolean>() {
             @Override
             public Boolean call() throws Exception {
                 return hasInterface(TEST_INTERFACE, nbInterface) && hasService(TEST_SERVICE, nbService)

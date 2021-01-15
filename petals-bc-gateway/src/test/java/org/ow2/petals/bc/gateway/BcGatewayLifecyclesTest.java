@@ -17,11 +17,10 @@
  */
 package org.ow2.petals.bc.gateway;
 
-import static com.jayway.awaitility.Awaitility.await;
-import static com.jayway.awaitility.Awaitility.to;
-import static com.jayway.awaitility.Duration.TWO_SECONDS;
-import static org.hamcrest.Matchers.equalTo;
+import static org.awaitility.Awaitility.await;
 import static org.ow2.petals.bc.gateway.EnsurePortsAreOK.assertNotAvailable;
+
+import java.time.Duration;
 
 import javax.jbi.servicedesc.ServiceEndpoint;
 
@@ -75,8 +74,8 @@ public class BcGatewayLifecyclesTest extends AbstractComponentTest {
         COMPONENT_UNDER_TEST.pushRequestToProvider(helloRequest(endpoint, MEPPatternConstants.IN_OUT.value()));
         
         // let's wait for the request to be on the service provider side
-        await().atMost(TWO_SECONDS).untilCall(to(COMPONENT_UNDER_TEST).getRequestsFromConsumerCount(),
-                equalTo(1));
+        await().atMost(Duration.ofSeconds(2))
+                .untilAsserted(() -> assertEquals(1, COMPONENT_UNDER_TEST.getRequestsFromConsumerCount()));
 
         if (stopProvider) {
             COMPONENT_UNDER_TEST.stopService(SU_PROVIDER_NAME);
