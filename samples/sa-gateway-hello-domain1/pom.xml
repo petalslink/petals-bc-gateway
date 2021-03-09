@@ -29,9 +29,6 @@
    <packaging>jbi-service-assembly</packaging>
 
    <properties>
-      <!-- Skip dependency check for service unit. -->
-      <maven-dependency-plugin.failOnWarning>false</maven-dependency-plugin.failOnWarning>
-
       <jbi-sa.build.legal-dir>${project.build.directory}/legal-additionals</jbi-sa.build.legal-dir>
    </properties>
 
@@ -74,6 +71,23 @@
                <additionalJBIResourceDirectory>${jbi-sa.build.legal-dir}</additionalJBIResourceDirectory>
                <verbose>true</verbose>
             </configuration>
+         </plugin>
+         <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-dependency-plugin</artifactId>
+            <executions>
+               <execution>
+                  <id>analyze</id>
+                  <configuration>
+                     <usedDependencies>
+                        <!-- The following dependencies are required because associated to embedded service units -->
+                        <usedDependency>org.ow2.petals.samples.gateway:su-gateway-hello-provides</usedDependency>
+                        <!-- No unit test included with this project -->
+                        <usedDependency>junit:junit</usedDependency>
+                     </usedDependencies>
+                  </configuration>
+               </execution>
+            </executions>
          </plugin>
       </plugins>
    </build>

@@ -16,7 +16,8 @@
  along with this program/library; If not, see http://www.gnu.org/licenses/
  for the GNU Lesser General Public License version 2.1.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:schemaLocation="http://maven.apache.org/maven-v4_0_0.xsd">
    <modelVersion>4.0.0</modelVersion>
    <parent>
       <artifactId>petals-bc-gateway-samples-parent</artifactId>
@@ -27,11 +28,6 @@
    <artifactId>su-gateway-hello-provides</artifactId>
    <name>Petals ESB - Samples - BC Gateway - SU Hello Provides</name>
    <packaging>jbi-service-unit</packaging>
-
-   <properties>
-      <!-- Skip dependency check for service unit. -->
-      <maven-dependency-plugin.failOnWarning>false</maven-dependency-plugin.failOnWarning>
-   </properties>
 
    <dependencies>
       <dependency>
@@ -47,12 +43,29 @@
             <groupId>org.ow2.petals</groupId>
             <artifactId>petals-maven-plugin</artifactId>
          </plugin>
+         <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-dependency-plugin</artifactId>
+            <executions>
+               <execution>
+                  <id>analyze</id>
+                  <configuration>
+                     <usedDependencies>
+                        <!-- The component on which this SU must be deployed -->
+                        <usedDependency>org.ow2.petals:petals-bc-gateway</usedDependency>
+                        <!-- No unit test included with this project -->
+                        <usedDependency>junit:junit</usedDependency>
+                     </usedDependencies>
+                  </configuration>
+               </execution>
+            </executions>
+         </plugin>
       </plugins>
    </build>
 
    <scm>
       <connection>scm:git:https://github.com/petalslink/petals-bc-gateway.git</connection>
       <developerConnection>${project.scm.connection}</developerConnection>
-     <tag>HEAD</tag>
-  </scm>
+      <tag>HEAD</tag>
+   </scm>
 </project>
