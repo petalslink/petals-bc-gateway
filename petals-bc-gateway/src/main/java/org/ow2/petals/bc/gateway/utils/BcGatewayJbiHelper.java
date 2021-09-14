@@ -49,6 +49,7 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.ObjectFactory;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.component.framework.api.configuration.ConfigurationExtensions;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
+import org.ow2.petals.component.framework.api.util.Placeholders;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Component;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Consumes;
 import org.ow2.petals.component.framework.jbidescriptor.generated.Provides;
@@ -246,14 +247,14 @@ public class BcGatewayJbiHelper implements BcGatewayJbiConstants {
     }
 
     private static Collection<JbiConsumerDomain> getConsumerDomains(final ServiceUnitDataHandler handler,
-            final @Nullable Services services, final Properties placeholders, final Logger logger)
+            final @Nullable Services services, final Placeholders placeholders, final Logger logger)
             throws PEtALSCDKException {
         assert services != null;
         final Collection<JbiConsumerDomain> jcds = getAll(services.getAnyOrAny(), EL_CONSUMER_DOMAIN,
                 JbiConsumerDomain.class);
         for (final JbiConsumerDomain jcd : jcds) {
             assert jcd != null;
-            replace(jcd, placeholders, logger);
+            replace(jcd, placeholders.toProperties(), logger);
             validate(handler, jcd);
         }
         return jcds;
@@ -359,14 +360,14 @@ public class BcGatewayJbiHelper implements BcGatewayJbiConstants {
     }
 
     private static Collection<JbiProviderDomain> getProviderDomains(final ServiceUnitDataHandler handler,
-            final @Nullable Services services, final Properties placeholders, final Logger logger)
+            final @Nullable Services services, final Placeholders placeholders, final Logger logger)
             throws PEtALSCDKException {
         assert services != null;
         final Collection<JbiProviderDomain> jpds = getAll(services.getAnyOrAny(), EL_PROVIDER_DOMAIN,
                 JbiProviderDomain.class);
         for (final JbiProviderDomain jpd : jpds) {
             assert jpd != null;
-            replace(jpd, placeholders, logger);
+            replace(jpd, placeholders.toProperties(), logger);
             validate(handler, jpd);
         }
         return jpds;
@@ -518,7 +519,7 @@ public class BcGatewayJbiHelper implements BcGatewayJbiConstants {
     }
 
     public static Map<JbiProviderDomain, Collection<Pair<Provides, JbiProvidesConfig>>> getProvidesPerDomain(
-            final ServiceUnitDataHandler handler, final Properties placeholders,
+            final ServiceUnitDataHandler handler, final Placeholders placeholders,
             final Logger logger) throws PEtALSCDKException {
         final Services services = handler.getDescriptor().getServices();
         assert services != null;
@@ -594,7 +595,7 @@ public class BcGatewayJbiHelper implements BcGatewayJbiConstants {
     }
 
     public static Map<JbiConsumerDomain, Collection<Consumes>> getConsumesPerDomain(
-            final ServiceUnitDataHandler handler, final Properties placeholders,
+            final ServiceUnitDataHandler handler, final Placeholders placeholders,
             final Logger logger) throws PEtALSCDKException {
         final Services services = handler.getDescriptor().getServices();
         assert services != null;
