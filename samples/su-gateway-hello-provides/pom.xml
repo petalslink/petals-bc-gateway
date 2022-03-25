@@ -22,7 +22,7 @@
    <parent>
       <artifactId>petals-bc-gateway-samples-parent</artifactId>
       <groupId>org.ow2.petals.samples.gateway</groupId>
-      <version>1.1.1-1.0.0-SNAPSHOT</version>
+      <version>1.2.0-1.0.0-SNAPSHOT</version>
    </parent>
 
    <artifactId>su-gateway-hello-provides</artifactId>
