@@ -267,6 +267,30 @@
                </execution>
             </executions>
          </plugin>
+         <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <executions>
+               <execution>
+                  <id>attach-javadocs</id>
+                  <goals>
+                     <goal>jar</goal>
+                  </goals>
+                  <configuration>
+                     <excludePackageNames>org.ow2.petals.bc.gateway.jbidescriptor.generated</excludePackageNames>
+                  </configuration>
+               </execution>
+               <execution>
+                  <id>attach-test-javadocs</id>
+                  <goals>
+                     <goal>test-jar</goal>
+                  </goals>
+                  <configuration>
+                     <excludePackageNames>org.ow2.petals</excludePackageNames>
+                  </configuration>
+               </execution>
+            </executions>
+         </plugin>
       </plugins>
    </build>
 
