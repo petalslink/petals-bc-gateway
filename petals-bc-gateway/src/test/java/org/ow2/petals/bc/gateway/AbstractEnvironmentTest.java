@@ -150,6 +150,11 @@ public class AbstractEnvironmentTest extends AbstractTest implements BcGatewayJb
 
                 final Element mapping = addElement(jbiDocument, service, EL_CONSUMER);
                 mapping.setAttribute(ATTR_CONSUMES_CONSUMER_DOMAIN, TEST_CONSUMER_DOMAIN);
+
+                final Element compGAV = addElement(jbiDocument, service,
+                        new org.ow2.petals.jbi.descriptor.extension.generated.ObjectFactory().createComponentGav(null)
+                                .getName());
+                compGAV.setTextContent("petals-bc-gateway");
             }
 
             @Override
