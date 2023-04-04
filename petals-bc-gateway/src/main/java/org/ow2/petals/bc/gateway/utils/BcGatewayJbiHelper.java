@@ -87,13 +87,15 @@ public class BcGatewayJbiHelper implements BcGatewayJbiConstants {
 
     static {
         try {
-            final JAXBContext jaxbContext = JAXBContext.newInstance(ObjectFactory.class.getPackage().getName());
+            final JAXBContext jaxbContext = JAXBContext.newInstance(ObjectFactory.class,
+                    org.ow2.petals.jbi.descriptor.extension.generated.ObjectFactory.class);
 
             final SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
             final Schema schemas = factory.newSchema(new StreamSource[] {
                     new StreamSource(BcGatewayJbiHelper.class.getResourceAsStream("/CDKextensions.xsd")),
                     new StreamSource(BcGatewayJbiHelper.class.getResourceAsStream("/CDKjbi.xsd")),
-                    new StreamSource(BcGatewayJbiHelper.class.getResourceAsStream("/GatewayExtensions.xsd")) });
+                    new StreamSource(BcGatewayJbiHelper.class.getResourceAsStream("/GatewayExtensions.xsd")),
+                    new StreamSource(BcGatewayJbiHelper.class.getResourceAsStream("/petals-jbi.xsd")) });
 
             final Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
             unmarshaller.setSchema(schemas);
