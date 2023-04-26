@@ -26,7 +26,7 @@
    </parent>
 
    <artifactId>petals-bc-gateway</artifactId>
-   <version>1.2.1-SNAPSHOT</version>
+   <version>1.3.0-SNAPSHOT</version>
    <packaging>jbi-component</packaging>
    <name>Petals ESB - Components - BC Gateway</name>
 

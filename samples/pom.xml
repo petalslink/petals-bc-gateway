@@ -30,12 +30,12 @@
    <groupId>org.ow2.petals.samples.gateway</groupId>
    <artifactId>petals-bc-gateway-samples-parent</artifactId>
    <name>Petals ESB - Samples - BC Gateway</name>
-   <version>1.2.0-2.0.0-SNAPSHOT</version>
+   <version>1.3.0-1.0.0-SNAPSHOT</version>
    <packaging>pom</packaging>
 
    <properties>
       <sonar.skip>true</sonar.skip>
-      <petals-bc-gateway.version>1.2.0</petals-bc-gateway.version>
+      <petals-bc-gateway.version>1.3.0-SNAPSHOT</petals-bc-gateway.version>
    </properties>
 
    <modules>
