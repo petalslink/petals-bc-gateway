@@ -35,7 +35,7 @@ public class BcGatewayClientTest extends AbstractComponentTest {
         assertAvailable(port);
 
         COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME,
-                createProvider(TEST_AUTH_NAME, port, null, null, null, 0, 0L));
+                createProvider(TEST_AUTH_NAME, port, null, null, null, null, null, null, 0, 0L));
 
         assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE,
                 ConnectException.class);
@@ -49,7 +49,7 @@ public class BcGatewayClientTest extends AbstractComponentTest {
         assertAvailable(port);
 
         COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME,
-                createProvider(TEST_AUTH_NAME, port, null, null, null, 3, 0L));
+                createProvider(TEST_AUTH_NAME, port, null, null, null, null, null, null, 3, 0L));
 
         // the severe on is the last one!
         assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE,
@@ -70,7 +70,7 @@ public class BcGatewayClientTest extends AbstractComponentTest {
         assertAvailable(port);
 
         COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME,
-                createProvider(TEST_AUTH_NAME, port, null, null, null, 0, 0L));
+                createProvider(TEST_AUTH_NAME, port, null, null, null, null, null, null, 0, 0L));
 
         // let's wait for the first error
         assertLogContains("Connection to provider domain " + TEST_PROVIDER_DOMAIN + " failed", Level.SEVERE,

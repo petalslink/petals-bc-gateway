@@ -18,6 +18,8 @@
 package org.ow2.petals.bc.gateway;
 
 import java.io.File;
+import java.time.Duration;
+import java.util.concurrent.Callable;
 
 import javax.jbi.servicedesc.ServiceEndpoint;
 import javax.xml.bind.JAXBContext;
@@ -26,6 +28,7 @@ import javax.xml.bind.Marshaller;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.namespace.QName;
 
+import org.awaitility.Awaitility;
 import org.eclipse.jdt.annotation.Nullable;
 import org.ow2.petals.component.framework.junit.Component;
 import org.ow2.petals.component.framework.junit.impl.ConsumesServiceConfiguration;
@@ -123,21 +126,49 @@ public class AbstractEnvironmentTest extends AbstractTest implements BcGatewayJb
         assert !specifyEndpoint || specifyService;
 
         return createConsumes(HELLO_INTERFACE, specifyService ? HELLO_SERVICE : null,
-                specifyEndpoint ? EXTERNAL_HELLO_ENDPOINT : null, certificate, key, remoteCertificate, pollingDelay,
-                timeout);
+                specifyEndpoint ? EXTERNAL_HELLO_ENDPOINT : null, certificate, null, key, null, remoteCertificate, null,
+                pollingDelay, timeout);
     }
 
     protected static ConsumesServiceConfiguration createConsumes(final QName interfaceName,
             final @Nullable QName service, final @Nullable String endpoint, final @Nullable String certificate,
             final @Nullable String key, final @Nullable String remoteCertificate, final @Nullable Long pollingDelay) {
 
-        return createConsumes(interfaceName, service, endpoint, certificate, key, remoteCertificate, pollingDelay,
-                null);
+        return createConsumes(interfaceName, service, endpoint, certificate, null, key, null, remoteCertificate, null,
+                pollingDelay, null);
     }
 
+    /**
+     * @param interfaceName
+     * @param service
+     * @param endpoint
+     * @param certificateValue
+     *            The certificate to used. If {@code certificatePlaceholderName} is configured, this parameter is only
+     *            used to add the certificate as resource of the SU.
+     * @param certificatePlaceholderName
+     *            If not {@code null} the associated SU parameter will be configured with this placeholder name. The
+     *            caller is in charge of configuring the placeholder value.
+     * @param keyValue
+     *            The key to used. If {@code keyPlaceholderName} is configured, this parameter is only used to add the
+     *            key as resource of the SU.
+     * @param keyPlaceholderName
+     *            If not {@code null} the associated SU parameter will be configured with this placeholder name. The
+     *            caller is in charge of configuring the placeholder value.
+     * @param remoteCertificateValue
+     *            The remote certificate to used. If {@code remoteCertificatePlaceholderName} is configured, this
+     *            parameter is only used to add the remote certificate as resource of the SU.
+     * @param remoteCertificatePlaceholderName
+     *            If not {@code null} the associated SU parameter will be configured with this placeholder name. The
+     *            caller is in charge of configuring the placeholder value.
+     * @param pollingDelay
+     * @param timeout
+     * @return
+     */
     protected static ConsumesServiceConfiguration createConsumes(final QName interfaceName,
-            final @Nullable QName service, final @Nullable String endpoint, final @Nullable String certificate,
-            final @Nullable String key, final @Nullable String remoteCertificate, final @Nullable Long pollingDelay,
+            final @Nullable QName service, final @Nullable String endpoint, final @Nullable String certificateValue,
+            final @Nullable String certificatePlaceholderName, final @Nullable String keyValue,
+            final @Nullable String keyPlaceholderName, final @Nullable String remoteCertificateValue,
+            final @Nullable String remoteCertificatePlaceholderName, final @Nullable Long pollingDelay,
             final @Nullable Long timeout) {
 
         final ConsumesServiceConfiguration consumes = new ConsumesServiceConfiguration(interfaceName, service,
@@ -171,29 +202,38 @@ public class AbstractEnvironmentTest extends AbstractTest implements BcGatewayJb
                 }
 
                 addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_AUTH_NAME, TEST_AUTH_NAME);
-                if (certificate != null) {
+                if (certificatePlaceholderName != null) {
+                    addElement(jbiDocument, cDomain, EL_SERVICES_PROVIDER_DOMAIN_CRT)
+                            .setTextContent("${" + certificatePlaceholderName + "}");
+                } else if (certificateValue != null) {
                     addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_CRT)
-                            .setTextContent(new File(certificate).getName());
+                            .setTextContent(new File(certificateValue).getName());
                 }
-                if (key != null) {
+                if (keyPlaceholderName != null) {
+                    addElement(jbiDocument, cDomain, EL_SERVICES_PROVIDER_DOMAIN_KEY)
+                            .setTextContent("${" + keyPlaceholderName + "}");
+                } else if (keyValue != null) {
                     addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_KEY)
-                            .setTextContent(new File(key).getName());
+                            .setTextContent(new File(keyValue).getName());
                 }
-                if (remoteCertificate != null) {
+                if (remoteCertificatePlaceholderName != null) {
+                    addElement(jbiDocument, cDomain, EL_SERVICES_PROVIDER_DOMAIN_REMOTE_CRT)
+                            .setTextContent("${" + remoteCertificatePlaceholderName + "}");
+                } else if (remoteCertificateValue != null) {
                     addElement(jbiDocument, cDomain, EL_SERVICES_CONSUMER_DOMAIN_REMOTE_CRT)
-                            .setTextContent(new File(remoteCertificate).getName());
+                            .setTextContent(new File(remoteCertificateValue).getName());
                 }
             }
         };
 
-        if (certificate != null) {
-            consumes.addResource(AbstractComponentTest.class.getResource(certificate));
+        if (certificateValue != null) {
+            consumes.addResource(AbstractComponentTest.class.getResource(certificateValue));
         }
-        if (key != null) {
-            consumes.addResource(AbstractComponentTest.class.getResource(key));
+        if (keyValue != null) {
+            consumes.addResource(AbstractComponentTest.class.getResource(keyValue));
         }
-        if (remoteCertificate != null) {
-            consumes.addResource(AbstractComponentTest.class.getResource(remoteCertificate));
+        if (remoteCertificateValue != null) {
+            consumes.addResource(AbstractComponentTest.class.getResource(remoteCertificateValue));
         }
 
         if (timeout != null) {
@@ -211,11 +251,38 @@ public class AbstractEnvironmentTest extends AbstractTest implements BcGatewayJb
     }
 
     public static ServiceConfiguration createProvider(final String authName, final int port) {
-        return createProvider(authName, port, null, null, null, null, null);
+        return createProvider(authName, port, null, null, null, null, null, null, null, null);
     }
 
+    /**
+     * @param authName
+     * @param port
+     * @param certificateValue
+     *            The certificate to used. If {@code certificatePlaceholderName} is configured, this parameter is only
+     *            used to add the certificate as resource of the SU.
+     * @param certificatePlaceholderName
+     *            If not {@code null} the associated SU parameter will be configured with this placeholder name. The
+     *            caller is in charge of configuring the placeholder value.
+     * @param keyValue
+     *            The key to used. If {@code keyPlaceholderName} is configured, this parameter is only used to add the
+     *            key as resource of the SU.
+     * @param keyPlaceholderName
+     *            If not {@code null} the associated SU parameter will be configured with this placeholder name. The
+     *            caller is in charge of configuring the placeholder value.
+     * @param remoteCertificateValue
+     *            The remote certificate to used. If {@code remoteCertificatePlaceholderName} is configured, this
+     *            parameter is only used to add the remote certificate as resource of the SU.
+     * @param remoteCertificatePlaceholderName
+     *            If not {@code null} the associated SU parameter will be configured with this placeholder name. The
+     *            caller is in charge of configuring the placeholder value.
+     * @param retryMax
+     * @param retryDelay
+     * @return
+     */
     protected static ServiceConfiguration createProvider(final String authName, final int port,
-            final @Nullable String certificate, final @Nullable String key, final @Nullable String remoteCertificate,
+            final @Nullable String certificateValue, final @Nullable String certificatePlaceholderName,
+            final @Nullable String keyValue, final @Nullable String keyPlaceholderName,
+            final @Nullable String remoteCertificateValue, final @Nullable String remoteCertificatePlaceholderName,
             final @Nullable Integer retryMax, final @Nullable Long retryDelay) {
         final ServiceConfiguration provides = new ServiceConfiguration() {
             @Override
@@ -235,29 +302,38 @@ public class AbstractEnvironmentTest extends AbstractTest implements BcGatewayJb
                 addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_IP).setTextContent("localhost");
                 addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_PORT).setTextContent("" + port);
                 addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_AUTH_NAME).setTextContent(authName);
-                if (certificate != null) {
+                if (certificatePlaceholderName != null) {
                     addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_CRT)
-                            .setTextContent(new File(certificate).getName());
+                            .setTextContent("${" + certificatePlaceholderName + "}");
+                } else if (certificateValue != null) {
+                    addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_CRT)
+                            .setTextContent(new File(certificateValue).getName());
                 }
-                if (key != null) {
+                if (keyPlaceholderName != null) {
                     addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_KEY)
-                            .setTextContent(new File(key).getName());
+                            .setTextContent("${" + keyPlaceholderName + "}");
+                } else if (keyValue != null) {
+                    addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_KEY)
+                            .setTextContent(new File(keyValue).getName());
                 }
-                if (remoteCertificate != null) {
+                if (remoteCertificatePlaceholderName != null) {
                     addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_REMOTE_CRT)
-                            .setTextContent(new File(remoteCertificate).getName());
+                            .setTextContent("${" + remoteCertificatePlaceholderName + "}");
+                } else if (remoteCertificateValue != null) {
+                    addElement(jbiDocument, pDomain, EL_SERVICES_PROVIDER_DOMAIN_REMOTE_CRT)
+                            .setTextContent(new File(remoteCertificateValue).getName());
                 }
             }
         };
 
-        if (certificate != null) {
-            provides.addResource(AbstractComponentTest.class.getResource(certificate));
+        if (certificateValue != null) {
+            provides.addResource(AbstractComponentTest.class.getResource(certificateValue));
         }
-        if (key != null) {
-            provides.addResource(AbstractComponentTest.class.getResource(key));
+        if (keyValue != null) {
+            provides.addResource(AbstractComponentTest.class.getResource(keyValue));
         }
-        if (remoteCertificate != null) {
-            provides.addResource(AbstractComponentTest.class.getResource(remoteCertificate));
+        if (remoteCertificateValue != null) {
+            provides.addResource(AbstractComponentTest.class.getResource(remoteCertificateValue));
         }
 
         return provides;
@@ -292,8 +368,7 @@ public class AbstractEnvironmentTest extends AbstractTest implements BcGatewayJb
      *            Endpoint name of the service endpoint to retrieve
      * @return The expected service endpoint or {@code null} if not deployed.
      */
-    private static @Nullable ServiceEndpoint getServiceEndpointDifferentFrom(
-            final Component cut,
+    private static @Nullable ServiceEndpoint getServiceEndpointDifferentFrom(final Component cut,
             final QName serviceName, final String endpointName) {
         for (final ServiceEndpoint endpoint : cut.getEndpointDirectory().resolveEndpointsForService(serviceName)) {
             if (!endpoint.getEndpointName().equals(endpointName)) {
@@ -302,5 +377,28 @@ public class AbstractEnvironmentTest extends AbstractTest implements BcGatewayJb
         }
 
         return null;
+    }
+
+    /**
+     * TODO it would be relevant to check for all domain deployed that everything has been cleaned as desired
+     */
+    protected static ServiceEndpoint deployTwoDomains(final Component componentUnderTest,
+            final ConsumesServiceConfiguration suConsume, final ServiceConfiguration suProvide) throws Exception {
+
+        componentUnderTest.deployService(SU_CONSUMER_NAME, suConsume);
+
+        componentUnderTest.deployService(SU_PROVIDER_NAME, suProvide);
+
+        Awaitility.await("External endpoint not propagated !").atMost(Duration.ofSeconds(10))
+                .until(new Callable<Boolean>() {
+                    @Override
+                    public Boolean call() throws Exception {
+                        return getPropagatedServiceEndpoint(componentUnderTest) != null;
+                    }
+                });
+
+        final ServiceEndpoint endpoint = getPropagatedServiceEndpoint(componentUnderTest);
+        assert endpoint != null;
+        return endpoint;
     }
 }

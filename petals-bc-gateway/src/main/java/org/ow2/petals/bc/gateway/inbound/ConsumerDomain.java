@@ -54,6 +54,8 @@ import org.ow2.petals.component.framework.logger.StepLogHelper;
 import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.w3c.dom.Document;
 
+import com.ebmwebsourcing.easycommons.lang.StringHelper;
+
 import io.netty.channel.Channel;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.FutureListener;
@@ -131,9 +133,11 @@ public class ConsumerDomain extends AbstractDomain {
     public void reload(final JbiConsumerDomain newJCD) throws PEtALSCDKException {
         mainLock.lock();
         try {
-            if (!jcd.getAuthName().equals(newJCD.getAuthName()) || !jcd.getCertificate().equals(newJCD.getCertificate())
-                    || !jcd.getRemoteCertificate().equals(newJCD.getRemoteCertificate())
-                    || !jcd.getKey().equals(newJCD.getKey()) || !jcd.getPassphrase().equals(newJCD.getPassphrase())) {
+            if (!jcd.getAuthName().equals(newJCD.getAuthName())
+                    || !StringHelper.equal(jcd.getCertificate(), newJCD.getCertificate())
+                    || !StringHelper.equal(jcd.getRemoteCertificate(), newJCD.getRemoteCertificate())
+                    || !StringHelper.equal(jcd.getKey(), newJCD.getKey())
+                    || !jcd.getPassphrase().equals(newJCD.getPassphrase())) {
                 if (!jcd.getAuthName().equals(newJCD.getAuthName())) {
                     tl.register(newJCD.getAuthName(), this);
                     tl.deregistrer(jcd.getAuthName());
