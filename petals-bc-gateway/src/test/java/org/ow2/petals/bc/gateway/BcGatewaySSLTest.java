@@ -23,13 +23,13 @@ import org.junit.Test;
 
 public class BcGatewaySSLTest extends AbstractComponentTest {
 
-    private static final String CLIENT_CRT = "/ssl/test.crt";
+    protected static final String CLIENT_CRT = "/ssl/test.crt";
 
-    private static final String SERVER_CRT = "/ssl/test2.crt";
+    protected static final String SERVER_CRT = "/ssl/test2.crt";
 
-    private static final String CLIENT_KEY = "/ssl/test_unencrypted.pem";
+    protected static final String CLIENT_KEY = "/ssl/test_unencrypted.pem";
 
-    private static final String SERVER_KEY = "/ssl/test2_unencrypted.pem";
+    protected static final String SERVER_KEY = "/ssl/test2_unencrypted.pem";
 
     @Test
     public void testOk() throws Exception {

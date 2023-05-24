@@ -36,7 +36,6 @@ import javax.jbi.messaging.ExchangeStatus;
 import javax.jbi.servicedesc.ServiceEndpoint;
 import javax.xml.namespace.QName;
 
-import org.awaitility.Awaitility;
 import org.eclipse.jdt.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -65,11 +64,9 @@ import org.w3c.dom.Element;
 
 import com.ebmwebsourcing.easycommons.lang.reflect.ReflectionHelper;
 
-public class AbstractComponentTest extends AbstractEnvironmentTest implements BcGatewayJbiTestConstants {
+public abstract class AbstractComponentTest extends AbstractEnvironmentTest implements BcGatewayJbiTestConstants {
 
-    protected static final InMemoryLogHandler IN_MEMORY_LOG_HANDLER = new InMemoryLogHandler();
-
-    private static final ComponentConfiguration CONFIGURATION = new ComponentConfiguration("G") {
+    protected static final ComponentConfiguration CONFIGURATION = new ComponentConfiguration("G") {
         @Override
         protected void extraJBIConfiguration(final @Nullable Document jbiDocument) {
             assert jbiDocument != null;
@@ -90,7 +87,7 @@ public class AbstractComponentTest extends AbstractEnvironmentTest implements Bc
     protected static final Component COMPONENT_UNDER_TEST = new ComponentUnderTest(CONFIGURATION)
             // we need faster checks for our tests, 2000 is too long!
             .setParameter(new QName(CDK_NAMESPACE_URI, "time-beetween-async-cleaner-runs"), "100")
-            .addLogHandler(IN_MEMORY_LOG_HANDLER.getHandler())
+            .addLogHandler(AbstractComponentTestUtils.IN_MEMORY_LOG_HANDLER.getHandler())
             .registerExternalServiceProvider(EXTERNAL_HELLO_ENDPOINT, HELLO_SERVICE, HELLO_INTERFACE);
 
     /**
@@ -98,7 +95,8 @@ public class AbstractComponentTest extends AbstractEnvironmentTest implements Bc
      * that successive deploy and undeploy do not create problems.
      */
     @ClassRule
-    public static final TestRule chain = RuleChain.outerRule(new EnsurePortsAreOK()).around(IN_MEMORY_LOG_HANDLER)
+    public static final TestRule chain = RuleChain.outerRule(new EnsurePortsAreOK())
+            .around(AbstractComponentTestUtils.IN_MEMORY_LOG_HANDLER)
             .around(COMPONENT_UNDER_TEST);
 
     protected static final SimpleComponent COMPONENT = new SimpleComponent(COMPONENT_UNDER_TEST);
@@ -109,7 +107,7 @@ public class AbstractComponentTest extends AbstractEnvironmentTest implements Bc
      */
     @Before
     public void clearLogTraces() {
-        IN_MEMORY_LOG_HANDLER.clear();
+        AbstractComponentTestUtils.IN_MEMORY_LOG_HANDLER.clear();
         // we want to clear them inbetween tests
         COMPONENT_UNDER_TEST.clearRequestsFromConsumer();
         COMPONENT_UNDER_TEST.clearResponsesFromProvider();
@@ -192,7 +190,7 @@ public class AbstractComponentTest extends AbstractEnvironmentTest implements Bc
 
     @After
     public void undeployServices() {
-        undeployServices(COMPONENT_UNDER_TEST, IN_MEMORY_LOG_HANDLER);
+        undeployServices(COMPONENT_UNDER_TEST, AbstractComponentTestUtils.IN_MEMORY_LOG_HANDLER);
     }
 
     /**
@@ -241,43 +239,22 @@ public class AbstractComponentTest extends AbstractEnvironmentTest implements Bc
         return deployTwoDomains(true, true, null, null, null, null, null, null, null, null, null);
     }
 
-    /**
-     * TODO it would be relevant to check for all domain deployed that everything has been cleaned as desired
-     */
     protected ServiceEndpoint deployTwoDomains(final boolean specifyService, final boolean specifyEndpoint,
             final @Nullable String clientCertificate, final @Nullable String clientKey,
             final @Nullable String clientRemoteCertificate, final @Nullable String serverCertificate,
             final @Nullable String serverKey, final @Nullable String serverRemoteCertificate,
             final @Nullable Integer retryMax, final @Nullable Long retryDelay, final @Nullable Long pollingDelay)
             throws Exception {
-
-        COMPONENT_UNDER_TEST.deployService(SU_CONSUMER_NAME, createHelloConsumes(specifyService, specifyEndpoint,
-                serverCertificate, serverKey, serverRemoteCertificate, pollingDelay));
-
-        COMPONENT_UNDER_TEST.deployService(SU_PROVIDER_NAME,
-                createProvider(TEST_AUTH_NAME, TEST_TRANSPORT_PORT, clientCertificate, clientKey,
-                        clientRemoteCertificate, retryMax, retryDelay));
-
-        Awaitility.await("External endpoint not propagated !").atMost(Duration.ofSeconds(10))
-                .until(new Callable<Boolean>() {
-            @Override
-            public Boolean call() throws Exception {
-                return getPropagatedServiceEndpoint() != null;
-            }
-        });
-
-        final ServiceEndpoint endpoint = getPropagatedServiceEndpoint();
-        assert endpoint != null;
-        return endpoint;
+        return deployTwoDomains(COMPONENT_UNDER_TEST,
+                createHelloConsumes(specifyService, specifyEndpoint, serverCertificate, serverKey,
+                        serverRemoteCertificate, pollingDelay),
+                createProvider(TEST_AUTH_NAME, TEST_TRANSPORT_PORT, clientCertificate, null, clientKey, null,
+                        clientRemoteCertificate, null, retryMax, retryDelay));
     }
 
     protected RequestMessage helloRequest(final ServiceEndpoint endpoint, final URI pattern) {
         return new RequestToProviderMessage(COMPONENT_UNDER_TEST, endpoint.getEndpointName(),
                 endpoint.getServiceName(), null, HELLO_OPERATION, pattern, IN);
-    }
-
-    protected static @Nullable ServiceEndpoint getPropagatedServiceEndpoint() {
-        return getPropagatedServiceEndpoint(COMPONENT_UNDER_TEST);
     }
 
     protected static void assertLogContains(final String log, final Level level, final @Nullable Class<?> exception) {
@@ -298,7 +275,7 @@ public class AbstractComponentTest extends AbstractEnvironmentTest implements Bc
 
     protected static void assertLogContains(final String log, final Level level, final int howMany,
             final boolean exactly, final @Nullable Class<?> exception) {
-        assertLogContains(IN_MEMORY_LOG_HANDLER, log, level, howMany, exactly, exception);
+        assertLogContains(AbstractComponentTestUtils.IN_MEMORY_LOG_HANDLER, log, level, howMany, exactly, exception);
     }
 
     protected static void assertLogContains(final InMemoryLogHandler handler, final String log, final Level level,
