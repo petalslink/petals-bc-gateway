@@ -312,7 +312,13 @@ public class BcGatewayJbiHelper implements BcGatewayJbiConstants {
         final String remoteCertificate = jcd.getRemoteCertificate();
         if (!StringHelper.isNullOrEmpty(remoteCertificate)) {
             try {
-                jcd.setRemoteCertificate(PropertiesHelper.resolveString(remoteCertificate, placeholders));
+                final String remoteCertificateResolvedValue = PropertiesHelper.resolveString(remoteCertificate,
+                        placeholders);
+                if (StringHelper.isNullOrEmpty(remoteCertificateResolvedValue)) {
+                    jcd.setRemoteCertificate(null);
+                } else {
+                    jcd.setRemoteCertificate(remoteCertificateResolvedValue);
+                }
             } catch (final PropertiesException e) {
                 logger.log(Level.WARNING, "Error while resolving consumer domain ('" + jcd.getId()
                         + "') remote certificate ('" + remoteCertificate + "') with placeholders", e);
@@ -324,7 +330,12 @@ public class BcGatewayJbiHelper implements BcGatewayJbiConstants {
         final String certificate = jcd.getCertificate();
         if (!StringHelper.isNullOrEmpty(certificate)) {
             try {
-                jcd.setCertificate(PropertiesHelper.resolveString(certificate, placeholders));
+                final String certificateResolvedValue = PropertiesHelper.resolveString(certificate, placeholders);
+                if (StringHelper.isNullOrEmpty(certificateResolvedValue)) {
+                    jcd.setCertificate(null);
+                } else {
+                    jcd.setCertificate(certificateResolvedValue);
+                }
             } catch (final PropertiesException e) {
                 logger.log(Level.WARNING, "Error while resolving consumer domain ('" + jcd.getId() + "') certificate ('"
                         + certificate + "') with placeholders", e);
@@ -336,7 +347,12 @@ public class BcGatewayJbiHelper implements BcGatewayJbiConstants {
         final String key = jcd.getKey();
         if (!StringHelper.isNullOrEmpty(key)) {
             try {
-                jcd.setKey(PropertiesHelper.resolveString(key, placeholders));
+                final String keyResolvedValue = PropertiesHelper.resolveString(key, placeholders);
+                if (StringHelper.isNullOrEmpty(keyResolvedValue)) {
+                    jcd.setKey(null);
+                } else {
+                    jcd.setKey(keyResolvedValue);
+                }
             } catch (final PropertiesException e) {
                 logger.log(Level.WARNING, "Error while resolving consumer domain ('" + jcd.getId() + "') key ('" + key
                         + "') with placeholders", e);
@@ -456,7 +472,13 @@ public class BcGatewayJbiHelper implements BcGatewayJbiConstants {
         final String remoteCertificate = jpd.getRemoteCertificate();
         if (!StringHelper.isNullOrEmpty(remoteCertificate)) {
             try {
-                jpd.setRemoteCertificate(PropertiesHelper.resolveString(remoteCertificate, placeholders));
+                final String remoteCertificateResolvedValue = PropertiesHelper.resolveString(remoteCertificate,
+                        placeholders);
+                if (StringHelper.isNullOrEmpty(remoteCertificateResolvedValue)) {
+                    jpd.setRemoteCertificate(null);
+                } else {
+                    jpd.setRemoteCertificate(remoteCertificateResolvedValue);
+                }
             } catch (final PropertiesException e) {
                 logger.log(Level.WARNING, "Error while resolving provider domain ('" + jpd.getId()
                         + "') remote certificate ('" + remoteCertificate + "') with placeholders", e);
@@ -468,7 +490,12 @@ public class BcGatewayJbiHelper implements BcGatewayJbiConstants {
         final String certificate = jpd.getCertificate();
         if (!StringHelper.isNullOrEmpty(certificate)) {
             try {
-                jpd.setCertificate(PropertiesHelper.resolveString(certificate, placeholders));
+                final String certificateResolvedValue = PropertiesHelper.resolveString(certificate, placeholders);
+                if (StringHelper.isNullOrEmpty(certificateResolvedValue)) {
+                    jpd.setCertificate(null);
+                } else {
+                    jpd.setCertificate(certificateResolvedValue);
+                }
             } catch (final PropertiesException e) {
                 logger.log(Level.WARNING, "Error while resolving provider domain ('" + jpd.getId() + "') certificate ('"
                         + certificate + "') with placeholders", e);
@@ -480,7 +507,12 @@ public class BcGatewayJbiHelper implements BcGatewayJbiConstants {
         final String key = jpd.getKey();
         if (!StringHelper.isNullOrEmpty(key)) {
             try {
-                jpd.setKey(PropertiesHelper.resolveString(key, placeholders));
+                final String keyResolvedValue = PropertiesHelper.resolveString(key, placeholders);
+                if (StringHelper.isNullOrEmpty(keyResolvedValue)) {
+                    jpd.setKey(null);
+                } else {
+                    jpd.setKey(keyResolvedValue);
+                }
             } catch (final PropertiesException e) {
                 logger.log(Level.WARNING, "Error while resolving provider domain ('" + jpd.getId() + "') key ('" + key
                         + "') with placeholders", e);

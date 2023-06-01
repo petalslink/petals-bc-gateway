@@ -55,6 +55,8 @@ import org.ow2.petals.component.framework.util.EndpointUtil;
 import org.ow2.petals.component.framework.util.ServiceEndpointKey;
 import org.w3c.dom.Document;
 
+import com.ebmwebsourcing.easycommons.lang.StringHelper;
+
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
@@ -146,9 +148,9 @@ public class ProviderDomain extends AbstractDomain {
             if (!jpd.getRemoteAuthName().equals(newJPD.getRemoteAuthName())
                     || !jpd.getRemoteIp().equals(newJPD.getRemoteIp())
                     || !jpd.getRemotePort().equals(newJPD.getRemotePort())
-                    || !jpd.getCertificate().equals(newJPD.getCertificate())
-                    || !jpd.getRemoteCertificate().equals(newJPD.getRemoteCertificate())
-                    || !jpd.getKey().equals(newJPD.getKey()) || !jpd.getPassphrase().equals(newJPD.getPassphrase())) {
+                    || !StringHelper.equal(jpd.getCertificate(), newJPD.getCertificate())
+                    || !StringHelper.equal(jpd.getRemoteCertificate(), newJPD.getRemoteCertificate())
+                    || !StringHelper.equal(jpd.getKey(), newJPD.getKey())) {
                 jpd = newJPD;
                 connect(true);
             }
