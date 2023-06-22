@@ -31,7 +31,6 @@ import java.util.logging.Logger;
 
 import javax.jbi.messaging.ExchangeStatus;
 import javax.jbi.servicedesc.ServiceEndpoint;
-import javax.xml.bind.Marshaller;
 import javax.xml.namespace.QName;
 
 import org.apache.mina.util.AvailablePortFinder;
@@ -84,6 +83,8 @@ import org.supercsv.io.ICsvBeanReader;
 import org.supercsv.prefs.CsvPreference;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+
+import jakarta.xml.bind.Marshaller;
 
 /**
  * <p>

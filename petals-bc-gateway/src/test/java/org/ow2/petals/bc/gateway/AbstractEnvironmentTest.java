@@ -22,10 +22,6 @@ import java.time.Duration;
 import java.util.concurrent.Callable;
 
 import javax.jbi.servicedesc.ServiceEndpoint;
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.JAXBException;
-import javax.xml.bind.Marshaller;
-import javax.xml.bind.Unmarshaller;
 import javax.xml.namespace.QName;
 
 import org.awaitility.Awaitility;
@@ -37,6 +33,11 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import com.ebmwebsourcing.easycommons.lang.UncheckedException;
+
+import jakarta.xml.bind.JAXBContext;
+import jakarta.xml.bind.JAXBException;
+import jakarta.xml.bind.Marshaller;
+import jakarta.xml.bind.Unmarshaller;
 
 public class AbstractEnvironmentTest extends AbstractTest implements BcGatewayJbiTestConstants {
 

@@ -30,10 +30,6 @@ import java.util.Properties;
 import java.util.logging.Logger;
 
 import javax.xml.XMLConstants;
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.JAXBElement;
-import javax.xml.bind.JAXBException;
-import javax.xml.bind.Unmarshaller;
 import javax.xml.namespace.QName;
 import javax.xml.transform.stream.StreamSource;
 import javax.xml.validation.Schema;
@@ -45,7 +41,6 @@ import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiConsumesConfig;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProviderDomain;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiProvidesConfig;
 import org.ow2.petals.bc.gateway.jbidescriptor.generated.JbiTransportListener;
-import org.ow2.petals.bc.gateway.jbidescriptor.generated.ObjectFactory;
 import org.ow2.petals.commons.log.Level;
 import org.ow2.petals.component.framework.api.configuration.ConfigurationExtensions;
 import org.ow2.petals.component.framework.api.exception.PEtALSCDKException;
@@ -65,6 +60,11 @@ import com.ebmwebsourcing.easycommons.lang.StringHelper;
 import com.ebmwebsourcing.easycommons.properties.PropertiesException;
 import com.ebmwebsourcing.easycommons.properties.PropertiesHelper;
 import com.ebmwebsourcing.easycommons.xml.DocumentBuilders;
+
+import jakarta.xml.bind.JAXBContext;
+import jakarta.xml.bind.JAXBElement;
+import jakarta.xml.bind.JAXBException;
+import jakarta.xml.bind.Unmarshaller;
 
 /**
  * Helper class to manipulate the jbi.xml according to the schema in the resources directory.
