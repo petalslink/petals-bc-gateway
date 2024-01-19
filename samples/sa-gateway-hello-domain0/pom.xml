@@ -83,7 +83,8 @@
                         <!-- The following dependencies are required because associated to embedded service units -->
                         <usedDependency>org.ow2.petals.samples.gateway:su-gateway-hello-consumes</usedDependency>
                         <!-- No unit test included with this project -->
-                        <usedDependency>junit:junit</usedDependency>
+                        <usedDependency>org.junit.jupiter:junit-jupiter-engine</usedDependency>
+                        <usedDependency>org.junit.jupiter:junit-jupiter-api</usedDependency>
                      </usedDependencies>
                   </configuration>
                </execution>

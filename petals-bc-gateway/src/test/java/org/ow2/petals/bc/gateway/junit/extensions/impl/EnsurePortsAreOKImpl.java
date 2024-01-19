@@ -15,16 +15,30 @@
  * along with this program/library; If not, see http://www.gnu.org/licenses/
  * for the GNU Lesser General Public License version 2.1.
  */
-package org.ow2.petals.bc.gateway;
+package org.ow2.petals.bc.gateway.junit.extensions.impl;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import org.junit.jupiter.api.extension.ExtensionContext.Store.CloseableResource;
+import org.ow2.petals.bc.gateway.junit.extensions.api.EnsurePortsAreOK;
 
-import java.net.URL;
+public class EnsurePortsAreOKImpl implements EnsurePortsAreOK, CloseableResource {
 
-public class AbstractTest {
+    private final int[] ports;
 
-    static {
-        final URL logConfig = AbstractTest.class.getResource("/logging.properties");
-        assertNotNull(logConfig, "Logging configuration file not found");
+    public EnsurePortsAreOKImpl(final int ports[]) {
+        this.ports = ports;
+    }
+
+    @Override
+    public void check() {
+        for (int port : ports) {
+            EnsurePortsAreOK.assertAvailable(port);
+        }
+    }
+
+    @Override
+    public void close() throws Throwable {
+        for (int port : ports) {
+            EnsurePortsAreOK.assertAvailable(port);
+        }
     }
 }

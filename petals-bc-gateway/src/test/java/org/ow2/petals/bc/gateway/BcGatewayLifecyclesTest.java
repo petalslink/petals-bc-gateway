@@ -18,13 +18,15 @@
 package org.ow2.petals.bc.gateway;
 
 import static org.awaitility.Awaitility.await;
-import static org.ow2.petals.bc.gateway.EnsurePortsAreOK.assertNotAvailable;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.ow2.petals.bc.gateway.junit.extensions.api.EnsurePortsAreOK.assertNotAvailable;
 
 import java.time.Duration;
 
 import javax.jbi.servicedesc.ServiceEndpoint;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
 import org.ow2.petals.component.framework.junit.ResponseMessage;
 import org.ow2.petals.component.framework.junit.helpers.MessageChecks;

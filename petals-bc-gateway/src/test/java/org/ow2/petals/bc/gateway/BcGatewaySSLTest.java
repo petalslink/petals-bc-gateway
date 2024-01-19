@@ -17,9 +17,11 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import org.awaitility.core.ConditionTimeoutException;
 import org.eclipse.jdt.annotation.Nullable;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class BcGatewaySSLTest extends AbstractComponentTest {
 
@@ -41,14 +43,18 @@ public class BcGatewaySSLTest extends AbstractComponentTest {
         test(null, null, SERVER_CRT, SERVER_CRT, SERVER_KEY, null);
     }
 
-    @Test(expected = ConditionTimeoutException.class)
+    @Test
     public void testNOkNoClientCert() throws Exception {
-        test(null, null, SERVER_CRT, SERVER_CRT, SERVER_KEY, CLIENT_CRT);
+        assertThrows(ConditionTimeoutException.class, () -> {
+            test(null, null, SERVER_CRT, SERVER_CRT, SERVER_KEY, CLIENT_CRT);
+        });
     }
 
-    @Test(expected = ConditionTimeoutException.class)
+    @Test
     public void testNOk() throws Exception {
-        test(null, null, null, SERVER_CRT, SERVER_KEY, null);
+        assertThrows(ConditionTimeoutException.class, () -> {
+            test(null, null, null, SERVER_CRT, SERVER_KEY, null);
+        });
     }
 
     public void test(final @Nullable String clientCertificate, final @Nullable String clientKey,

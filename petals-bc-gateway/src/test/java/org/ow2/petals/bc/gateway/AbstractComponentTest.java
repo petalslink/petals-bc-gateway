@@ -18,6 +18,8 @@
 package org.ow2.petals.bc.gateway;
 
 import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
 import java.time.Duration;
@@ -37,28 +39,32 @@ import javax.jbi.servicedesc.ServiceEndpoint;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.rules.RuleChain;
-import org.junit.rules.TestRule;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
 import org.ow2.petals.basisapi.exception.PetalsException;
 import org.ow2.petals.bc.gateway.commons.AbstractDomain;
 import org.ow2.petals.bc.gateway.inbound.ConsumerDomain;
+import org.ow2.petals.bc.gateway.junit.extensions.EnsurePortsAreOKExtension;
+import org.ow2.petals.bc.gateway.junit.extensions.api.EnsurePortsAreOK;
 import org.ow2.petals.bc.gateway.outbound.ProviderDomain;
 import org.ow2.petals.commons.log.PetalsExecutionContext;
 import org.ow2.petals.component.framework.AbstractComponent;
 import org.ow2.petals.component.framework.api.message.Exchange;
 import org.ow2.petals.component.framework.junit.Component;
 import org.ow2.petals.component.framework.junit.RequestMessage;
+import org.ow2.petals.component.framework.junit.extensions.ComponentConfigurationExtension;
+import org.ow2.petals.component.framework.junit.extensions.ComponentUnderTestExtension;
+import org.ow2.petals.component.framework.junit.extensions.api.ComponentUnderTest;
 import org.ow2.petals.component.framework.junit.helpers.MessageChecks;
 import org.ow2.petals.component.framework.junit.helpers.ServiceProviderImplementation;
 import org.ow2.petals.component.framework.junit.helpers.SimpleComponent;
 import org.ow2.petals.component.framework.junit.impl.ComponentConfiguration;
 import org.ow2.petals.component.framework.junit.impl.message.RequestToProviderMessage;
-import org.ow2.petals.component.framework.junit.rule.ComponentUnderTest;
-import org.ow2.petals.junit.rules.log.handler.InMemoryLogHandler;
+import org.ow2.petals.junit.extensions.log.handler.InMemoryLogHandlerExtension;
+import org.ow2.petals.junit.extensions.log.handler.api.InMemoryLogHandler;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
@@ -66,7 +72,12 @@ import com.ebmwebsourcing.easycommons.lang.reflect.ReflectionHelper;
 
 public abstract class AbstractComponentTest extends AbstractEnvironmentTest implements BcGatewayJbiTestConstants {
 
-    protected static final ComponentConfiguration CONFIGURATION = new ComponentConfiguration("G") {
+    public static class BasicComponentConfiguration extends ComponentConfiguration {
+
+        public BasicComponentConfiguration(final String configurationName) {
+            super(configurationName);
+        }
+        
         @Override
         protected void extraJBIConfiguration(final @Nullable Document jbiDocument) {
             assert jbiDocument != null;
@@ -82,32 +93,43 @@ public abstract class AbstractComponentTest extends AbstractEnvironmentTest impl
             // the element is needed even if without value!
             addElement(jbiDocument, transport2, EL_TRANSPORT_LISTENER_PORT);
         }
-    };
+    }
 
-    protected static final Component COMPONENT_UNDER_TEST = new ComponentUnderTest(CONFIGURATION)
-            // we need faster checks for our tests, 2000 is too long!
-            .setParameter(new QName(CDK_NAMESPACE_URI, "time-beetween-async-cleaner-runs"), "100")
-            .addLogHandler(AbstractComponentTestUtils.IN_MEMORY_LOG_HANDLER.getHandler())
-            .registerExternalServiceProvider(EXTERNAL_HELLO_ENDPOINT, HELLO_SERVICE, HELLO_INTERFACE);
+    @Order(0)
+    @EnsurePortsAreOKExtension(
+            ports = { AbstractEnvironmentTest.TEST_TRANSPORT_PORT, AbstractEnvironmentTest.DEFAULT_PORT }
+    )
+    private static EnsurePortsAreOK ENSURE_PORTS_ARE_OK;
 
-    /**
-     * We use a class rule (i.e. static) so that the component lives during all the tests, this enables to test also
-     * that successive deploy and undeploy do not create problems.
-     */
-    @ClassRule
-    public static final TestRule chain = RuleChain.outerRule(new EnsurePortsAreOK())
-            .around(AbstractComponentTestUtils.IN_MEMORY_LOG_HANDLER)
-            .around(COMPONENT_UNDER_TEST);
+    @Order(1)
+    @ComponentUnderTestExtension(
+            inMemoryLogHandler = @InMemoryLogHandlerExtension,
+            explicitPostInitialization = true,
+            componentConfiguration = @ComponentConfigurationExtension(
+                    name = "G",
+                    implementation = BasicComponentConfiguration.class)
+    )
+    protected static ComponentUnderTest COMPONENT_UNDER_TEST;
 
-    protected static final SimpleComponent COMPONENT = new SimpleComponent(COMPONENT_UNDER_TEST);
+    protected static SimpleComponent COMPONENT;
+
+    @BeforeAll
+    private static void completesComponentUnderTestConfiguration() throws Exception {
+        COMPONENT_UNDER_TEST
+                // we need faster checks for our tests, 2000 is too long!
+                .setParameter(new QName(CDK_NAMESPACE_URI, "time-beetween-async-cleaner-runs"), "100")
+                .registerExternalServiceProvider(EXTERNAL_HELLO_ENDPOINT, HELLO_SERVICE, HELLO_INTERFACE)
+                .postInitComponentUnderTest();
+        COMPONENT = new SimpleComponent(COMPONENT_UNDER_TEST);
+    }
 
     /**
      * All log traces must be cleared before starting a unit test (because the log handler is static and lives during
      * the whole suite of tests)
      */
-    @Before
+    @BeforeEach
     public void clearLogTraces() {
-        AbstractComponentTestUtils.IN_MEMORY_LOG_HANDLER.clear();
+        COMPONENT_UNDER_TEST.getInMemoryLogHandler().clear();
         // we want to clear them inbetween tests
         COMPONENT_UNDER_TEST.clearRequestsFromConsumer();
         COMPONENT_UNDER_TEST.clearResponsesFromProvider();
@@ -120,7 +142,7 @@ public abstract class AbstractComponentTest extends AbstractEnvironmentTest impl
     /**
      * TODO also test the bootstrap one...
      */
-    @Before
+    @BeforeEach
     public void verifyMBeanOperations() {
         // let's get a copy
         final Collection<String> ops = new HashSet<>(getComponent().getMBeanOperationsNames());
@@ -154,7 +176,7 @@ public abstract class AbstractComponentTest extends AbstractEnvironmentTest impl
         return (BcGatewayComponent) COMPONENT_UNDER_TEST.getComponentObject();
     }
 
-    @After
+    @AfterEach
     public void ensureNoExchangeInProgress() {
         ensureNoExchangeInProgress(COMPONENT_UNDER_TEST);
     }
@@ -164,21 +186,21 @@ public abstract class AbstractComponentTest extends AbstractEnvironmentTest impl
         for (final ProviderDomain pd : comp.getServiceUnitManager().getProviderDomains()) {
             @SuppressWarnings("unchecked")
             final Map<String, Exchange> exchangesInProgress = (Map<String, Exchange>) ReflectionHelper
-                    .getFieldValue(AbstractDomain.class, pd, "exchangesInProgress", false);
-            assertTrue(String.format("Exchange in progress is not empty for %s: %s", pd.getJPD().getId(),
-                    exchangesInProgress), exchangesInProgress.isEmpty());
+                    .getFieldValue(AbstractDomain.class, pd, "exchangesInProgress");
+            assertTrue(exchangesInProgress.isEmpty(), String.format("Exchange in progress is not empty for %s: %s",
+                    pd.getJPD().getId(), exchangesInProgress));
         }
 
         for (final ConsumerDomain pd : comp.getServiceUnitManager().getConsumerDomains()) {
             @SuppressWarnings("unchecked")
             final Map<String, Exchange> exchangesInProgress = (Map<String, Exchange>) ReflectionHelper
-                    .getFieldValue(AbstractDomain.class, pd, "exchangesInProgress", false);
-            assertTrue(String.format("Exchange in progress is not empty for %s: %s", pd.getJCD().getId(),
-                    exchangesInProgress), exchangesInProgress.isEmpty());
+                    .getFieldValue(AbstractDomain.class, pd, "exchangesInProgress");
+            assertTrue(exchangesInProgress.isEmpty(), String.format("Exchange in progress is not empty for %s: %s",
+                    pd.getJCD().getId(), exchangesInProgress));
         }
     }
 
-    @After
+    @AfterEach
     public void cleanManuallyAddedListeners() throws Exception {
         final BcGatewayComponent comp = getComponent();
         final List<String> todo = new ArrayList<>(manuallyAddedListeners);
@@ -188,15 +210,15 @@ public abstract class AbstractComponentTest extends AbstractEnvironmentTest impl
         }
     }
 
-    @After
+    @AfterEach
     public void undeployServices() {
-        undeployServices(COMPONENT_UNDER_TEST, AbstractComponentTestUtils.IN_MEMORY_LOG_HANDLER);
+        undeployServices(COMPONENT_UNDER_TEST);
     }
 
     /**
      * We undeploy services after each test (because the component is static and lives during the whole suite of tests)
      */
-    public void undeployServices(final Component comp, final InMemoryLogHandler handler) {
+    public void undeployServices(final ComponentUnderTest comp) {
         comp.undeployAllServices();
 
         // TODO we should check that there is no reconnections or polling still working!
@@ -204,9 +226,9 @@ public abstract class AbstractComponentTest extends AbstractEnvironmentTest impl
 
         // asserts are ALWAYS a bug!
         final Formatter formatter = new SimpleFormatter();
-        for (final LogRecord r : handler.getAllRecords()) {
-            assertFalse("Got a log with an assertion: " + formatter.format(r),
-                    r.getThrown() instanceof AssertionError || r.getMessage().contains("AssertionError"));
+        for (final LogRecord r : comp.getInMemoryLogHandler().getAllRecords()) {
+            assertFalse(r.getThrown() instanceof AssertionError || r.getMessage().contains("AssertionError"),
+                    "Got a log with an assertion: " + formatter.format(r));
         }
     }
 
@@ -275,7 +297,7 @@ public abstract class AbstractComponentTest extends AbstractEnvironmentTest impl
 
     protected static void assertLogContains(final String log, final Level level, final int howMany,
             final boolean exactly, final @Nullable Class<?> exception) {
-        assertLogContains(AbstractComponentTestUtils.IN_MEMORY_LOG_HANDLER, log, level, howMany, exactly, exception);
+        assertLogContains(COMPONENT_UNDER_TEST.getInMemoryLogHandler(), log, level, howMany, exactly, exception);
     }
 
     protected static void assertLogContains(final InMemoryLogHandler handler, final String log, final Level level,

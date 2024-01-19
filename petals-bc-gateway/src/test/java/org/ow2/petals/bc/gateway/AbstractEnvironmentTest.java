@@ -228,13 +228,13 @@ public class AbstractEnvironmentTest extends AbstractTest implements BcGatewayJb
         };
 
         if (certificateValue != null) {
-            consumes.addResource(AbstractComponentTest.class.getResource(certificateValue));
+            consumes.addResource(AbstractEnvironmentTest.class.getResource(certificateValue));
         }
         if (keyValue != null) {
-            consumes.addResource(AbstractComponentTest.class.getResource(keyValue));
+            consumes.addResource(AbstractEnvironmentTest.class.getResource(keyValue));
         }
         if (remoteCertificateValue != null) {
-            consumes.addResource(AbstractComponentTest.class.getResource(remoteCertificateValue));
+            consumes.addResource(AbstractEnvironmentTest.class.getResource(remoteCertificateValue));
         }
 
         if (timeout != null) {
@@ -328,13 +328,13 @@ public class AbstractEnvironmentTest extends AbstractTest implements BcGatewayJb
         };
 
         if (certificateValue != null) {
-            provides.addResource(AbstractComponentTest.class.getResource(certificateValue));
+            provides.addResource(AbstractEnvironmentTest.class.getResource(certificateValue));
         }
         if (keyValue != null) {
-            provides.addResource(AbstractComponentTest.class.getResource(keyValue));
+            provides.addResource(AbstractEnvironmentTest.class.getResource(keyValue));
         }
         if (remoteCertificateValue != null) {
-            provides.addResource(AbstractComponentTest.class.getResource(remoteCertificateValue));
+            provides.addResource(AbstractEnvironmentTest.class.getResource(remoteCertificateValue));
         }
 
         return provides;

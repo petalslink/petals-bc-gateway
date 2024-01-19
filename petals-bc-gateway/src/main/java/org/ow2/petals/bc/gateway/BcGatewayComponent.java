@@ -59,8 +59,6 @@ import org.ow2.petals.component.framework.su.ServiceUnitDataHandler;
 import org.ow2.petals.component.framework.util.ServiceEndpointKey;
 import org.w3c.dom.Document;
 
-import com.ebmwebsourcing.easycommons.lang.reflect.ReflectionHelper;
-
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.EventLoopGroup;
@@ -70,7 +68,6 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.serialization.ClassResolver;
 import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.util.concurrent.DefaultThreadFactory;
-import io.netty.util.concurrent.GlobalEventExecutor;
 
 /**
  * There is one instance for the whole component. The class is declared in the jbi.xml.
@@ -136,11 +133,6 @@ public class BcGatewayComponent extends AbstractBindingComponent implements Prov
                         BcGatewayJbiConstants.DEFAULT_PROVIDER_DOMAINS_MAX_POOL_SIZE);
         this.getLogger().config("Max pool size of consumer domains: " + cdMaxPoolSize);
         this.getLogger().config("Max pool size of provider domains: " + cdMaxPoolSize);
-
-        // this is needed to rename the the global event executor (global to this component because global to this
-        // classloader) used for executing propagation pooling
-        ReflectionHelper.setFieldValue(GlobalEventExecutor.INSTANCE, "threadFactory", new DefaultThreadFactory(
-                componentName + " - globalEventExecutor"), true);
 
         // only one thread for accepting new connections is enough (shared between all transport listeners)
         // we don't create connections often

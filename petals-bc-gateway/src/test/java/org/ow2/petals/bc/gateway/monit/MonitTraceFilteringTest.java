@@ -22,9 +22,12 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -33,13 +36,11 @@ import javax.jbi.messaging.ExchangeStatus;
 import javax.jbi.servicedesc.ServiceEndpoint;
 import javax.xml.namespace.QName;
 
-import org.apache.mina.util.AvailablePortFinder;
 import org.awaitility.Awaitility;
 import org.eclipse.jdt.annotation.Nullable;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.RuleChain;
-import org.junit.rules.TestRule;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
 import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
 import org.ow2.petals.InvalidMessage;
 import org.ow2.petals.ObjectFactory;
@@ -48,7 +49,8 @@ import org.ow2.petals.SayHello;
 import org.ow2.petals.SayHelloResponse;
 import org.ow2.petals.bc.gateway.AbstractEnvironmentTest;
 import org.ow2.petals.bc.gateway.BcGatewayJbiTestConstants;
-import org.ow2.petals.bc.gateway.EnsurePortsAreOK;
+import org.ow2.petals.bc.gateway.junit.extensions.EnsurePortsAreOKExtension;
+import org.ow2.petals.bc.gateway.junit.extensions.api.EnsurePortsAreOK;
 import org.ow2.petals.bc.gateway.utils.BcGatewayJbiConstants;
 import org.ow2.petals.commons.log.FlowLogData;
 import org.ow2.petals.commons.log.Level;
@@ -60,6 +62,9 @@ import org.ow2.petals.component.framework.junit.Message;
 import org.ow2.petals.component.framework.junit.RequestMessage;
 import org.ow2.petals.component.framework.junit.ResponseMessage;
 import org.ow2.petals.component.framework.junit.StatusMessage;
+import org.ow2.petals.component.framework.junit.extensions.ComponentConfigurationExtension;
+import org.ow2.petals.component.framework.junit.extensions.ComponentUnderTestExtension;
+import org.ow2.petals.component.framework.junit.extensions.api.ComponentUnderTest;
 import org.ow2.petals.component.framework.junit.helpers.ServiceProviderImplementation;
 import org.ow2.petals.component.framework.junit.impl.ComponentConfiguration;
 import org.ow2.petals.component.framework.junit.impl.ConsumesServiceConfiguration;
@@ -72,8 +77,8 @@ import org.ow2.petals.component.framework.junit.monitoring.business.filtering.Se
 import org.ow2.petals.component.framework.junit.monitoring.business.filtering.ServiceProviderReturningOut;
 import org.ow2.petals.component.framework.junit.monitoring.business.filtering.ServiceProviderReturningStatus;
 import org.ow2.petals.component.framework.junit.monitoring.business.filtering.exception.ServiceProviderCfgCreationError;
-import org.ow2.petals.component.framework.junit.rule.ComponentUnderTest;
 import org.ow2.petals.component.framework.test.Assert;
+import org.ow2.petals.junit.extensions.log.handler.InMemoryLogHandlerExtension;
 import org.supercsv.cellprocessor.constraint.IsIncludedIn;
 import org.supercsv.cellprocessor.constraint.StrNotNullOrEmpty;
 import org.supercsv.cellprocessor.ift.CellProcessor;
@@ -92,42 +97,56 @@ import jakarta.xml.bind.Marshaller;
  * </p>
  * 
  * @author Christophe DENEUX - Linagora
- * 
  */
 public class MonitTraceFilteringTest extends AbstractMonitTraceFilteringTestForServiceProvider {
 
-    private static final int TRANSPORT_PORT = AvailablePortFinder
-            .getNextAvailable(BcGatewayJbiTestConstants.DEFAULT_PORT);
+    protected static class BasicComponentConfiguration extends ComponentConfiguration {
 
-    protected static Logger LOG = Logger.getLogger(MonitTraceFilteringTest.class.getName());
+        public BasicComponentConfiguration(final String configurationName) {
+            super(configurationName);
+        }
 
-    private final ComponentUnderTest cutConsumerDomain = new ComponentUnderTest(
-            new ComponentConfiguration("ConsumerDomainComponent")).addLogHandler(IN_MEMORY_LOG_HANDLER.getHandler());
+        @Override
+        protected void extraJBIConfiguration(final @Nullable Document jbiDocument) {
+            assert jbiDocument != null;
 
-    private final ComponentUnderTest cutProviderDomain = new ComponentUnderTest(
-            new ComponentConfiguration("ProviderDomainComponent") {
-                @Override
-                protected void extraJBIConfiguration(final @Nullable Document jbiDocument) {
-                    assert jbiDocument != null;
+            final Element compo = getComponentElement(jbiDocument);
 
-                    final Element compo = getComponentElement(jbiDocument);
+            final Element transport = addElement(jbiDocument, compo, BcGatewayJbiConstants.EL_TRANSPORT_LISTENER);
+            transport.setAttribute(BcGatewayJbiTestConstants.ATTR_TRANSPORT_LISTENER_ID,
+                    AbstractEnvironmentTest.TEST_TRANSPORT_NAME);
+            addElement(jbiDocument, transport, BcGatewayJbiTestConstants.EL_TRANSPORT_LISTENER_PORT,
+                    "" + BcGatewayJbiTestConstants.DEFAULT_PORT);
+        }
+    }
 
-                    final Element transport = addElement(jbiDocument, compo,
-                            BcGatewayJbiConstants.EL_TRANSPORT_LISTENER);
-                    transport.setAttribute(BcGatewayJbiTestConstants.ATTR_TRANSPORT_LISTENER_ID,
-                            AbstractEnvironmentTest.TEST_TRANSPORT_NAME);
-                    addElement(jbiDocument, transport, BcGatewayJbiTestConstants.EL_TRANSPORT_LISTENER_PORT,
-                            "" + TRANSPORT_PORT);
-                }
-            }).addLogHandler(IN_MEMORY_LOG_HANDLER.getHandler()).registerExternalServiceProvider(
-                    AbstractEnvironmentTest.EXTERNAL_HELLO_ENDPOINT, AbstractEnvironmentTest.HELLO_SERVICE,
-                    AbstractEnvironmentTest.HELLO_INTERFACE);
+    private static Logger LOG = Logger.getLogger(MonitTraceFilteringTest.class.getName());
 
-    @Rule
-    public final TestRule chain = RuleChain.outerRule(TEMP_FOLDER)
-            .around(new EnsurePortsAreOK(TRANSPORT_PORT, AbstractEnvironmentTest.DEFAULT_PORT))
-            .around(IN_MEMORY_LOG_HANDLER)
-            .around(this.cutProviderDomain).around(this.cutConsumerDomain);
+    @Order(0)
+    @EnsurePortsAreOKExtension(ports = { BcGatewayJbiTestConstants.DEFAULT_PORT, AbstractEnvironmentTest.DEFAULT_PORT })
+    private EnsurePortsAreOK ENSURE_PORTS_ARE_OK;
+
+    @Order(2)
+    @ComponentUnderTestExtension(
+            inMemoryLogHandler = @InMemoryLogHandlerExtension, componentConfiguration = @ComponentConfigurationExtension(
+                    name = "ConsumerDomainComponent"
+            )
+    )
+    private ComponentUnderTest cutConsumerDomain;
+
+    @Order(1)
+    @ComponentUnderTestExtension(
+            inMemoryLogHandler = @InMemoryLogHandlerExtension, componentConfiguration = @ComponentConfigurationExtension(
+                    name = "ProviderDomainComponent", implementation = BasicComponentConfiguration.class
+            )
+    )
+    private ComponentUnderTest cutProviderDomain;
+
+    @BeforeEach
+    private void completesComponentUnderTestConfiguration() throws Exception {
+        this.cutProviderDomain.registerExternalServiceProvider(AbstractEnvironmentTest.EXTERNAL_HELLO_ENDPOINT,
+                AbstractEnvironmentTest.HELLO_SERVICE, AbstractEnvironmentTest.HELLO_INTERFACE);
+    }
 
     private ProvidesServiceConfiguration proxyServiceEndpoint;
 
@@ -333,8 +352,8 @@ public class MonitTraceFilteringTest extends AbstractMonitTraceFilteringTestForS
         }
         this.cutProviderDomain.deployService(AbstractEnvironmentTest.SU_CONSUMER_NAME, consumerServiceCfg);
 
-        this.cutConsumerDomain.deployService(AbstractEnvironmentTest.SU_PROVIDER_NAME,
-                AbstractEnvironmentTest.createProvider(AbstractEnvironmentTest.TEST_AUTH_NAME, TRANSPORT_PORT));
+        this.cutConsumerDomain.deployService(AbstractEnvironmentTest.SU_PROVIDER_NAME, AbstractEnvironmentTest
+                .createProvider(AbstractEnvironmentTest.TEST_AUTH_NAME, BcGatewayJbiTestConstants.DEFAULT_PORT));
 
         Awaitility.await().atMost(Duration.ofSeconds(10)).until(new Callable<Boolean>() {
             @Override
@@ -343,7 +362,8 @@ public class MonitTraceFilteringTest extends AbstractMonitTraceFilteringTestForS
             }
         });
 
-        final ServiceEndpoint notExtSvcEdp = AbstractEnvironmentTest.getPropagatedServiceEndpoint(this.cutConsumerDomain);
+        final ServiceEndpoint notExtSvcEdp = AbstractEnvironmentTest
+                .getPropagatedServiceEndpoint(this.cutConsumerDomain);
         this.proxyServiceEndpoint = new ProvidesServiceConfiguration(notExtSvcEdp.getInterfaces()[0],
                 notExtSvcEdp.getServiceName(), notExtSvcEdp.getEndpointName());
 
@@ -372,6 +392,7 @@ public class MonitTraceFilteringTest extends AbstractMonitTraceFilteringTestForS
 
         this.executeServiceInvocationWithResponse(MEPPatternConstants.IN_OUT, rule, ruleIdPrefix);
         this.executeServiceInvocationWithFault(MEPPatternConstants.IN_OUT, rule, ruleIdPrefix);
+        // TODO: Enable the following execution
         /*
          * this.executeServiceInvocationWithStatus(MEPPatternConstants.IN_OUT, rule, ruleIdPrefix, providerServiceCfg,
          * ExchangeStatus.ERROR);
@@ -450,6 +471,30 @@ public class MonitTraceFilteringTest extends AbstractMonitTraceFilteringTestForS
         this.cutProviderDomain.undeployService(AbstractEnvironmentTest.SU_CONSUMER_NAME);
     }
 
+    @Override
+    protected void clearLogTraces() {
+        this.cutConsumerDomain.getInMemoryLogHandler().clear();
+        this.cutProviderDomain.getInMemoryLogHandler().clear();
+    }
+
+    @Override
+    protected List<LogRecord> getMonitTraces() {
+        final Comparator<LogRecord> comparator = (logRecord1, logRecord2) -> {
+            if (logRecord2.getSequenceNumber() < logRecord1.getSequenceNumber()) {
+                return 1;
+            } else if (logRecord2.getSequenceNumber() == logRecord1.getSequenceNumber()) {
+                // Should not occurs
+                return 0;
+            } else {
+                return -1;
+            }
+        };
+        final Set<LogRecord> logRecords = new TreeSet<>(comparator);
+        logRecords.addAll(this.cutConsumerDomain.getInMemoryLogHandler().getAllRecords(Level.MONIT));
+        logRecords.addAll(this.cutProviderDomain.getInMemoryLogHandler().getAllRecords(Level.MONIT));
+        return new ArrayList<>(logRecords);
+    }
+
     /**
      * <p>
      * Execute a service invocation for the given request. A nominal response is returned by the service provider
@@ -469,7 +514,7 @@ public class MonitTraceFilteringTest extends AbstractMonitTraceFilteringTestForS
         final String newRuleIdPrefix = ruleIdPrefix + "Response returned: ";
 
         LOG.info(newRuleIdPrefix + "Executing rule ...");
-        IN_MEMORY_LOG_HANDLER.clear();
+        this.clearLogTraces();
 
         final Optional<Boolean> expectedFlowTracingActivationState = parseExpectedResultAsOptional(
                 rule.expectedFlowTracingActivationState);
@@ -486,7 +531,7 @@ public class MonitTraceFilteringTest extends AbstractMonitTraceFilteringTestForS
                 newRuleIdPrefix);
 
         // Check MONIT traces
-        final List<LogRecord> monitLogs = IN_MEMORY_LOG_HANDLER.getAllRecords(Level.MONIT);
+        final List<LogRecord> monitLogs = this.getMonitTraces();
         this.assertMonitTraces(newRuleIdPrefix, monitLogs, isConsDomProvMonitTraceLogged, isProvDomConsMonitTraceLogged,
                 isProvMonitTraceExpected, false, mep);
 
@@ -511,7 +556,7 @@ public class MonitTraceFilteringTest extends AbstractMonitTraceFilteringTestForS
         final String newRuleIdPrefix = ruleIdPrefix + "Fault returned: ";
 
         LOG.info(newRuleIdPrefix + "Executing rule ...");
-        IN_MEMORY_LOG_HANDLER.clear();
+        this.clearLogTraces();
 
         final Optional<Boolean> expectedFlowTracingActivationState = parseExpectedResultAsOptional(
                 rule.expectedFlowTracingActivationState);
@@ -528,7 +573,7 @@ public class MonitTraceFilteringTest extends AbstractMonitTraceFilteringTestForS
                 newRuleIdPrefix);
 
         // Check MONIT traces
-        final List<LogRecord> monitLogs = IN_MEMORY_LOG_HANDLER.getAllRecords(Level.MONIT);
+        final List<LogRecord> monitLogs = this.getMonitTraces();
         this.assertMonitTraces(newRuleIdPrefix, monitLogs, isConsDomProvMonitTraceLogged, isProvDomConsMonitTraceLogged,
                 isProvMonitTraceExpected, true, mep);
 
@@ -556,7 +601,7 @@ public class MonitTraceFilteringTest extends AbstractMonitTraceFilteringTestForS
         final String newRuleIdPrefix = ruleIdPrefix + statusToReturn.toString() + " returned: ";
 
         LOG.info(newRuleIdPrefix + "Executing rule ...");
-        IN_MEMORY_LOG_HANDLER.clear();
+        this.clearLogTraces();
 
         final Optional<Boolean> expectedFlowTracingActivationState = parseExpectedResultAsOptional(
                 rule.expectedFlowTracingActivationState);
@@ -576,7 +621,7 @@ public class MonitTraceFilteringTest extends AbstractMonitTraceFilteringTestForS
                 newRuleIdPrefix);
 
         // Check MONIT traces
-        final List<LogRecord> monitLogs = IN_MEMORY_LOG_HANDLER.getAllRecords(Level.MONIT);
+        final List<LogRecord> monitLogs = this.getMonitTraces();
         this.assertMonitTraces(newRuleIdPrefix, monitLogs, isConsDomProvMonitTraceLogged, isProvDomConsMonitTraceLogged,
                 isProvMonitTraceExpected, statusToReturn == ExchangeStatus.ERROR, mep);
 
@@ -835,7 +880,7 @@ public class MonitTraceFilteringTest extends AbstractMonitTraceFilteringTestForS
         final int expectedMonitLogSize = (isConsDomProvMonitTraceLogged ? 4 : 0)
                 + (isProvDomConsMonitTraceLogged ? 2 : 0) + (isProvMonitTraceExpected ? 2 : 0);
 
-        assertEquals(ruleIdPrefix, expectedMonitLogSize, monitLogs.size());
+        assertEquals(expectedMonitLogSize, monitLogs.size(), ruleIdPrefix);
         if (isConsDomProvMonitTraceLogged) {
             final FlowLogData consumerDomainProviderBeginFlowLogData = assertMonitProviderBeginLog(ruleIdPrefix,
                     AbstractEnvironmentTest.HELLO_INTERFACE, AbstractEnvironmentTest.HELLO_SERVICE,
@@ -929,7 +974,7 @@ public class MonitTraceFilteringTest extends AbstractMonitTraceFilteringTestForS
                 assertMonitProviderFailureLog(ruleIdPrefix, providedBeginFlowLogData, monitLogs.get(1));
             }
         } else {
-            assertEquals(ruleIdPrefix, 0, monitLogs.size());
+            assertEquals(0, monitLogs.size(), ruleIdPrefix);
         }
     }
 

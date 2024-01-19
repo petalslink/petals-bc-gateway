@@ -21,7 +21,7 @@
    xmlns:g="http://petals.ow2.org/components/petals-bc-gateway/version-1.0" elementFormDefault="qualified">
 
    <xs:import namespace="http://java.sun.com/xml/ns/jbi" />
-   <xs:import namespace="http://petals.ow2.org/components/extensions/version-5" />
+   <xs:import namespace="http://petals.ow2.org/components/extensions/version-5" schemaLocation="CDKextensions.xsd"/>
 
    <!-- 1) Component configuration -->
 

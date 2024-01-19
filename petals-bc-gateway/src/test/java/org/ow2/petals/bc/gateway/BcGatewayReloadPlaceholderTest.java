@@ -19,18 +19,23 @@ package org.ow2.petals.bc.gateway;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.nio.file.Path;
 import java.util.Properties;
 
 import javax.xml.namespace.QName;
 
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.rules.RuleChain;
-import org.junit.rules.TemporaryFolder;
-import org.junit.rules.TestRule;
-import org.ow2.petals.component.framework.junit.Component;
-import org.ow2.petals.component.framework.junit.rule.ComponentUnderTest;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.ow2.petals.bc.gateway.AbstractComponentTest.BasicComponentConfiguration;
+import org.ow2.petals.bc.gateway.junit.extensions.EnsurePortsAreOKExtension;
+import org.ow2.petals.bc.gateway.junit.extensions.api.EnsurePortsAreOK;
+import org.ow2.petals.component.framework.junit.extensions.ComponentConfigurationExtension;
+import org.ow2.petals.component.framework.junit.extensions.ComponentUnderTestExtension;
+import org.ow2.petals.component.framework.junit.extensions.api.ComponentUnderTest;
 import org.ow2.petals.component.framework.junit.rule.ParameterGenerator;
+import org.ow2.petals.junit.extensions.log.handler.InMemoryLogHandlerExtension;
 
 public class BcGatewayReloadPlaceholderTest extends AbstractEnvironmentTest implements BcGatewayJbiTestConstants {
 
@@ -46,48 +51,59 @@ public class BcGatewayReloadPlaceholderTest extends AbstractEnvironmentTest impl
 
     private static final String SSL_SERVER_REMOTE_CERTIFICATE_PLACEHOLDER_NAME = "ssl.server.remote.certificate";
 
-    private static final TemporaryFolder TEMP_FOLDER = new TemporaryFolder();
+    @Order(0)
+    @EnsurePortsAreOKExtension(
+            ports = { AbstractEnvironmentTest.TEST_TRANSPORT_PORT, AbstractEnvironmentTest.DEFAULT_PORT }
+    )
+    private static EnsurePortsAreOK ENSURE_PORTS_ARE_OK;
 
-    protected static String COMPONENT_PROPERTIES_FILE;
+    @Order(1)
+    @TempDir
+    private static Path TEMP_FOLDER;
 
-    protected static final Component COMPONENT_UNDER_TEST = new ComponentUnderTest(
-            AbstractComponentTestUtils.CONFIGURATION)
-            // we need faster checks for our tests, 2000 is too long!
-            .setParameter(new QName(CDK_NAMESPACE_URI, "time-beetween-async-cleaner-runs"), "100")
-                    .addLogHandler(AbstractComponentTestUtils.IN_MEMORY_LOG_HANDLER.getHandler())
-            .setParameter(new QName("http://petals.ow2.org/components/extensions/version-5", "properties-file"),
-                    new ParameterGenerator() {
+    private static String COMPONENT_PROPERTIES_FILE;
 
-                        @Override
-                        public String generate() throws Exception {
+    @Order(2)
+    @ComponentUnderTestExtension(
+            inMemoryLogHandler = @InMemoryLogHandlerExtension, explicitPostInitialization = true, componentConfiguration = @ComponentConfigurationExtension(
+                    name = "G", implementation = BasicComponentConfiguration.class
+            )
+    )
+    private static ComponentUnderTest COMPONENT_UNDER_TEST;
 
-                            final Properties componentProperties = new Properties();
-                            componentProperties.setProperty(SSL_CLIENT_CERTIFICATE_PLACEHOLDER_NAME, "");
-                            componentProperties.setProperty(SSL_CLIENT_KEY_PLACEHOLDER_NAME, "");
-                            componentProperties.setProperty(SSL_CLIENT_REMOTE_CERTIFICATE_PLACEHOLDER_NAME, "");
-                            componentProperties.setProperty(SSL_SERVER_CERTIFICATE_PLACEHOLDER_NAME, "");
-                            componentProperties.setProperty(SSL_SERVER_KEY_PLACEHOLDER_NAME, "");
-                            componentProperties.setProperty(SSL_SERVER_REMOTE_CERTIFICATE_PLACEHOLDER_NAME, "");
+    @BeforeAll
+    private static void completesComponentUnderTestConfiguration() throws Exception {
+        COMPONENT_UNDER_TEST
+                // we need faster checks for our tests, 2000 is too long!
+                .setParameter(new QName(CDK_NAMESPACE_URI, "time-beetween-async-cleaner-runs"), "100")
+                .setParameter(new QName("http://petals.ow2.org/components/extensions/version-5", "properties-file"),
+                        new ParameterGenerator() {
 
-                            final File componentPropertiesFile = TEMP_FOLDER.newFile("component-properties.properties");
-                            try (final FileOutputStream fos = new FileOutputStream(componentPropertiesFile)) {
-                                componentProperties.store(fos, "Initial placeholders");
+                            @Override
+                            public String generate() throws Exception {
+
+                                final Properties componentProperties = new Properties();
+                                componentProperties.setProperty(SSL_CLIENT_CERTIFICATE_PLACEHOLDER_NAME, "");
+                                componentProperties.setProperty(SSL_CLIENT_KEY_PLACEHOLDER_NAME, "");
+                                componentProperties.setProperty(SSL_CLIENT_REMOTE_CERTIFICATE_PLACEHOLDER_NAME, "");
+                                componentProperties.setProperty(SSL_SERVER_CERTIFICATE_PLACEHOLDER_NAME, "");
+                                componentProperties.setProperty(SSL_SERVER_KEY_PLACEHOLDER_NAME, "");
+                                componentProperties.setProperty(SSL_SERVER_REMOTE_CERTIFICATE_PLACEHOLDER_NAME, "");
+
+                                final File componentPropertiesFile = TEMP_FOLDER
+                                        .resolve("component-properties.properties").toFile();
+                                try (final FileOutputStream fos = new FileOutputStream(componentPropertiesFile)) {
+                                    componentProperties.store(fos, "Initial placeholders");
+                                }
+
+                                COMPONENT_PROPERTIES_FILE = componentPropertiesFile.getAbsolutePath();
+                                return COMPONENT_PROPERTIES_FILE;
                             }
 
-                            COMPONENT_PROPERTIES_FILE = componentPropertiesFile.getAbsolutePath();
-                            return COMPONENT_PROPERTIES_FILE;
-                        }
-
-                    })
-            .registerExternalServiceProvider(EXTERNAL_HELLO_ENDPOINT, HELLO_SERVICE, HELLO_INTERFACE);
-
-    /**
-     * We use a class rule (i.e. static) so that the component lives during all the tests, this enables to test also
-     * that successive deploy and undeploy do not create problems.
-     */
-    @ClassRule
-    public static final TestRule chain = RuleChain.outerRule(new EnsurePortsAreOK()).around(TEMP_FOLDER)
-            .around(AbstractComponentTestUtils.IN_MEMORY_LOG_HANDLER).around(COMPONENT_UNDER_TEST);
+                        })
+                .registerExternalServiceProvider(EXTERNAL_HELLO_ENDPOINT, HELLO_SERVICE, HELLO_INTERFACE)
+                .postInitComponentUnderTest();
+    }
 
     /**
      * <p>
@@ -101,7 +117,7 @@ public class BcGatewayReloadPlaceholderTest extends AbstractEnvironmentTest impl
     public void reloadSSLPlaceholders() throws Exception {
 
         // 1 - Create domains configured without SSL through placeholders
-        AbstractComponentTestUtils.deployTwoDomains(COMPONENT_UNDER_TEST,
+        deployTwoDomains(COMPONENT_UNDER_TEST,
                 createConsumes(HELLO_INTERFACE, HELLO_SERVICE, EXTERNAL_HELLO_ENDPOINT, BcGatewaySSLTest.SERVER_CRT,
                         SSL_SERVER_CERTIFICATE_PLACEHOLDER_NAME, BcGatewaySSLTest.SERVER_KEY,
                         SSL_SERVER_KEY_PLACEHOLDER_NAME, BcGatewaySSLTest.CLIENT_CRT,
@@ -131,7 +147,5 @@ public class BcGatewayReloadPlaceholderTest extends AbstractEnvironmentTest impl
             }
             COMPONENT_UNDER_TEST.getComponentObject().reloadPlaceHolders();
         }
-
     }
-
 }

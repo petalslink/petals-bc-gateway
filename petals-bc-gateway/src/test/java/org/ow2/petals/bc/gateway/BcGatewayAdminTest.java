@@ -17,10 +17,14 @@
  */
 package org.ow2.petals.bc.gateway;
 
-import static org.ow2.petals.bc.gateway.EnsurePortsAreOK.assertAvailable;
-import static org.ow2.petals.bc.gateway.EnsurePortsAreOK.assertNotAvailable;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.ow2.petals.bc.gateway.junit.extensions.api.EnsurePortsAreOK.assertAvailable;
+import static org.ow2.petals.bc.gateway.junit.extensions.api.EnsurePortsAreOK.assertNotAvailable;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.ow2.petals.basisapi.exception.PetalsException;
 import org.ow2.petals.commons.log.Level;
 
@@ -30,10 +34,11 @@ public class BcGatewayAdminTest extends AbstractComponentTest {
     public void testCantAddListener() throws Exception {
         assertNotAvailable(TEST_TRANSPORT_PORT);
 
-        thrown.expect(PetalsException.class);
-        thrown.expectMessage("A transport listener with id '" + TEST_TRANSPORT_NAME + "' already exists");
-
-        addTransportListener(TEST_TRANSPORT_NAME, 1234);
+        final Exception actualException = assertThrows(PetalsException.class, () -> {
+            addTransportListener(TEST_TRANSPORT_NAME, 1234);
+        });
+        assertEquals("A transport listener with id '" + TEST_TRANSPORT_NAME + "' already exists in the jbi.xml",
+                actualException.getMessage());
     }
 
     @Test
@@ -42,10 +47,10 @@ public class BcGatewayAdminTest extends AbstractComponentTest {
 
         COMPONENT_UNDER_TEST.deployService(SU_CONSUMER_NAME, createHelloConsumes(true, true));
 
-        thrown.expect(PetalsException.class);
-        thrown.expectMessage("Can't remove a transport listener with SUs using it");
-
-        removeTransportListener(TEST_TRANSPORT_NAME);
+        final Exception actualException = assertThrows(PetalsException.class, () -> {
+            removeTransportListener(TEST_TRANSPORT_NAME);
+        });
+        assertEquals("Can't remove a transport listener with SUs using it", actualException.getMessage());
     }
 
     @Test

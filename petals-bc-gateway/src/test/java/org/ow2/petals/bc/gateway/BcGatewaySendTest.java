@@ -17,10 +17,12 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import javax.jbi.servicedesc.ServiceEndpoint;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
 import org.ow2.petals.bc.gateway.commons.AbstractDomain;
 import org.ow2.petals.component.framework.junit.Message;

@@ -87,7 +87,8 @@ public class BcGatewayJbiHelper implements BcGatewayJbiConstants {
 
     static {
         try {
-            final JAXBContext jaxbContext = JAXBContext.newInstance(ObjectFactory.class,
+            final JAXBContext jaxbContext = JAXBContext.newInstance(
+                    org.ow2.petals.bc.gateway.jbidescriptor.generated.ObjectFactory.class,
                     org.ow2.petals.jbi.descriptor.extension.generated.ObjectFactory.class);
 
             final SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
@@ -107,6 +108,7 @@ public class BcGatewayJbiHelper implements BcGatewayJbiConstants {
     }
 
     private BcGatewayJbiHelper() {
+        // Utility class --> No constructor
     }
 
     /**

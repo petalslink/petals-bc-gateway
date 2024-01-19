@@ -17,45 +17,41 @@
  */
 package org.ow2.petals.bc.gateway;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.Callable;
 import java.util.logging.Level;
+import java.util.stream.Stream;
 
 import javax.xml.namespace.QName;
 
 import org.awaitility.Awaitility;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.rules.RuleChain;
-import org.junit.rules.TestRule;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.ArgumentsProvider;
+import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.ow2.easywsdl.wsdl.api.WSDLException;
-import org.ow2.petals.component.framework.junit.Component;
-import org.ow2.petals.component.framework.junit.impl.ComponentConfiguration;
+import org.ow2.petals.component.framework.junit.extensions.ComponentConfigurationExtension;
+import org.ow2.petals.component.framework.junit.extensions.ComponentUnderTestExtension;
+import org.ow2.petals.component.framework.junit.extensions.api.ComponentUnderTest;
 import org.ow2.petals.component.framework.junit.impl.mock.MockEndpointDirectory;
 import org.ow2.petals.component.framework.junit.impl.mock.MockServiceEndpoint;
-import org.ow2.petals.component.framework.junit.rule.ComponentUnderTest;
 import org.ow2.petals.component.framework.util.WSDLUtilImpl;
 import org.ow2.petals.jbi.servicedesc.endpoint.Location;
-import org.ow2.petals.junit.rules.log.handler.InMemoryLogHandler;
+import org.ow2.petals.junit.extensions.log.handler.InMemoryLogHandlerExtension;
 
 /**
- * TODO also test that there is no warning in the log w.r.t. descriptions!
- * 
- * Maybe we could use assertLogContains to remove the logs we expected, and then at the end test that there is no
- * warning nor severe?
+ * TODO also test that there is no warning in the log w.r.t. descriptions! Maybe we could use assertLogContains to
+ * remove the logs we expected, and then at the end test that there is no warning nor severe?
  * 
  * @author vnoel
- *
  */
-@RunWith(Parameterized.class)
 public class BcGatewayRefreshTest extends AbstractComponentTest {
 
     private static final QName TEST_INTERFACE = new QName(HELLO_NS, "TestInterface");
@@ -95,79 +91,73 @@ public class BcGatewayRefreshTest extends AbstractComponentTest {
         }
     }
 
-    protected static final InMemoryLogHandler IN_MEMORY_LOG_HANDLER2 = new InMemoryLogHandler();
-
     /**
      * There is no transport listener for this one
      */
-    protected static final Component COMPONENT_UNDER_TEST2 = new ComponentUnderTest(new ComponentConfiguration("G2"))
-            // we need faster checks for our tests, 2000 is too long!
-            .setParameter(new QName(CDK_NAMESPACE_URI, "time-beetween-async-cleaner-runs"), "100")
-            .addLogHandler(IN_MEMORY_LOG_HANDLER2.getHandler());
+    @ComponentUnderTestExtension(
+            inMemoryLogHandler = @InMemoryLogHandlerExtension, explicitPostInitialization = true, componentConfiguration = @ComponentConfigurationExtension(
+                    name = "G2"
+            )
+    )
+    protected static ComponentUnderTest COMPONENT_UNDER_TEST2;
 
-    @ClassRule
-    public static final TestRule chain2 = RuleChain.outerRule(IN_MEMORY_LOG_HANDLER2).around(COMPONENT_UNDER_TEST2);
+    @BeforeAll
+    private static void completesComponentUnderTest2() throws Exception {
 
-    @SuppressWarnings("null")
-    @Parameters(name = "{index}: {0},{1},{2},{3}")
-    public static Collection<Object[]> data() {
-        return Arrays.asList(new Object[][] {
-                { false, false, false, 0L },
-                { false, false, false, 1000L },
-                { true, false, false, 0L },
-                { true, false, false, 1000L },
-                { true, true, false, 0L },
-                { true, true, false, 1000L },
-                { false, false, true, 0L },
-                { false, false, true, 1000L },
-                { true, false, true, 0L },
-                { true, false, true, 1000L },
-                { true, true, true, 0L },
-                { true, true, true, 1000L },
-        });
-    };
+        COMPONENT_UNDER_TEST2
+                // we need faster checks for our tests, 2000 is too long!
+                .setParameter(new QName(CDK_NAMESPACE_URI, "time-beetween-async-cleaner-runs"), "100")
+                .postInitComponentUnderTest();
+    }
 
-    @Parameter
-    public boolean specifyService = false;
-    
-    @Parameter(1)
-    public boolean specifyEndpoint = false;
-    
-    @Parameter(2)
-    public boolean withDesc = false;
-
-    @Parameter(3)
-    public long polling = 0L;
+    static class Params implements ArgumentsProvider {
+        @Override
+        public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
+            return Stream.of(
+                    Arguments.of(false, false, false, 0L),
+                    Arguments.of(false, false, false, 1000L),
+                    Arguments.of(true, false, false, 0L),
+                    Arguments.of(true, false, false, 1000L),
+                    Arguments.of(true, true, false, 0L),
+                    Arguments.of(true, true, false, 1000L),
+                    Arguments.of(false, false, true, 0L),
+                    Arguments.of(false, false, true, 1000L),
+                    Arguments.of(true, false, true, 0L),
+                    Arguments.of(true, false, true, 1000L),
+                    Arguments.of(true, true, true, 0L),
+                    Arguments.of(true, true, true, 1000L));
+        }
+    }
 
     /**
      * All log traces must be cleared before starting a unit test (because the log handler is static and lives during
      * the whole suite of tests)
      */
-    @Before
+    @BeforeEach
     public void clearLogTraces2() {
-        IN_MEMORY_LOG_HANDLER2.clear();
+        COMPONENT_UNDER_TEST2.getInMemoryLogHandler().clear();
         // we want to clear them inbetween tests
         COMPONENT_UNDER_TEST2.clearRequestsFromConsumer();
         COMPONENT_UNDER_TEST2.clearResponsesFromProvider();
     }
 
-    @After
+    @AfterEach
     public void ensureNoExchangeInProgress2() {
         ensureNoExchangeInProgress(COMPONENT_UNDER_TEST2);
     }
 
-    @After
+    @AfterEach
     public void undeployServices2() {
         COMPONENT_UNDER_TEST.getEndpointDirectory().deactivateEndpoint(SERVICE_ENDPOINT);
         COMPONENT_UNDER_TEST.getEndpointDirectory().deactivateEndpoint(SERVICE_ENDPOINT2);
         COMPONENT_UNDER_TEST.getEndpointDirectory().deactivateEndpoint(SERVICE_ENDPOINT_WITH_DESC);
         COMPONENT_UNDER_TEST.getEndpointDirectory().deactivateEndpoint(SERVICE_ENDPOINT_WITH_DESC2);
 
-        undeployServices(COMPONENT_UNDER_TEST2, IN_MEMORY_LOG_HANDLER2);
+        undeployServices(COMPONENT_UNDER_TEST2);
     }
 
-    @Before
-    public void setup() throws Exception {
+    private void deployServices(final boolean specifyService, final boolean specifyEndpoint, final long polling)
+            throws Exception {
         final MockEndpointDirectory ed = COMPONENT_UNDER_TEST.getEndpointDirectory();
 
         // disable propagation polling
@@ -177,14 +167,18 @@ public class BcGatewayRefreshTest extends AbstractComponentTest {
 
         COMPONENT_UNDER_TEST2.deployService(SU_PROVIDER_NAME, createProvider());
 
-        assertLogContains(IN_MEMORY_LOG_HANDLER2, "AuthAccept", Level.FINE, 1, false);
+        assertLogContains(COMPONENT_UNDER_TEST2.getInMemoryLogHandler(), "AuthAccept", Level.FINE, 1, false);
 
         assertTrue(ed.resolveEndpoints(TEST_INTERFACE).isEmpty());
         checkEndpoints(0, 0, 0);
     }
 
-    @Test
-    public void testRefreshAddRemove() throws Exception {
+    @ParameterizedTest(name = "{index}: {0},{1},{2},{3}")
+    @ArgumentsSource(Params.class)
+    public void testRefreshAddRemove(final boolean specifyService, final boolean specifyEndpoint,
+            final boolean withDesc, final long polling) throws Exception {
+
+        this.deployServices(specifyService, specifyEndpoint, polling);
 
         final MockEndpointDirectory ed = COMPONENT_UNDER_TEST.getEndpointDirectory();
 
@@ -220,13 +214,13 @@ public class BcGatewayRefreshTest extends AbstractComponentTest {
                 assertLogContains("Changes in propagations detected: refreshed", Level.INFO, 2);
             }
         }
-        
+
         ed.deactivateEndpoint(withDesc ? SERVICE_ENDPOINT_WITH_DESC : SERVICE_ENDPOINT);
-        
+
         if (polling == 0) {
             getComponent().refreshPropagations();
         }
-        
+
         final int nbService2 = !specifyService ? 1 : 0;
         checkEndpoints(nbService2, 0, nbService2);
 
@@ -251,8 +245,12 @@ public class BcGatewayRefreshTest extends AbstractComponentTest {
         }
     }
 
-    @Test
-    public void testRefreshUpdateDesc() throws Exception {
+    @ParameterizedTest(name = "{index}: {0},{1},{2},{3}")
+    @ArgumentsSource(Params.class)
+    public void testRefreshUpdateDesc(final boolean specifyService, final boolean specifyEndpoint,
+            final boolean withDesc, final long polling) throws Exception {
+
+        this.deployServices(specifyService, specifyEndpoint, polling);
 
         if (!specifyService && !withDesc && !specifyEndpoint) {
             // no test

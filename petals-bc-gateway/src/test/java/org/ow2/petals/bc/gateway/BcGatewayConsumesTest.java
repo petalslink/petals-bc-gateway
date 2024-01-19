@@ -17,7 +17,7 @@
  */
 package org.ow2.petals.bc.gateway;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class BcGatewayConsumesTest extends AbstractComponentTest {
 

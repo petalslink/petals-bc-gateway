@@ -53,7 +53,8 @@
                         <!-- The component on which this SU must be deployed -->
                         <usedDependency>org.ow2.petals:petals-bc-gateway</usedDependency>
                         <!-- No unit test included with this project -->
-                        <usedDependency>junit:junit</usedDependency>
+                        <usedDependency>org.junit.jupiter:junit-jupiter-engine</usedDependency>
+                        <usedDependency>org.junit.jupiter:junit-jupiter-api</usedDependency>
                      </usedDependencies>
                   </configuration>
                </execution>

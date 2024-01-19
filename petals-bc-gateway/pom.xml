@@ -22,7 +22,7 @@
       <groupId>org.ow2.petals</groupId>
       <artifactId>petals-cdkbased-components-parent</artifactId>
       <version>1.3.0-SNAPSHOT</version>
-      <relativePath />
+		<relativePath />
    </parent>
 
    <artifactId>petals-bc-gateway</artifactId>
@@ -31,185 +31,182 @@
    <name>Petals ESB - Components - BC Gateway</name>
 
    <properties>
-      <netty.version>4.1.68.Final</netty.version>
+      <netty.version>4.1.105.Final</netty.version>
    </properties>
-   
-   <dependencyManagement>
-      <dependencies>
-         <dependency>
-            <!-- Align dependency 'junit:junit' between Petals and embedded-ldap-junit -->
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.13.1</version>
-            <exclusions>
-               <exclusion>
-                  <!-- We prefer to use Hamcrest 2.1 coming with Mockito instead of Hamcrest 1.3 coming with Junit -->
-                  <!-- TODO: Must be adjusted/removed when moving to JUnit5 -->
-                  <groupId>org.hamcrest</groupId>
-                  <artifactId>hamcrest-core</artifactId>
-               </exclusion>
-            </exclusions>
-         </dependency>
-      </dependencies>
-   </dependencyManagement>
-   
-   <dependencies>
-      <dependency>
-         <groupId>io.netty</groupId>
-         <artifactId>netty-common</artifactId>
-         <version>${netty.version}</version>
-      </dependency>
-      <dependency>
-         <groupId>io.netty</groupId>
-         <artifactId>netty-transport</artifactId>
-         <version>${netty.version}</version>
-      </dependency>
-      <dependency>
-         <groupId>io.netty</groupId>
-         <artifactId>netty-handler</artifactId>
-         <version>${netty.version}</version>
-      </dependency>
-      <dependency>
-         <groupId>io.netty</groupId>
-         <artifactId>netty-codec</artifactId>
-         <version>${netty.version}</version>
-      </dependency>
-      <dependency>
-        <!-- Improve netty performances (it is optional...) -->
-         <groupId>org.javassist</groupId>
-         <artifactId>javassist</artifactId>
-         <version>3.19.0-GA</version>
-      </dependency>
-      <!-- TODO when using SSL, check native tomcat netty dependency -->
-      <!-- Petals dependencies -->
-      <dependency>
-         <groupId>org.ow2.easycommons</groupId>
-         <artifactId>easycommons-util</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.ow2.easycommons</groupId>
-         <artifactId>easycommons-lang</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.ow2.easycommons</groupId>
-         <artifactId>easycommons-properties</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.ow2.easywsdl</groupId>
-         <artifactId>easywsdl-wsdl</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.ow2.easywsdl</groupId>
-         <artifactId>easywsdl-ext-wsdl4complexwsdl</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.ow2.petals</groupId>
-         <artifactId>petals-jbi</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.ow2.petals</groupId>
-         <artifactId>petals-cdk-api</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.ow2.petals</groupId>
-         <artifactId>petals-basis-api</artifactId>
-         <version>1.3.0-SNAPSHOT</version>
-      </dependency>
-      <dependency>
-         <groupId>org.ow2.petals</groupId>
-         <artifactId>petals-cdk-core</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.ow2.petals</groupId>
-         <artifactId>petals-cdk-jbidescriptor</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.ow2.petals</groupId>
-         <artifactId>petals-cdk-steplog</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.ow2.petals</groupId>
-         <artifactId>petals-jbi-descriptor</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.ow2.petals</groupId>
-         <artifactId>petals-bc-gateway-clientserver-api</artifactId>
-         <version>1.3.0-SNAPSHOT</version>
-      </dependency>
-      <dependency>
-         <groupId>org.ow2.petals</groupId>
-         <artifactId>petals-commons-log</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>jakarta.xml.bind</groupId>
-         <artifactId>jakarta.xml.bind-api</artifactId>
-         <exclusions>
-            <exclusion>
-               <!-- Already included in com.sun.activation:jakarta.activation provided by Petals CDK -->
-               <groupId>jakarta.activation</groupId>
-               <artifactId>jakarta.activation-api</artifactId>
-            </exclusion>
-         </exclusions>
-      </dependency>
-      <dependency>
-         <groupId>org.patrodyne.jvnet</groupId>
-         <artifactId>hisrc-basicjaxb-runtime</artifactId>
-         <exclusions>
-            <exclusion>
-               <!-- Already included in com.sun.activation:jakarta.activation provided by Petals CDK -->
-               <groupId>jakarta.activation</groupId>
-               <artifactId>jakarta.activation-api</artifactId>
-            </exclusion>
-         </exclusions>
-      </dependency>
-      <!-- Code quality dependencies -->
-      <dependency>
-         <groupId>org.eclipse.jdt</groupId>
-         <artifactId>org.eclipse.jdt.annotation</artifactId>
-         <version>1.1.0</version>
-         <!-- Prevent the dependency from being included in distributions -->
-         <scope>provided</scope>
-      </dependency>
-      <!-- Test dependencies -->
-      <dependency>
-         <groupId>org.ow2.petals</groupId>
-         <artifactId>petals-cdk-junit</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.ow2.petals</groupId>
-         <artifactId>petals-cdk-test-utils</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.ow2.petals</groupId>
-         <artifactId>petals-message-exchange</artifactId>
-         <version>1.5.0-SNAPSHOT</version>
-         <scope>test</scope>
-      </dependency>
-      <dependency>
-         <groupId>org.ow2.petals</groupId>
-         <artifactId>petals-junit-inmemoryloghandler</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.awaitility</groupId>
-         <artifactId>awaitility</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.hamcrest</groupId>
-         <artifactId>hamcrest</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.apache.mina</groupId>
-         <artifactId>mina-core</artifactId>
-         <version>2.1.4</version>
-         <scope>test</scope>
-      </dependency>
-      <dependency>
-         <groupId>net.sf.supercsv</groupId>
-         <artifactId>super-csv</artifactId>
-         <version>2.4.0</version>
-         <scope>test</scope>
-      </dependency>
-   </dependencies>
+
+	<dependencies>
+		<dependency>
+			<groupId>io.netty</groupId>
+			<artifactId>netty-common</artifactId>
+			<version>${netty.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.netty</groupId>
+			<artifactId>netty-transport</artifactId>
+			<version>${netty.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.netty</groupId>
+			<artifactId>netty-handler</artifactId>
+			<version>${netty.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.netty</groupId>
+			<artifactId>netty-codec</artifactId>
+			<version>${netty.version}</version>
+		</dependency>
+		<dependency>
+			<!-- Improve netty performances (it is optional...) -->
+			<groupId>org.javassist</groupId>
+			<artifactId>javassist</artifactId>
+			<version>3.19.0-GA</version>
+		</dependency>
+		<!-- TODO when using SSL, check native tomcat netty dependency -->
+		<!-- Petals dependencies -->
+		<dependency>
+			<groupId>org.ow2.easycommons</groupId>
+			<artifactId>easycommons-util</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.ow2.easycommons</groupId>
+			<artifactId>easycommons-lang</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.ow2.easycommons</groupId>
+			<artifactId>easycommons-properties</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.ow2.easywsdl</groupId>
+			<artifactId>easywsdl-wsdl</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.ow2.easywsdl</groupId>
+			<artifactId>easywsdl-ext-wsdl4complexwsdl</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.ow2.petals</groupId>
+			<artifactId>petals-jbi</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.ow2.petals</groupId>
+			<artifactId>petals-cdk-api</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.ow2.petals</groupId>
+			<artifactId>petals-basis-api</artifactId>
+			<version>1.3.0-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>org.ow2.petals</groupId>
+			<artifactId>petals-cdk-core</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.ow2.petals</groupId>
+			<artifactId>petals-cdk-jbidescriptor</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.ow2.petals</groupId>
+			<artifactId>petals-cdk-steplog</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.ow2.petals</groupId>
+			<artifactId>petals-jbi-descriptor</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.ow2.petals</groupId>
+			<artifactId>petals-bc-gateway-clientserver-api</artifactId>
+			<version>1.3.0-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>org.ow2.petals</groupId>
+			<artifactId>petals-commons-log</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>jakarta.xml.bind</groupId>
+			<artifactId>jakarta.xml.bind-api</artifactId>
+			<exclusions>
+				<exclusion>
+					<!-- Already included in com.sun.activation:jakarta.activation provided by Petals CDK -->
+					<groupId>jakarta.activation</groupId>
+					<artifactId>jakarta.activation-api</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.patrodyne.jvnet</groupId>
+			<artifactId>hisrc-basicjaxb-runtime</artifactId>
+			<exclusions>
+				<exclusion>
+					<!-- Already included in com.sun.activation:jakarta.activation provided by Petals CDK -->
+					<groupId>jakarta.activation</groupId>
+					<artifactId>jakarta.activation-api</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<!-- Code quality dependencies -->
+		<dependency>
+			<groupId>org.eclipse.jdt</groupId>
+			<artifactId>org.eclipse.jdt.annotation</artifactId>
+			<version>1.1.0</version>
+			<!-- Prevent the dependency from being included in distributions -->
+			<scope>provided</scope>
+		</dependency>
+		<!-- Test dependencies -->
+		<dependency>
+			<groupId>org.ow2.petals</groupId>
+			<artifactId>petals-cdk-junit</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.ow2.petals</groupId>
+			<artifactId>petals-cdk-test-utils</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.ow2.petals</groupId>
+			<artifactId>petals-message-exchange</artifactId>
+			<version>1.5.0-SNAPSHOT</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.ow2.petals</groupId>
+			<artifactId>petals-junit-inmemoryloghandler</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.awaitility</groupId>
+			<artifactId>awaitility</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.hamcrest</groupId>
+			<artifactId>hamcrest</artifactId>
+			<version>2.2</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>net.sf.supercsv</groupId>
+			<artifactId>super-csv</artifactId>
+			<version>2.4.0</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apiguardian</groupId>
+			<artifactId>apiguardian-api</artifactId>
+			<!-- Align version with the one coming with JUnit 5 -->
+			<version>1.1.2</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.platform</groupId>
+			<artifactId>junit-platform-commons</artifactId>
+			<!-- Align version with the one coming with JUnit 5 -->
+			<version>1.10.0</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-params</artifactId>
+			<version>${junit.version}</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
 
    <build>
       <plugins>
@@ -228,38 +225,54 @@
             </executions>
          </plugin>
          <plugin>
-            <groupId>org.patrodyne.jvnet</groupId>
-            <artifactId>hisrc-higherjaxb-maven-plugin</artifactId>
-            <configuration>
-               <schemaDirectory>${basedir}/src/main/resources/</schemaDirectory>
-               <schemaIncludes>
-                  <include>GatewayExtensions.xsd</include>
-               </schemaIncludes>
-               <bindingIncludes>
-                  <include>binding.xjb</include>
-               </bindingIncludes>
-               <strict>false</strict>
-               <catalogs>
-                  <catalog>
-                     <dependencyResource>
-                        <groupId>org.ow2.petals</groupId>
-                        <artifactId>petals-cdk-jbidescriptor</artifactId>
-                        <resource>catalog.cat</resource>
-                     </dependencyResource>
-                  </catalog>
-               </catalogs>
-               <episodes>
-                  <episode>
-                     <groupId>org.ow2.petals</groupId>
-                     <artifactId>petals-cdk-jbidescriptor</artifactId>
-                  </episode>
-               </episodes>
-            </configuration>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-dependency-plugin</artifactId>
+            <executions>
+               <execution>
+						<!-- Don't forget to clean unzipped files with maven-clean-plugin -->
+                  <phase>initialize</phase>
+                  <goals>
+                     <goal>unpack</goal>
+                  </goals>
+                  <configuration>
+                     <artifactItems>
+                        <artifactItem>
+                           <groupId>org.ow2.petals</groupId>
+                           <artifactId>petals-cdk-jbidescriptor</artifactId>
+                           <type>jar</type>
+                           <version>2.8.0-SNAPSHOT</version>
+                           <includes>CDKjbi.xsd,CDKextensions.xsd</includes>
+                           <outputDirectory>${basedir}/src/main/resources</outputDirectory>
+                           <overWrite>true</overWrite>
+                        </artifactItem>
+                     </artifactItems>
+                  </configuration>
+               </execution>
+            </executions>
          </plugin>
          <plugin>
             <groupId>org.patrodyne.jvnet</groupId>
             <artifactId>hisrc-higherjaxb-maven-plugin</artifactId>
             <executions>
+               <execution>
+                  <id>generate</id>
+		            <configuration>
+		               <schemaDirectory>${basedir}/src/main/resources/</schemaDirectory>
+		               <schemaIncludes>
+		                  <include>GatewayExtensions.xsd</include>
+		               </schemaIncludes>
+		               <bindingIncludes>
+		                  <include>binding.xjb</include>
+		               </bindingIncludes>
+		               <strict>false</strict>
+		               <episodes>
+		                  <episode>
+		                     <groupId>org.ow2.petals</groupId>
+		                     <artifactId>petals-cdk-jbidescriptor</artifactId>
+		                  </episode>
+		               </episodes>
+		            </configuration>
+               </execution>
                <execution>
                   <id>generate-test-sources</id>
                   <goals>

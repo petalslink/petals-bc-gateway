@@ -18,96 +18,86 @@
 package org.ow2.petals.bc.gateway;
 
 import java.net.URI;
-import java.util.Arrays;
-import java.util.Collection;
+import java.util.stream.Stream;
 
 import javax.jbi.messaging.ExchangeStatus;
 import javax.jbi.servicedesc.ServiceEndpoint;
 
-import org.eclipse.jdt.annotation.Nullable;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.ArgumentsProvider;
+import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.ow2.easywsdl.wsdl.api.abstractItf.AbsItfOperation.MEPPatternConstants;
 import org.ow2.petals.component.framework.junit.RequestMessage;
 import org.ow2.petals.component.framework.junit.StatusMessage;
 import org.ow2.petals.component.framework.junit.helpers.MessageChecks;
 import org.ow2.petals.component.framework.junit.helpers.ServiceProviderImplementation;
 
-@RunWith(Parameterized.class)
 public class BcGatewayMEPTest extends AbstractComponentTest {
 
-    @SuppressWarnings("null")
-    @Parameters
-    public static Collection<Object[]> data() {
-        return Arrays.asList(new Object[][] {
-                { MEPPatternConstants.IN_OUT.value(), ServiceProviderImplementation.outMessage(OUT),
-                        MessageChecks.hasOut().andThen(MessageChecks.hasXmlContent(OUT)) },
-                { MEPPatternConstants.IN_OUT.value(), ServiceProviderImplementation.errorMessage(ERROR),
-                        MessageChecks.hasError() },
-                { MEPPatternConstants.IN_OUT.value(), ServiceProviderImplementation.faultMessage(FAULT),
-                        MessageChecks.hasFault().andThen(MessageChecks.hasXmlContent(FAULT)) },
-                { MEPPatternConstants.IN_OPTIONAL_OUT.value(), ServiceProviderImplementation.outMessage(OUT),
-                        MessageChecks.hasOut().andThen(MessageChecks.hasXmlContent(OUT)) },
-                { MEPPatternConstants.IN_OPTIONAL_OUT.value(),
-                        ServiceProviderImplementation.statusMessage(ExchangeStatus.DONE), MessageChecks.onlyDone() },
-                { MEPPatternConstants.IN_OPTIONAL_OUT.value(), ServiceProviderImplementation.errorMessage(ERROR),
-                        MessageChecks.hasError() },
-                { MEPPatternConstants.IN_OPTIONAL_OUT.value(), ServiceProviderImplementation.faultMessage(FAULT),
-                        MessageChecks.hasFault().andThen(MessageChecks.hasXmlContent(FAULT)) },
-                { MEPPatternConstants.IN_ONLY.value(), ServiceProviderImplementation.statusMessage(ExchangeStatus.DONE),
-                        MessageChecks.onlyDone() },
-                { MEPPatternConstants.ROBUST_IN_ONLY.value(),
-                        ServiceProviderImplementation.statusMessage(ExchangeStatus.DONE), MessageChecks.onlyDone() },
-                { MEPPatternConstants.ROBUST_IN_ONLY.value(), ServiceProviderImplementation.errorMessage(ERROR),
-                        MessageChecks.hasError() },
-                { MEPPatternConstants.ROBUST_IN_ONLY.value(), ServiceProviderImplementation.faultMessage(FAULT),
-                        MessageChecks.hasFault().andThen(MessageChecks.hasXmlContent(FAULT)) } });
+    static class Params implements ArgumentsProvider {
+        @Override
+        public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
+            return Stream.of(
+                    Arguments.of(MEPPatternConstants.IN_OUT.value(), ServiceProviderImplementation.outMessage(OUT),
+                            MessageChecks.hasOut().andThen(MessageChecks.hasXmlContent(OUT))),
+                    Arguments.of(MEPPatternConstants.IN_OUT.value(), ServiceProviderImplementation.errorMessage(ERROR),
+                            MessageChecks.hasError()),
+                    Arguments.of(MEPPatternConstants.IN_OUT.value(), ServiceProviderImplementation.faultMessage(FAULT),
+                            MessageChecks.hasFault().andThen(MessageChecks.hasXmlContent(FAULT))),
+                    Arguments.of(MEPPatternConstants.IN_OPTIONAL_OUT.value(),
+                            ServiceProviderImplementation.outMessage(OUT),
+                            MessageChecks.hasOut().andThen(MessageChecks.hasXmlContent(OUT))),
+                    Arguments.of(MEPPatternConstants.IN_OPTIONAL_OUT.value(),
+                            ServiceProviderImplementation.statusMessage(ExchangeStatus.DONE), MessageChecks.onlyDone()),
+                    Arguments.of(MEPPatternConstants.IN_OPTIONAL_OUT.value(),
+                            ServiceProviderImplementation.errorMessage(ERROR), MessageChecks.hasError()),
+                    Arguments.of(MEPPatternConstants.IN_OPTIONAL_OUT.value(),
+                            ServiceProviderImplementation.faultMessage(FAULT),
+                            MessageChecks.hasFault().andThen(MessageChecks.hasXmlContent(FAULT))),
+                    Arguments.of(MEPPatternConstants.IN_ONLY.value(),
+                            ServiceProviderImplementation.statusMessage(ExchangeStatus.DONE), MessageChecks.onlyDone()),
+                    Arguments.of(MEPPatternConstants.ROBUST_IN_ONLY.value(),
+                            ServiceProviderImplementation.statusMessage(ExchangeStatus.DONE), MessageChecks.onlyDone()),
+                    Arguments.of(MEPPatternConstants.ROBUST_IN_ONLY.value(),
+                            ServiceProviderImplementation.errorMessage(ERROR), MessageChecks.hasError()),
+                    Arguments.of(MEPPatternConstants.ROBUST_IN_ONLY.value(),
+                            ServiceProviderImplementation.faultMessage(FAULT),
+                            MessageChecks.hasFault().andThen(MessageChecks.hasXmlContent(FAULT))));
+        }
     }
 
-    @Parameter
-    @Nullable
-    public URI mep = null;
-
-    protected URI mep() {
+    private URI mep(final URI mep) {
         assert mep != null;
         return mep;
     }
 
-    @Parameter(1)
-    @Nullable
-    public ServiceProviderImplementation spi = null;
-
-    protected ServiceProviderImplementation spi() {
+    private ServiceProviderImplementation spi(final ServiceProviderImplementation spi) {
         assert spi != null;
         return spi;
     }
 
-    @Parameter(2)
-    @Nullable
-    public MessageChecks checks = null;
-
-    protected MessageChecks checks() {
+    private MessageChecks checks(final MessageChecks checks) {
         assert checks != null;
         return checks;
     }
 
-    @Test
-    public void test() throws Exception {
+    @ParameterizedTest(name = "{index}: {0},{1},{2}")
+    @ArgumentsSource(Params.class)
+    public void test(final URI mep, final ServiceProviderImplementation spi, final MessageChecks checks)
+            throws Exception {
 
         final ServiceEndpoint endpoint = deployTwoDomains();
 
-        final RequestMessage request = helloRequest(endpoint, mep());
-        
-        final ServiceProviderImplementation impl = spi().with(MessageChecks.hasXmlContent(IN));
+        final RequestMessage request = helloRequest(endpoint, mep(mep));
+
+        final ServiceProviderImplementation impl = spi(spi).with(MessageChecks.hasXmlContent(IN));
         if (impl.statusExpected()) {
-            COMPONENT.sendAndCheckResponseAndSendStatus(request, impl, checks(),
-                    ExchangeStatus.DONE);
+            COMPONENT.sendAndCheckResponseAndSendStatus(request, impl, checks(checks), ExchangeStatus.DONE);
         } else {
             final StatusMessage response = COMPONENT.sendAndGetStatus(request, impl);
-            checks().checks(response);
+            checks(checks).checks(response);
         }
 
     }
