@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <!--
- Copyright (c) 2015-2022 Linagora
+ Copyright (c) 2015-2024 Linagora
 
  This program/library is free software: you can redistribute it and/or modify
  it under the terms of the GNU Lesser General Public License as published by
@@ -21,7 +21,7 @@
    <parent>
       <groupId>org.ow2.petals</groupId>
       <artifactId>petals-cdkbased-components-parent</artifactId>
-      <version>1.1.0.4</version>
+      <version>1.1.0.5-SNAPSHOT</version>
       <relativePath />
    </parent>
 
