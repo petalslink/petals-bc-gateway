@@ -42,15 +42,6 @@ import io.netty.channel.ChannelHandlerContext;
 
 public abstract class AbstractDomain {
 
-    // this is not really used as an exception for knowing where it happened
-    // we can thus reuse it and avoid the overhead of creating the exception
-    public static final MessagingException TIMEOUT_EXCEPTION = new MessagingException(
-            "A timeout happened while the BC Gateway sent an exchange to a JBI service");
-
-    static {
-        TIMEOUT_EXCEPTION.setStackTrace(new StackTraceElement[0]);
-    }
-
     protected final Logger logger;
 
     protected final ServiceUnitDataHandler handler;
@@ -138,7 +129,9 @@ public abstract class AbstractDomain {
             public void sendTimeoutToChannel() {
                 // in this case, note that we will reuse the exchange that was received from the channel
                 // because the one we sent to the NMR (which timed out) can't be modified anymore
-                domain.sendErrorToChannel(ctx, m, TIMEOUT_EXCEPTION);
+                
+                final String timeoutErrorMsg = domain.buildTimeoutErrorMessage(m, domain.sender);
+                domain.sendErrorToChannel(ctx, m, new TimeoutException(timeoutErrorMsg));
             }
         };
     }
@@ -174,7 +167,9 @@ public abstract class AbstractDomain {
         sendToChannel(ctx, m);
     }
 
-    protected abstract void logBeforeSendingToChannel(TransportedMessage m);
+    protected abstract void logBeforeSendingToChannel(final TransportedMessage m);
+
+    protected abstract String buildTimeoutErrorMessage(final TransportedMessage m, final JBISender jbiSender);
 
     private void sendToChannel(final ChannelHandlerContext ctx, final TransportedForExchange m) {
 

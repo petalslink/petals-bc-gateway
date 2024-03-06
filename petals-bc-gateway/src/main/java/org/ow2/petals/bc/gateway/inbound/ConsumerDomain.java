@@ -34,6 +34,7 @@ import javax.jbi.servicedesc.ServiceEndpoint;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.BcGatewayJBISender;
 import org.ow2.petals.bc.gateway.BcGatewaySUManager;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.commons.AbstractDomain;
@@ -111,7 +112,7 @@ public class ConsumerDomain extends AbstractDomain {
 
     public ConsumerDomain(final ServiceUnitDataHandler handler, final TransportListener tl,
             final BcGatewaySUManager sum, final JbiConsumerDomain jcd, final Collection<Consumes> consumes,
-            final JBISender sender, final Logger logger) throws PEtALSCDKException {
+            final BcGatewayJBISender sender, final Logger logger) throws PEtALSCDKException {
         super(sender, handler, logger);
         this.tl = tl;
         this.sum = sum;
@@ -452,6 +453,34 @@ public class ConsumerDomain extends AbstractDomain {
     }
 
     @Override
+    protected String buildTimeoutErrorMessage(final TransportedMessage m, final JBISender jbiSender) {
+
+        final FlowAttributes consumeExtStep = PetalsExecutionContext.getFlowAttributes();
+        // it was set by the CDK
+        assert consumeExtStep != null;
+
+        // jbiSender is transmit through AbstractDomain, and for a ConsumerDomain, it's an instnace of
+        // BcGatewayJBISender
+        assert jbiSender instanceof BcGatewayJBISender;
+        final Consumes currentConsumes = this.retrieveConsumes(m);
+
+        final String interfaceName = currentConsumes.getInterfaceName().toString();
+        final String serviceName = m.service.service == null ? StepLogHelper.TIMEOUT_ERROR_MSG_UNDEFINED_REF
+                : m.service.service.toString();
+        final String endpointName = m.service.endpointName == null
+                ? StepLogHelper.TIMEOUT_ERROR_MSG_UNDEFINED_REF
+                : m.service.endpointName;
+        final String operationName = m.exchange.getOperation() == null ? StepLogHelper.TIMEOUT_ERROR_MSG_UNDEFINED_REF
+                : m.exchange.getOperation().toString();
+        final long timeout = ((BcGatewayJBISender) jbiSender).getTimeout(currentConsumes);
+
+        final FlowAttributes currentFA = PetalsExecutionContext.getFlowAttributes();
+
+        return String.format(StepLogHelper.TIMEOUT_ERROR_MSG_PATTERN, timeout, interfaceName, serviceName, endpointName,
+                operationName, currentFA.getFlowInstanceId(), currentFA.getFlowStepId());
+    }
+
+    @Override
     protected void logAfterReceivingFromChannel(final TransportedMessage m) {
         // acting as a provider partner, i.e. we are going to consume a service
         // a new consumes ext starts here
@@ -481,6 +510,26 @@ public class ConsumerDomain extends AbstractDomain {
         // the end of the one started in ConsumerDomain.logBeforeSendingToNMR
         if (m.step == 2) {
             StepLogHelper.addMonitExtEndOrFailureTrace(logger, m.exchange, consumeExtStep, true);
+        }
+    }
+
+    /**
+     * Retrieve a service consumer definition from a transported message
+     * 
+     * @param m
+     *            The transported message. Not {@code null}
+     * @return The service consumer definition matching the transported message
+     */
+    private Consumes retrieveConsumes(final TransportedMessage m) {
+        assert m != null;
+
+        final ServiceKey service = m.service;
+        final Consumes currentConsumes = this.sum.getConsumesFromDestination(service.endpointName, service.service,
+                service.interfaceName, m.exchange.getOperation());
+        if (currentConsumes == null) {
+            return this.sum.getConsumesFromDestination(service.endpointName, service.service, service.interfaceName);
+        } else {
+            return currentConsumes;
         }
     }
 }

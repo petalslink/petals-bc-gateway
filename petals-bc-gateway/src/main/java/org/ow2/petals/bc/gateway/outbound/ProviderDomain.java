@@ -32,6 +32,7 @@ import java.util.logging.Logger;
 import javax.xml.namespace.QName;
 
 import org.eclipse.jdt.annotation.Nullable;
+import org.ow2.petals.bc.gateway.BcGatewayJBISender;
 import org.ow2.petals.bc.gateway.JBISender;
 import org.ow2.petals.bc.gateway.commons.AbstractDomain;
 import org.ow2.petals.bc.gateway.commons.messages.ServiceKey;
@@ -413,6 +414,35 @@ public class ProviderDomain extends AbstractDomain {
     public void close() {
         // this is like a disconnect... but emanating from the other side
         updatePropagatedServices(TransportedPropagations.EMPTY);
+    }
+
+    @Override
+    protected String buildTimeoutErrorMessage(final TransportedMessage m, final JBISender jbiSender) {
+
+        final FlowAttributes consumeExtStep = PetalsExecutionContext.getFlowAttributes();
+        // it was set by the CDK
+        assert consumeExtStep != null;
+
+        final Provides currentProvides = this.service2provides.getProvides(m.service);
+        final String interfaceName = currentProvides.getInterfaceName().toString();
+        final String serviceName = currentProvides.getServiceName() == null
+                ? StepLogHelper.TIMEOUT_ERROR_MSG_UNDEFINED_REF
+                : currentProvides.getServiceName().toString();
+        final String endpointName = m.exchange.getEndpoint().getEndpointName() == null
+                ? StepLogHelper.TIMEOUT_ERROR_MSG_UNDEFINED_REF
+                : m.exchange.getEndpoint().getEndpointName();
+        final String operationName = m.exchange.getOperation() == null ? StepLogHelper.TIMEOUT_ERROR_MSG_UNDEFINED_REF
+                : m.exchange.getOperation().toString();
+
+        // jbiSender is transmit through AbstractDomain, and for a ConsumerDomain, it's an instnace of
+        // BcGatewayJBISender
+        assert jbiSender instanceof BcGatewayJBISender;
+        final long timeout = ((BcGatewayJBISender) jbiSender).getTimeout(currentProvides);
+
+        final FlowAttributes provideStep = PetalsExecutionContext.getFlowAttributes();
+
+        return String.format(StepLogHelper.TIMEOUT_ERROR_MSG_PATTERN, timeout, interfaceName, serviceName, endpointName,
+                operationName, provideStep.getFlowInstanceId(), provideStep.getFlowStepId());
     }
 
     @Override

@@ -87,6 +87,8 @@ public class BcGatewayJBIListener extends AbstractJBIListener {
         assert asyncContext != null;
         assert originalExchange != null;
 
+        super.onExpiredAsyncJBIMessage(originalExchange, asyncContext);
+
         if (asyncContext instanceof BcGatewaySenderAsyncContext) {
             final BcGatewaySenderAsyncContext context = (BcGatewaySenderAsyncContext) asyncContext;
             context.handleTimeout();
