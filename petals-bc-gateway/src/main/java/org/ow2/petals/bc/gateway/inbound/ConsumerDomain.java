@@ -136,7 +136,7 @@ public class ConsumerDomain extends AbstractDomain {
                     || !StringHelper.equal(jcd.getCertificate(), newJCD.getCertificate())
                     || !StringHelper.equal(jcd.getRemoteCertificate(), newJCD.getRemoteCertificate())
                     || !StringHelper.equal(jcd.getKey(), newJCD.getKey())
-                    || !jcd.getPassphrase().equals(newJCD.getPassphrase())) {
+                    || !StringHelper.equal(jcd.getPassphrase(), newJCD.getPassphrase())) {
                 if (!jcd.getAuthName().equals(newJCD.getAuthName())) {
                     tl.register(newJCD.getAuthName(), this);
                     tl.deregistrer(jcd.getAuthName());
