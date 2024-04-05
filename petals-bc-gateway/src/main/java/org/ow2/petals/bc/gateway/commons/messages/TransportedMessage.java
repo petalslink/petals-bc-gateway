@@ -61,15 +61,20 @@ public class TransportedMessage extends TransportedForExchange {
      */
     public final TransportedMessageExchange exchange;
 
+    // Field added to be compliant with upper version of Petals BC Gateway (see PETALSBCJBI-28)
+    /**
+     * Flow tracing activation state defined at JBI message level when invoking the service provider on consumer domain.
+     */
+    public final Boolean initialExternalFlowTracingActivation = null;
+
+    // Field added to be compliant with upper version of Petals BC Gateway (see PETALSBCJBI-28)
+    public Boolean externalFlowTracingActivation = null;
+
     /**
      * The attributes of the flow step handled by the gateway as consumer partner and used as a correlated flow by the
-     * provider partner.
-     * 
-     * Note: this can contain the same information as {@link TransportedForExchange#senderExtStep} but it is needed so
-     * that the PD can always know the ProvideExtStep (because the PD stores the ProvideStep, while the CD stores the
-     * ConsumeExtStep directly).
-     * 
-     * It is set the first time by the PD and then propagated to each message.
+     * provider partner. Note: this can contain the same information as {@link TransportedForExchange#senderExtStep} but
+     * it is needed so that the PD can always know the ProvideExtStep (because the PD stores the ProvideStep, while the
+     * CD stores the ConsumeExtStep directly). It is set the first time by the PD and then propagated to each message.
      */
     @Nullable
     public FlowAttributes provideExtStep;
