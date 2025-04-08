@@ -197,6 +197,22 @@
    <build>
       <plugins>
          <plugin>
+            <!-- Clean temp files in source code directories -->
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-clean-plugin</artifactId>
+            <configuration>
+               <filesets>
+                  <fileset>
+                     <directory>${basedir}/src/main/resources</directory>
+                     <includes>
+                        <include>CDKjbi.xsd</include>
+                        <include>CDKextensions.xsd</include>
+                     </includes>
+                  </fileset>
+               </filesets>
+            </configuration>
+         </plugin>
+         <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-dependency-plugin</artifactId>
             <executions>
