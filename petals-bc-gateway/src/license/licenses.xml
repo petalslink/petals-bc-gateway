@@ -39,5 +39,16 @@
             </license>
          </licenses>
       </dependency>
+      <dependency>
+         <groupId>org.sonarsource.java</groupId>
+         <artifactId>sonar-jacoco-listeners</artifactId>
+         <version>3.14</version>
+         <licenses>
+            <license>
+               <name>LGPL 3.0</name>
+               <url>https://opensource.org/license/LGPL-3.0</url>
+            </license>
+         </licenses>
+      </dependency>
    </dependencies>
 </licenseSummary>
