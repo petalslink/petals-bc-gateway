@@ -26,7 +26,7 @@
    </parent>
 
    <artifactId>petals-bc-gateway</artifactId>
-   <version>1.3.0-SNAPSHOT</version>
+   <version>1.3.0</version>
    <packaging>jbi-component</packaging>
    <name>Petals ESB - Components - BC Gateway</name>
 
@@ -323,6 +323,6 @@
    <scm>
       <connection>scm:git:https://github.com/petalslink/petals-bc-gateway.git</connection>
       <developerConnection>scm:git:https://github.com/petalslink/petals-bc-gateway.git</developerConnection>
-     <tag>HEAD</tag>
+     <tag>petals-bc-gateway-1.3.0</tag>
   </scm>
 </project>
