@@ -21,7 +21,7 @@
    <parent>
       <groupId>org.ow2.petals</groupId>
       <artifactId>petals-cdkbased-components-parent</artifactId>
-      <version>1.3.0-SNAPSHOT</version>
+      <version>1.3.0</version>
 		<relativePath />
    </parent>
 
@@ -94,7 +94,7 @@
 		<dependency>
 			<groupId>org.ow2.petals</groupId>
 			<artifactId>petals-basis-api</artifactId>
-			<version>1.3.0-SNAPSHOT</version>
+			<version>1.3.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.ow2.petals</groupId>
@@ -115,7 +115,7 @@
 		<dependency>
 			<groupId>org.ow2.petals</groupId>
 			<artifactId>petals-bc-gateway-clientserver-api</artifactId>
-			<version>1.3.0-SNAPSHOT</version>
+			<version>1.3.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.ow2.petals</groupId>
@@ -149,7 +149,7 @@
 		<dependency>
 			<groupId>org.ow2.petals</groupId>
 			<artifactId>petals-message-exchange</artifactId>
-			<version>1.5.0-SNAPSHOT</version>
+			<version>1.5.0</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
@@ -242,7 +242,7 @@
                            <groupId>org.ow2.petals</groupId>
                            <artifactId>petals-cdk-jbidescriptor</artifactId>
                            <type>jar</type>
-                           <version>2.8.0-SNAPSHOT</version>
+                           <version>2.8.0</version>
                            <includes>CDKjbi.xsd,CDKextensions.xsd</includes>
                            <outputDirectory>${basedir}/src/main/resources</outputDirectory>
                            <overWrite>true</overWrite>
